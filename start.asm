@@ -27,18 +27,6 @@ main_caller:
     jmp $
 
 
-; Shortly we will add code for loading the GDT right here!
-
-
-; In just a few pages in this tutorial, we will add our Interrupt
-; Service Routines (ISRs) right here!
-
-
-
-; Here is the definition of our BSS section. Right now, we'll use
-; it just to store the stack. Remember that a stack actually grows
-; downwards, so we declare the size of the data before declaring
-; the identifier '_sys_stack'
 SECTION .bss
     resb 16384               ; This reserves 8KBytes of memory here
 _sys_stack:
