@@ -7,9 +7,9 @@ void init_pde(int pde);
 
 unsigned long * page_directory = (unsigned long *) 0x9C000;
 unsigned long * page_table = (unsigned long *) 0x9D000;
-unsigned long * memory_table = (unsigned long *) 0x100000; /* [is_free, is_protected, is_free, is_protected, ...] */
+unsigned long * memory_table = (unsigned long *) 0x10000; /* [is_free, is_protected, is_free, is_protected, ...] */
 
-#define max_memory ((page_table - memory_table) / 4)
+#define MAX_MEMORY ((page_table - memory_table)) /* one byte can point one kilobyte (because 4 bytes can point page, 4 kilobytes) */
 int continue_block = 0;
 int ram_count = 20 * 1024;
 int block_count = 5 * 1024;
@@ -97,7 +97,7 @@ int find_free_pte() { /* find free PTE (and creates possibly new PDE) */
 	}
 	/* we need to set up new page_table */
 	for(i = 0; i < pde_len; i++) {
-		if((i * pde_len) > max_memory) { /* not enough memory */
+		if((i * pde_len) > MAX_MEMORY) { /* not enough memory */
 			break;
 		}
 		if(!(page_directory[i] & 1)) {
@@ -188,7 +188,11 @@ void init_memory(int memory) {
 	int a;
 	int address = 0;
 
-	ram_count = memory;	/* set limit */
+	if(memory >  MAX_MEMORY) /* set limit */
+		ram_count = MAX_MEMORY;
+	else 
+		ram_count = memory;	
+	
 	block_count = ram_count / 4;
 
 	for(a = 0; a < 32; a++)

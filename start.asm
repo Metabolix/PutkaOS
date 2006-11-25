@@ -20,8 +20,6 @@ mboot:
     dd MULTIBOOT_CHECKSUM
     
 main_caller:
-    ;extern kernel_main
-    ;call kernel_main
     extern kmain
     call kmain
     jmp $
