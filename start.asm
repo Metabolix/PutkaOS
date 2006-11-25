@@ -26,5 +26,5 @@ main_caller:
 
 
 SECTION .bss
-    resb 16384               ; This reserves 8KBytes of memory here
+    resb 16384
 _sys_stack:
