@@ -48,10 +48,10 @@ void putch(const char c) {
 	}
 
 	if(crow >= 25) { /* scroll screen */ 
-		/*memcpy((void *)0xB8000, (void *)0xB8000 + 160, 24 * 160);*/
-		/*memset((void *)0xB8000 + 24 * 160, 0, 160);*/
-		cls();
-		crow = 0; /* there was some wierd bugs here */
+		int amount = crow - 24;
+		memcpy((void *)0xB8000, (void *)0xB8000 + amount * 160, (25 - amount) * 160);
+		memset((void *)0xB8000 + (25 - amount) * 160, 0, 160);
+		crow = 24;
 	}
 	move_cursor();
 }
