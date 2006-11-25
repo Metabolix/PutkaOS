@@ -84,6 +84,7 @@ int find_free_pte() { /* find free PTE (and creates possibly new PDE) */
 					print_hex(pde_len * i + a);
 					print(" pte\n");
 					return pde_len * i + a;
+				/* If this is already pointed, but memory_table-entry which points to it isn't allocated */
 				} else if(!(get_bit(memory_table[o / 16], (o % 16) * 2) > 0)) {
 						print("Page_table ");
 						print_hex(i * pde_len + a);
