@@ -19,7 +19,7 @@ void timer_handler() {
 			seconds = 0;
 		}
 		print_hex(seconds);
-		print(" seconds\na\nb\n");
+		print(" seconds\n");
 	}
 }
 
