@@ -69,7 +69,7 @@ void print_hex(unsigned int num)
 {
         int length = 8;
 	print("0x");
-        const char convert[17] = "0123456789abcdef";
+        const char convert[] = "0123456789abcdef";
 
         while(--length) { /* get the length */
                 if(num >> (4 * length) & 0xF)
