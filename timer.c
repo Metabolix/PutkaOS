@@ -3,13 +3,15 @@
 #include <idt.h>
 #include <timer.h>
 #include <io.h>
+#include <floppy.h>
+
+static char seconds = 0;
+static long int minutes = 0;
+static int ticks = 0;
 
 void timer_handler() {
-	static char seconds = 0;
-	static long int minutes = 0;
-	static int ticks = 0;
-
 	ticks++;
+
 	if((ticks % HZ) == 0) {
 		seconds++;
 		if(seconds > 59) {
@@ -18,8 +20,6 @@ void timer_handler() {
 			print(" minutes\n");
 			seconds = 0;
 		}
-		print_hex(seconds);
-		print(" seconds\n");
 	}
 }
 
@@ -31,7 +31,12 @@ void timer_install() {
 	outportb(0x40, TIME & 0xff); // LSB 
 	outportb(0x40, TIME >> 8); // MSB 
 
-	idt_set_gate(0x20, (unsigned)irq0, 0x08, 0x8E);
 	install_irq_handler(0, (void *)timer_handler);
 }
 
+void wait(int ms) {
+	int cur_ticks = ticks;
+	int ms_multiplier = 1000 / HZ;
+
+	while(((ticks - cur_ticks) * ms_multiplier) < ms);
+}

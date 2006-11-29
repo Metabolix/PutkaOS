@@ -32,5 +32,9 @@ gcc -Iinclude -c -o malloc.o malloc.c -fno-builtin -Wall -fomit-frame-pointer
 echo gcc malloc.o
 gcc -Iinclude -c -o timer.o timer.c -fno-builtin -Wall -fomit-frame-pointer
 echo gcc timer.o
-ld -T link.ld -o kernel start.o mem.o screen.o main.o io.o gdt.o gdt_flush.o idt.o irq.o isr.o isrs.o keyboard.o irq_handler.o memory.o panic.o malloc.o timer.o
+gcc -Iinclude -c -o bit.o bit.c -fno-builtin -Wall -fomit-frame-pointer
+echo gcc timer.o
+gcc -Iinclude -c -o floppy.o floppy.c -fno-builtin -Wall -fomit-frame-pointer
+echo gcc timer.o
+ld -T link.ld -o kernel start.o mem.o screen.o main.o io.o gdt.o gdt_flush.o idt.o irq.o isr.o isrs.o keyboard.o irq_handler.o memory.o panic.o malloc.o timer.o bit.o floppy.o
 echo Kernel linked!

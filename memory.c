@@ -2,6 +2,7 @@
 #include <screen.h>
 #include <panic.h>
 #include <memory.h>
+#include <bit.h>
 
 void init_pde(int pde);
 
@@ -14,13 +15,6 @@ int continue_block = 0;
 int ram_count = 20 * 1024;
 int block_count = 5 * 1024;
 
-
-unsigned int get_bit(unsigned int num, unsigned char bit) {
-        if(bit < 32)
-                return (num) & (1 << bit);
-        else
-                return 0;
-}
 
 int get_cr0()
 {
@@ -39,15 +33,6 @@ void set_cr3(int cr3)
 	asm("mov %0,%%cr3"::"r"(cr3));
 }
 
-unsigned int set_bit(unsigned int num, unsigned char bit, char value) {
-        if(bit < 32) {
-                if(value)
-                        num |= (1 << bit);
-                else
-                        num &= ~(1 << bit);
-        }
-        return num;
-}
 
 int find_free_block() { /* finds free block from physical ram */
 	int i = 0;

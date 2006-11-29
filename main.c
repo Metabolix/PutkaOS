@@ -10,6 +10,7 @@
 #include <panic.h>
 #include <malloc.h>
 #include <timer.h>
+#include <floppy.h>
 #include "multiboot.h"
 
 void kmain(multiboot_info_t* mbt,unsigned int magic)
@@ -24,12 +25,12 @@ void kmain(multiboot_info_t* mbt,unsigned int magic)
 	install_irq();
 	keyboard_install();
 	timer_install();
+	install_floppy();
 
-	outportb(0x21,0xfd - 1); /* Only keyboard interrupts */
-	outportb(0xa1,0xff);
+	outportb(0x21,0x0); /* Don't mask any interrupt */
+	outportb(0xa1,0x0);
    	asm __volatile__("sti");	/* Allow interrupts */
 	outportb(0x20, 0x20);
-
 	
 	/*char * memory = alloc_page();
 	print("Allocated memory, and we got address: ");
@@ -49,5 +50,6 @@ void kmain(multiboot_info_t* mbt,unsigned int magic)
 
 
 	print("PutkaOS v0.001 is up and running _o/\n");
-	while(1) asm("hlt");
+
+	while(1);
 }

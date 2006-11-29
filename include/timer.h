@@ -6,5 +6,6 @@
 #define TIME  ((CLOCK_TICK_RATE + HZ/2) / HZ)
 
 void timer_install();
+void wait(int ms);
 
 #endif
