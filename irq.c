@@ -70,7 +70,6 @@ void install_irq()
 	extern void irq15();
 
 	irq_remap(0x20, 0x28);
-	outportb(0x20, 0x20);
 
 	idt_set_gate(0x20, (unsigned)irq0, 0x08, 0x8E);
 	idt_set_gate(0x21, (unsigned)irq1, 0x08, 0x8E);
@@ -89,6 +88,7 @@ void install_irq()
 	idt_set_gate(0x2E, (unsigned)irq14, 0x08, 0x8E);
 	idt_set_gate(0x2F, (unsigned)irq15, 0x08, 0x8E);
 
+	outportb(0x20, 0x20);
 }	
 
 void install_irq_handler(int irq, void (*irqhandler()))  {

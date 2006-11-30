@@ -1,4 +1,4 @@
-ENTRY (loader)
+ENTRY (start)
 phys = 0x00100000;
 
 
