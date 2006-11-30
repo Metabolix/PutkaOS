@@ -26,6 +26,7 @@ void kmain(multiboot_info_t* mbt,unsigned int magic)
 	keyboard_install();
 	timer_install();
 	install_floppy();
+	inportb(0x60);
 
 	outportb(0x21,0x0); /* Don't mask any interrupt */
 	outportb(0xa1,0x0);
