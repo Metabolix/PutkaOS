@@ -19,6 +19,7 @@ void keyboard_handle() {
 
 void keyboard_install() {
 	install_irq_handler(1, (void *) keyboard_handle);
+	inportb(0x60);
 	print("Keyboard installed\n");
 }
 

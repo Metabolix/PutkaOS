@@ -13,6 +13,10 @@
 #include <floppy.h>
 #include "multiboot.h"
 
+void say_hello() {
+	print("Hello\n");
+}
+
 void kmain(multiboot_info_t* mbt,unsigned int magic)
 {
 	cls();
@@ -26,12 +30,25 @@ void kmain(multiboot_info_t* mbt,unsigned int magic)
 	keyboard_install();
 	timer_install();
 	install_floppy();
-	inportb(0x60);
+	
+
 
 	outportb(0x21,0x0); /* Don't mask any interrupt */
 	outportb(0xa1,0x0);
    	asm __volatile__("sti");	/* Allow interrupts */
 	
+
+	/* nice job testing :) */
+	/*{
+		struct timer_job job;
+		job.function = &say_hello;
+		job.times = -1;
+		job.time = kget_ticks() + 100;
+		job.freq = 50;
+
+		kregister_job(&job);
+	}*/
+
 	/*char * memory = alloc_page();
 	print("Allocated memory, and we got address: ");
 	print_hex((unsigned int)memory);

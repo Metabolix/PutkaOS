@@ -76,7 +76,7 @@ void sense_interrupt() {
 
 void calibrate_drive(){
 	outportb(FLOPPY_FIRST + DIGITAL_OUTPUT_REGISTER, 0x1C); /* motor on*/
-	wait(500);	/* wait motor */
+	kwait(500);	/* wait motor */
 	send_command(RECALIBRATE); /* (re)calibrate drive*/
 	send_command(0); /* drive 0 */
 	wait_irq(6);  /*wait for interrupt from controller*/
