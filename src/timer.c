@@ -46,8 +46,8 @@ void timer_handler() {
 			print(" minutes\n");
 			seconds = 0;
 		}
-		print_hex(seconds);
-		print(" seconds\n");
+		/*print_hex(seconds);
+		print(" seconds\n");*/
 	}
 
 	execute_jobs();
@@ -98,7 +98,7 @@ void timer_install() {
 
 void kwait(int ms) {
 	int cur_ticks = ticks;
-	int ms_multiplier = 1000 / HZ;
+	int ms_multiplier = 10;
 
 	while(((ticks - cur_ticks) * ms_multiplier) < ms);
 }

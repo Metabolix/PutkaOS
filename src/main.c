@@ -11,7 +11,7 @@
 #include <malloc.h>
 #include <timer.h>
 #include <floppy.h>
-#include "multiboot.h"
+#include <multiboot.h>
 
 void say_hello() {
 	print("Hello\n");
@@ -33,11 +33,13 @@ void kmain(multiboot_info_t* mbt,unsigned int magic)
 	
 
 
-	outportb(0x21,0x0); /* Don't mask any interrupt */
+	outportb(0x21,0x0); /* Don't mask any IRQ */
 	outportb(0xa1,0x0);
    	asm __volatile__("sti");	/* Allow interrupts */
 	
 
+	reset_floppy();
+	read_sector(1,0,1,5);
 	/* nice job testing :) */
 	/*{
 		struct timer_job job;

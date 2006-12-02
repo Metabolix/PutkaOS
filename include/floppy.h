@@ -15,12 +15,14 @@
 #define   CONFIGURATION_CONTROL_REGISTER  0x7 /* write only */
 
 
+#define READ_TRACK 0x2
 #define SPECIFY  0x3
 #define SENSE_DRIVE_STATUS 0x4
 #define WRITE_DATA 0x5
-#define READ_DATA 0x6
+#define READ_DATA 0xE6
 #define RECALIBRATE 0x7
 #define SENSE_INTERRUPT 0x8
+#define SEEK 0xf
 
 typedef struct{
   unsigned char steprate_headunload;
@@ -46,6 +48,9 @@ void send_command(char command);
 void wait_floppy();
 void sense_interrupt();
 void calibrate_drive();
-
+int seek_track(int track);
+void reset_flipflop_dma();
+void init_dma_floppy(unsigned long buffer, int len);
+void read_sector(unsigned char sector, unsigned char head, unsigned char cylinder, unsigned long buffer);
 
 #endif
