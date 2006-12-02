@@ -13,7 +13,6 @@ int cylinder, status_0;
 const char * fd_types[6] = { "no floppy drive", "360KB 5.25\" floppy drive", "1.2MB 5.25\" floppy drive", "720KB 3.5\" floppy drive", "1.44MB 3.5\" floppy drive", "2.88MB 3.5\" floppy drive"};
 
 void install_floppy() {
-	extern void irq6();
 	char detect_floppy;
 	
 	memcpy(&floppy_params, (void*)DISK_PARAMETER_ADDRESS, sizeof(floppy_parameters));
@@ -21,18 +20,15 @@ void install_floppy() {
 	outportb(0x70, 0x10);
 	detect_floppy = inportb(0x71);
 
-	print("We found ");
-	print(fd_types[detect_floppy >> 4]);
-	print(" at fd0\n");
-
-	print("We found ");
-	print(fd_types[detect_floppy & 0xF]);
-	print(" at fd1\n");
+	kprintf("We found %s at fd0", fd_types[detect_floppy >> 4]);
+	kprintf("We found %s at fd1", fd_types[detect_floppy & 0xF]);
 
 }
 
 void reset_floppy() {
 	int a;
+
+	prepare_wait_irq(6);
 	outportb((FLOPPY_FIRST + DIGITAL_OUTPUT_REGISTER), 0x00); /*disable controller*/
 	kwait(50);
 	outportb((FLOPPY_FIRST + DIGITAL_OUTPUT_REGISTER), 0x0c); /*enable controller*/
@@ -45,8 +41,6 @@ void reset_floppy() {
 		sense_interrupt();
 	configure_drive();
 	calibrate_drive();
-
-	/*init_dma_floppy();*/
 }
 
 void wait_floppy_data() {
@@ -68,19 +62,7 @@ void send_command(char command) {
 }
 
 void wait_floppy() {
-	/*char byte;*/
-
 	while(!(inportb(FLOPPY_FIRST + MAIN_STATUS_REGISTER) & 0x80));
-	/*byte = inportb(FLOPPY_FIRST + MAIN_STATUS_REGISTER);
-		if((byte & 0xc) == 0xc) {
-			inportb(FLOPPY_FIRST + DATA_FIFO);
-		}
-		if(!(byte & 0x40))
-			if(byte & 0x80) {
-				return;
-			}
-	}*/
-
 }
 
 void sense_interrupt() {
@@ -92,6 +74,7 @@ void sense_interrupt() {
 }
 
 void calibrate_drive(){
+	prepare_wait_irq(6);
 	send_command(RECALIBRATE); /* (re)calibrate drive*/
 	send_command(0); /* drive 0 */
 	wait_irq(6);  /*wait for interrupt from controller*/
@@ -103,16 +86,14 @@ void init_dma_floppy(unsigned long buffer, int len) {
 	asm("cli");
         outportb(0x0a, 0x06);      /* mask DMA channel 2 */
         reset_flipflop_dma();
-        outportb(0x4, 0);
-	outportb(0x4, 0);
+        outportb(0x4, buffer & 0xFF);
+	outportb(0x4, (buffer >> 8) & 0xFF);
         reset_flipflop_dma();
 	len--;
 	outportb(0x5, len & 0xFF);
-	outportb(0x5, len >> 16);
-        outportb(0x81, buffer);                       /* page register to 0 for total address of 00 00 00 */
-        
-	outportb(0x0b, 0x46);          /* 01010110 */
-                                /* single transfer, address increment, autoinit, read, channel2 */
+	outportb(0x5, len >> 8);
+        outportb(0x81, buffer >> 16);                               
+	outportb(0x0b, 0x46);  /* single transfer, read, channel 2 */
         outportb(0x0a, 0x02);          /* unmask DMA channel 2 */
 	asm("sti");
 }
@@ -121,11 +102,9 @@ int seek_track(int track) {
 	print("Seek_track\n");
 	outportb(FLOPPY_FIRST + DIGITAL_OUTPUT_REGISTER, 0x1C); /* motor on*/
 	kwait(500);
-	print("Send commands\n");
-	if(inportb(FLOPPY_FIRST + MAIN_STATUS_REGISTER) & 0x40) {
-		print("It wants to output something");
-	}
-        send_command(SEEK);
+        
+	prepare_wait_irq(6);
+	send_command(SEEK);
         send_command(0);
         send_command(track);
 
@@ -145,19 +124,17 @@ void reset_flipflop_dma() {
 void read_sector(unsigned char sector, unsigned char head, unsigned char cylinder, unsigned long buffer)
 {
         seek_track(sector);
-	print_hex(*(char *)0x50000);
-	putch('\n');
-        print("seeked track\n");
 	if(!inportb(FLOPPY_FIRST + MAIN_STATUS_REGISTER) & 0x20)
 		panic("Non-dma o_O?\n");
 
-        init_dma_floppy(buffer, 5120);
+        init_dma_floppy(buffer, 512);
 	outportb(FLOPPY_FIRST + DIGITAL_OUTPUT_REGISTER, 0x1C); /* motor on*/
 	kwait(500);
 
         print("prepared dma read\n");
         kwait(floppy_params.head_settle_time);
-        send_command(READ_DATA);
+        prepare_wait_irq(6);
+	send_command(READ_DATA);
         send_command(head<<2);
         send_command(cylinder);
         send_command(head);
@@ -167,15 +144,6 @@ void read_sector(unsigned char sector, unsigned char head, unsigned char cylinde
         send_command(floppy_params.gap_length);        /*27 default gap3 value*/
         send_command(floppy_params.data_length);       /*default value for data length*/
 
-	print_hex(inportb(FLOPPY_FIRST + DATA_FIFO)); /* hmm, there is one byte in fifo */
-
-	print("\n");
-	print("Let's wait for floppy\n");
-	wait_floppy();
-	print("Done\n");
-	print_hex(*(char *)0x50000);
-	putch('\n');
         wait_irq(6);
-	print("Read something\n");
 }
 

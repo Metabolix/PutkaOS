@@ -4,4 +4,5 @@ void install_irq_handler(int irq, void (*irqhandler()));
 void uninstall_irq_handler(int irq);
 void install_irq();
 void wait_irq(int irq);
+void prepare_wait_irq(int irq);
 #endif

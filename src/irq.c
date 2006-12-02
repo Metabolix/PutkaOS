@@ -40,14 +40,16 @@ void irq_remap(int offset1, int offset2)
 }
 
 void wait_irq(int irq) {
-	print("Waiting for irq ");
-	print_hex(irq);
-	print("\n");
+	kprintf("Waiting for irq %u\n", irq);
 	if(irq < 16 && irq >= 0) {
-		irq_wait[irq] = 1;
 		while(irq_wait[irq]);
 	}
 	print("EOW\n");
+}
+
+void prepare_wait_irq(int irq) {
+	if(irq < 16 && irq >= 0)
+		irq_wait[irq] = 1;
 }
 
 void install_irq()
@@ -101,11 +103,7 @@ void install_irq_handler(int irq, void (*irqhandler()))  {
 void uninstall_irq_handler(int irq) {
 	if(irq < 16 && irq >= 0) {
 		if(irq_handlers[irq] == 0) {
-			print("Trying to uninstall irq handler number ");
-			/*print_number((unsigned int) irq);*/
-			putch('0' + ((irq & 90)));
-			putch('0' + (irq & 10));
-			print(" but it doesn't exist\n");
+			kprintf("Trying to uninstall irq handler number %u but it doesn't exist\n", irq);
 		} else {
 			irq_handlers[irq] = 0;
 		}
@@ -132,9 +130,7 @@ void irq_handler(unsigned int irq) /* NOTICE: This should be called only from ou
 			print ("Got interrupt, but we don't have handler for it!\n");
 		}
 	} else {
-		print("Irq_handler got irq ");
-		print_hex(irq);
-		panic(" which doesn't exist\n");
+		kprintf("Irq_handler got irq %u which doesn't exist\n", irq);
 	}
 	if(irq >= 8)
 		outportb(0xA0, 0x20);
