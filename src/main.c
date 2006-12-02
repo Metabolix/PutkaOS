@@ -39,7 +39,7 @@ void kmain(multiboot_info_t* mbt,unsigned int magic)
 	asm __volatile__("sti");	/* Allow interrupts */
 
 	reset_floppy();
-	read_sector(1,0,1,5);
+	/*read_sector(1,0,1,5);*/
 	/* nice job testing :) */
 	/*{
 		struct timer_job job;
