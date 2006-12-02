@@ -17,6 +17,9 @@ void say_hello() {
 	print("Hello\n");
 }
 
+const char systeemi[] = "PutkaOS";
+const char versio[] = "v0.001";
+
 void kmain(multiboot_info_t* mbt,unsigned int magic)
 {
 	cls();
@@ -30,13 +33,10 @@ void kmain(multiboot_info_t* mbt,unsigned int magic)
 	keyboard_install();
 	timer_install();
 	install_floppy();
-	
-
 
 	outportb(0x21,0x0); /* Don't mask any IRQ */
 	outportb(0xa1,0x0);
-   	asm __volatile__("sti");	/* Allow interrupts */
-	
+	asm __volatile__("sti");	/* Allow interrupts */
 
 	reset_floppy();
 	read_sector(1,0,1,5);
@@ -68,7 +68,7 @@ void kmain(multiboot_info_t* mbt,unsigned int magic)
 
 
 
-	print("PutkaOS v0.001 is up and running _o/\n");
+	kprintf("%s %s is up and running _o/\n", systeemi, versio);
 
 	while(1);
 }
