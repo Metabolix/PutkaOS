@@ -20,13 +20,13 @@ void irq_remap(int offset1, int offset2)
         io_wait();
         outportb(0xA0, 0x11);
         io_wait();
-        outportb(0x21, offset1);                   
+        outportb(0x21, offset1);
 	io_wait();
         outportb(0xA1, offset2);
         io_wait();
         outportb(0x21, 2);
         io_wait();
-	outportb(0xA1, 4);                       
+	outportb(0xA1, 4);
         io_wait();
 
         outportb(0x21, 0x05);
@@ -39,15 +39,22 @@ void irq_remap(int offset1, int offset2)
 	print("IRQs remapped\n");
 }
 
-void wait_irq(int irq) {
+void wait_irq(int irq)
+{
 	if(irq < 16 && irq >= 0) {
+		kprintf("wait_irq: Waiting for irq %u (%#x)\n", irq, irq);
 		while(irq_wait[irq]);
+		kprintf("wait_irq: Got irq %u (%#x)\n", irq, irq);
+	} else {
+		kprintf("wait_irq: Invalid irq: %u (%#x)\n", irq, irq);
 	}
 }
 
-void prepare_wait_irq(int irq) {
-	if(irq < 16 && irq >= 0)
+void prepare_wait_irq(int irq)
+{
+	if(irq < 16 && irq >= 0) {
 		irq_wait[irq] = 1;
+	}
 }
 
 void install_irq()
@@ -89,16 +96,19 @@ void install_irq()
 	idt_set_gate(0x2F, (unsigned)irq15, 0x08, 0x8E);
 
 	outportb(0x20, 0x20);
-}	
-
-void install_irq_handler(int irq, void (*irqhandler()))  {
-	if(irq < 16 && irq >= 0)
-		irq_handlers[irq] = irqhandler;
-	else
-		print("Trying to install irq handler on irq, which doesn't exist!\n");
 }
 
-void uninstall_irq_handler(int irq) {
+void install_irq_handler(int irq, void (*irqhandler()))
+{
+	if(irq < 16 && irq >= 0) {
+		irq_handlers[irq] = irqhandler;
+	} else {
+		kprintf("Trying to install irq handler on irq %i, which doesn't exist!\n", irq);
+	}
+}
+
+void uninstall_irq_handler(int irq)
+{
 	if(irq < 16 && irq >= 0) {
 		if(irq_handlers[irq] == 0) {
 			kprintf("Trying to uninstall irq handler number %u but it doesn't exist\n", irq);
@@ -106,7 +116,7 @@ void uninstall_irq_handler(int irq) {
 			irq_handlers[irq] = 0;
 		}
 	} else {
-		print("Trying to uninstall irq handler, out of indexes\n");
+		kprintf("Trying to uninstall irq handler %i, out of indexes\n", irq);
 	}
 }
 
@@ -125,9 +135,11 @@ void irq_handler(unsigned int irq) /* NOTICE: This should be called only from ou
 	} else {
 		kprintf("Irq_handler got irq %u which doesn't exist\n", irq);
 	}
-	if(irq >= 8)
+	if(irq >= 8) {
 		outportb(0xA0, 0x20);
+	}
 	outportb(0x20, 0x20);
-	if(irq_wait[irq])
+	if(irq_wait[irq]) {
 		irq_wait[irq] = 0;
+	}
 }
