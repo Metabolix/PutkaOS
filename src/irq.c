@@ -40,11 +40,9 @@ void irq_remap(int offset1, int offset2)
 }
 
 void wait_irq(int irq) {
-	kprintf("Waiting for irq %u\n", irq);
 	if(irq < 16 && irq >= 0) {
 		while(irq_wait[irq]);
 	}
-	print("EOW\n");
 }
 
 void prepare_wait_irq(int irq) {
@@ -116,18 +114,13 @@ void irq_handler(unsigned int irq) /* NOTICE: This should be called only from ou
 {
 	void (*handler)();
 
-	if(irq != 0) {
-		print("Got interrupt on ");
-		print_hex(irq);
-		print("\n");
-	}
 
 	if(irq < 16 && irq >= 0) {
 		if(irq_handlers[irq]) {
 			handler = irq_handlers[irq];
 			handler();
 		} else {
-			print ("Got interrupt, but we don't have handler for it!\n");
+			kprintf("Got interrupt on %u, but we don't have handler for it!\n", irq);
 		}
 	} else {
 		kprintf("Irq_handler got irq %u which doesn't exist\n", irq);

@@ -21,15 +21,16 @@ void execute_jobs() {
 	for(a = 0; a < tjobs_max_count && jobs_tried < job_count; a++) {
 		if(tjobs[a].function && tjobs[a].time == ticks) {
 			jobs_tried++;
-			if(tjobs[a].times > 0)
-				if(!(--tjobs[a].times)) {
-					tjobs[a].function = 0;
-				}
 			
 			if(tjobs[a].times) {
 				tjobs[a].time += tjobs[a].freq;
 				function = tjobs[a].function;
 				function();
+			}
+			if(tjobs[a].times) {
+				if(!(tjobs[a].times--)) {
+					tjobs[a].function = 0;
+				}
 			}
 		}
 	}
@@ -42,8 +43,7 @@ void timer_handler() {
 		seconds++;
 		if(seconds > 59) {
 			minutes++;
-			print_hex(minutes);
-			print(" minutes\n");
+			minutes - 1?kprintf("TIMER: %u minutes\n", minutes):kprintf("TIMER: %u minute\n", minutes);
 			seconds = 0;
 		}
 		/*print_hex(seconds);
@@ -62,12 +62,12 @@ void kregister_job(struct timer_job * job) {
 
 	for(a = 0; a < tjobs_max_count; a++) {
 		if(!tjobs[a].function) {
-			print("Registered job\n");
 			tjobs[a] = (*job);
 			job_count++;
 			return;
 		}
 	}
+	print("DEBUG: Couldn't register job\n");
 }
 
 void kunregister_job(struct timer_job * job) {
