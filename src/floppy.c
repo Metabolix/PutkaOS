@@ -48,7 +48,7 @@ void install_floppy() {
 	}
 
 	if(fds[1].type == 5) {
-		fd_devices[1].dev_type = DEV_TYPE_FLOPPY;
+		fd_devices[1].dev_type = DEV_TYPE_NONE;
 		fd_devices[1].name = "fd1";
 		fd_devices[1].index = 1;
 		fd_devices[1].block_size = 128 * 2 << floppy_params.bytes_per_sector;
@@ -56,7 +56,7 @@ void install_floppy() {
 		fd_devices[1].read_block = read_block;
 		fd_devices[1].write_block = 0;
 	} else {
-		fd_devices[1].dev_type = DEV_TYPE_ERROR;
+		fd_devices[1].dev_type = DEV_TYPE_NONE;
 	}
 
 
