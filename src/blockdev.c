@@ -106,14 +106,11 @@ void dclose(BD_DESC *device)
 
 int dread(void *buffer, size_t size, size_t count, BD_DESC *device)
 {
-#define dread_READ_BYTES (dtell(device) \
-		- (aluksi_block_in_dev * device->phys->block_size + aluksi_pos_in_block))
+#define dread_READ_BYTES (dtell(device) - pos_aluksi)
 	char *buf = (char*)buffer;
 	size_t tavuja_yhteensa, kokonaisia_paloja, lue;
-	size_t aluksi_pos_in_block, aluksi_block_in_dev;
-
-	aluksi_pos_in_block = device->pos_in_block;
-	aluksi_block_in_dev = device->block_in_dev;
+	size_t pos_aluksi;
+	pos_aluksi = dtell(device);
 
 	// Voidaan lukea suoraan laitteelta annettuun bufferiin
 	tavuja_yhteensa = size * count;
@@ -179,14 +176,12 @@ int dread(void *buffer, size_t size, size_t count, BD_DESC *device)
 
 int dwrite(const void *buffer, size_t size, size_t count, BD_DESC *device)
 {
-#define dwrite_WRITTEN_BYTES ((device->block_in_dev * device->phys->block_size + device->pos_in_block) \
-		- (aluksi_block_in_dev * device->phys->block_size + aluksi_pos_in_block))
+#define dwrite_WRITTEN_BYTES (dtell(device) - pos_aluksi)
 	char *buf = (char*)buffer;
 	size_t tavuja_yhteensa, kokonaisia_paloja, kirjoita;
-	size_t aluksi_pos_in_block, aluksi_block_in_dev;
 
-	aluksi_pos_in_block = device->pos_in_block;
-	aluksi_block_in_dev = device->block_in_dev;
+	size_t pos_aluksi;
+	pos_aluksi = dtell(device);
 
 	// Voidaan lukea suoraan laitteelta annettuun bufferiin
 	tavuja_yhteensa = size * count;
