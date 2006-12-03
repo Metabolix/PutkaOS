@@ -3,10 +3,14 @@
 
 int dgetblock(BD_DESC *device);
 
+#define ON_MALLOC 0
+
+#if !ON_MALLOC
 #define DESCIEN_MAARA 1
 BD_DESC descit[DESCIEN_MAARA];
 int desc_kaytossa[DESCIEN_MAARA] = {0};
 char yhteinen_buf[512];
+#endif
 
 int dseek(BD_DESC *device, long offset, int origin)
 {
@@ -67,6 +71,11 @@ BD_DESC *dopen(BLOCK_DEVICE *phys)
 {
 	int i;
 	BD_DESC *retval;
+
+	if (!phys || phys->dev_type == DEV_TYPE_NONE || phys->dev_type == DEV_TYPE_ERROR) {
+		return 0;
+	}
+
 	for (i = 0; i < DESCIEN_MAARA; ++i) {
 		if (!desc_kaytossa[i]) {
 			retval = descit + i;
@@ -80,12 +89,18 @@ laita_asetukset:
 	retval->pos_in_block = 0;
 	retval->has_read = 0;
 	retval->has_written = 0;
-	//retval->buffer = malloc(phys->block_size);
-	retval->buffer = yhteinen_buf;
+#if ON_MALLOC
+	retval->buffer = malloc(phys->block_size);
 	if (!retval->buffer) {
-		// free(retval);
+		free(retval);
 		return 0;
 	}
+#else
+	retval->buffer = yhteinen_buf;
+	if (!retval->buffer) {
+		return 0;
+	}
+#endif
 
 	desc_kaytossa[i] = 1;
 
@@ -94,6 +109,10 @@ laita_asetukset:
 
 void dclose(BD_DESC *device)
 {
+#if ON_MALLOC
+	free(device->buffer);
+	free(device);
+#else
 	int i;
 	device->phys = 0;
 	for (i = 0; i < DESCIEN_MAARA; ++i) {
@@ -102,6 +121,7 @@ void dclose(BD_DESC *device)
 			return;
 		}
 	}
+#endif
 }
 
 int dread(void *buffer, size_t size, size_t count, BD_DESC *device)
@@ -112,6 +132,8 @@ int dread(void *buffer, size_t size, size_t count, BD_DESC *device)
 	size_t pos_aluksi;
 	pos_aluksi = dtell(device);
 
+	kprintf("size = %i\n", size);
+	kprintf("device->phys->block_size = %i\n", device->phys->block_size);
 	// Voidaan lukea suoraan laitteelta annettuun bufferiin
 	tavuja_yhteensa = size * count;
 	if (tavuja_yhteensa < device->phys->block_size) {

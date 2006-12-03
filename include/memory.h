@@ -7,8 +7,8 @@ void free_real(void * pointer);
 void free_page(void * pointer);
 void init_memory(int memory_size);
 
-#define block_size  4096
-#define pde_len  1024
+#define MEMORY_BLOCK_SIZE  4096
+#define MEMORY_PDE_LEN  1024
 
 
 #endif
