@@ -40,7 +40,7 @@ void kmain(multiboot_info_t* mbt,unsigned int magic)
 
 	reset_floppy();
 
-	read_sector(1,0,0,0x50000);
+	read_sector(0,1,0,0,0x50000);
 	kprintf("The first bytes of floppy (in reverse order): %#010x\n", *(int*)0x50000);
 
 	/* nice job testing :) */

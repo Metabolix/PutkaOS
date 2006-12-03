@@ -22,7 +22,6 @@ void execute_jobs()
 	for(a = 0; a < tjobs_max_count && jobs_tried < job_count; a++) {
 		if(tjobs[a].function && tjobs[a].time == ticks) {
 			jobs_tried++;
-
 			if(tjobs[a].times) {
 				tjobs[a].time += tjobs[a].freq;
 				function = tjobs[a].function;
@@ -68,6 +67,7 @@ void kregister_job(struct timer_job * job)
 		if(!tjobs[a].function) {
 			tjobs[a] = (*job);
 			job_count++;
+			print("Registered job\n");
 			return;
 		}
 	}
@@ -77,9 +77,11 @@ void kregister_job(struct timer_job * job)
 void kunregister_job(struct timer_job * job)
 {
 	int a;
+	if(job->function == 0)
+		return;
 
 	for(a = 0; a < tjobs_max_count; a++) {
-		if(tjobs[a].function == (*job).function) {
+		if(tjobs[a].function == job->function) {
 			tjobs[a].function = 0;
 			job_count--;
 			return;
