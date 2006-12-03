@@ -130,7 +130,7 @@ void motor_off() {
 
 void read_sector(unsigned char sector, unsigned char head, unsigned char cylinder, unsigned long buffer)
 {
-	seek_track(sector);
+	seek_track(cylinder);
 	if(!inportb(FLOPPY_FIRST + MAIN_STATUS_REGISTER) & 0x20)
 		panic("Non-dma floppy transfer?\n");
 
