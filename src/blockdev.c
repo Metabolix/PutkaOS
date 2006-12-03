@@ -3,9 +3,10 @@
 
 int dgetblock(BD_DESC *device);
 
-#define DESCIEN_MAARA 4
+#define DESCIEN_MAARA 1
 BD_DESC descit[DESCIEN_MAARA];
 int desc_kaytossa[DESCIEN_MAARA] = {0};
+char yhteinen_buf[512];
 
 int dseek(BD_DESC *device, long offset, int origin)
 {
@@ -68,7 +69,6 @@ BD_DESC *dopen(BLOCK_DEVICE *phys)
 	BD_DESC *retval;
 	for (i = 0; i < DESCIEN_MAARA; ++i) {
 		if (!desc_kaytossa[i]) {
-			desc_kaytossa[i] = 1;
 			retval = descit + i;
 			goto laita_asetukset;
 		}
@@ -80,7 +80,14 @@ laita_asetukset:
 	retval->pos_in_block = 0;
 	retval->has_read = 0;
 	retval->has_written = 0;
-	//retval->buffer = malloc(512);
+	//retval->buffer = malloc(phys->block_size);
+	retval->buffer = yhteinen_buf;
+	if (!retval->buffer) {
+		// free(retval);
+		return 0;
+	}
+
+	desc_kaytossa[i] = 1;
 
 	return retval;
 }
