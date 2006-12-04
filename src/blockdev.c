@@ -1,5 +1,6 @@
 #include "blockdev.h"
 #include <string.h>
+#include <screen.h>
 
 int dgetblock(BD_DESC *device);
 

@@ -46,12 +46,12 @@ memory_entry_t * get_mementry();
 /* Get area of free PTEs (and create them if need)  */
 int get_free_pte_area(int size) {
         int a, i, find = 0;
-        for(i = 0; i < pde_len; i++) {
+        for(i = 0; i < MEMORY_PDE_LEN; i++) {
                 if(page_directory[i] & 1) { /* if this PDE exists */
-                        for(a = 0; a < pde_len; a++) {
-                                if(!(page_table[i * pde_len + a] & 1)) {
+                        for(a = 0; a < MEMORY_PDE_LEN; a++) {
+                                if(!(page_table[i * MEMORY_PDE_LEN + a] & 1)) {
                                         if(++find == size)	/* if we found many enough */
-						return pde_len * i + a;
+						return MEMORY_PDE_LEN * i + a;
                                 }
 				else
 					find = 0;

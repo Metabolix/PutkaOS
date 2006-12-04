@@ -16,7 +16,7 @@ void cls()
 }
 int print(const char * string)
 {
-	char *s = string;
+	char *s = (char *)string;
 	while (*s) {
 		putch(*s);
 		++s;
