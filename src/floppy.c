@@ -28,6 +28,7 @@ void install_floppy() {
 	char detect_floppy;
 
 	memcpy(&floppy_params, (void*)DISK_PARAMETER_ADDRESS, sizeof(floppy_parameters));
+	memset(&fds, 0, sizeof(fd) * 2);
 
 	outportb(0x70, 0x10);
 	detect_floppy = inportb(0x71);
@@ -35,7 +36,7 @@ void install_floppy() {
 	fds[0].type = detect_floppy >> 4;
 	fds[1].type = detect_floppy & 0xF;
 
-	if(fds[0].type == 5) {
+	if(fds[0].type == 4) {
 		fd_devices[0].dev_type = DEV_TYPE_FLOPPY;
 		fd_devices[0].name = "fd0";
 		fd_devices[0].index = 0;
@@ -44,10 +45,10 @@ void install_floppy() {
 		fd_devices[0].read_block = read_block;
 		fd_devices[0].write_block = 0;
 	} else {
-		fd_devices[0].dev_type = DEV_TYPE_NONE;
+		fd_devices[0].dev_type = DEV_TYPE_ERROR;
 	}
 
-	if(fds[1].type == 5) {
+	if(fds[1].type == 4) {
 		fd_devices[1].dev_type = DEV_TYPE_FLOPPY;
 		fd_devices[1].name = "fd1";
 		fd_devices[1].index = 1;
@@ -56,15 +57,13 @@ void install_floppy() {
 		fd_devices[1].read_block = read_block;
 		fd_devices[1].write_block = 0;
 	} else {
-		fd_devices[1].dev_type = DEV_TYPE_NONE;
+		fd_devices[1].dev_type = DEV_TYPE_ERROR;
 	}
 
 
 
 	kprintf("FDD: We found %s at fd0\n", fd_types[detect_floppy >> 4]);
 	kprintf("FDD: We found %s at fd1\n", fd_types[detect_floppy & 0xF]);
-
-	memset(&fds, 0, sizeof(fd) * 2);
 
 	install_irq_handler(6, (void*)floppy_handler);
 }
@@ -227,7 +226,6 @@ int read_sector(char drive, unsigned char sector, unsigned char head, unsigned c
 	if(!fds[drive].type) {
 		return -1;
 	}
-
 	motor_on(drive);
 	if(seek_track(drive, cylinder)) {
 		return -1; /* uhm, should we try to seek few times more? */
