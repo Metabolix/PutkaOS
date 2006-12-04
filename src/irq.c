@@ -42,9 +42,9 @@ void irq_remap(int offset1, int offset2)
 void wait_irq(int irq)
 {
 	if(irq < 16 && irq >= 0) {
-		kprintf("wait_irq: Waiting for irq %u (%#x)\n", irq, irq);
+		/*kprintf("wait_irq: Waiting for irq %u (%#x)\n", irq, irq);*/
 		while(irq_wait[irq]);
-		kprintf("wait_irq: Got irq %u (%#x)\n", irq, irq);
+		/*kprintf("wait_irq: Got irq %u (%#x)\n", irq, irq);*/
 	} else {
 		kprintf("wait_irq: Invalid irq: %u (%#x)\n", irq, irq);
 	}

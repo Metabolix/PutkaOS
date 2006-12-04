@@ -66,9 +66,11 @@ void sense_interrupt();
 void calibrate_drive(char drive);
 int seek_track(char drive, int track);
 void reset_flipflop_dma();
-void init_dma_floppy(unsigned long buffer, size_t len);
+void init_dma_floppy(unsigned long buffer, size_t len, int write);
 int read_sector(char drive, unsigned char sector, unsigned char head, unsigned char cylinder, unsigned long buffer);
+int write_sector(char drive, unsigned char sector, unsigned char head, unsigned char cylinder, unsigned long buffer);
 int read_block(BLOCK_DEVICE *self, size_t num, void * buf);
+int write_block(BLOCK_DEVICE *self, size_t num, const void * buf);
 void motor_0_off();
 void motor_1_off();
 

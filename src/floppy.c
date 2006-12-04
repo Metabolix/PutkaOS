@@ -41,11 +41,11 @@ void install_floppy() {
 		fd_devices[0].name = "fd0";
 		fd_devices[0].index = 0;
 		fd_devices[0].block_size = 128 * 2 << floppy_params.bytes_per_sector;
-		fd_devices[0].block_count = 2 * 80; /* with 1.44MB 3.5" floppy disk, 2 sides and 80 tracks per side */
+		fd_devices[0].block_count = 2 * 80 * floppy_params.sectors_per_track; /* with 1.44MB 3.5" floppy disk, 2 sides and 80 tracks per side */
 		fd_devices[0].read_block = read_block;
-		fd_devices[0].write_block = 0;
+		fd_devices[0].write_block = write_block;
 	} else {
-		fd_devices[0].dev_type = DEV_TYPE_ERROR;
+		fd_devices[0].dev_type = DEV_TYPE_NONE;
 	}
 
 	if(fds[1].type == 4) {
@@ -53,17 +53,21 @@ void install_floppy() {
 		fd_devices[1].name = "fd1";
 		fd_devices[1].index = 1;
 		fd_devices[1].block_size = 128 * 2 << floppy_params.bytes_per_sector;
-		fd_devices[1].block_count = 2 * 80; /* with 1.44MB 3.5" floppy disk, 2 sides and 80 tracks per side */
+		fd_devices[1].block_count = 2 * 80 * floppy_params.sectors_per_track; /* with 1.44MB 3.5" floppy disk, 2 sides and 80 tracks per side */
 		fd_devices[1].read_block = read_block;
-		fd_devices[1].write_block = 0;
+		fd_devices[1].write_block = write_block;
 	} else {
-		fd_devices[1].dev_type = DEV_TYPE_ERROR;
+		fd_devices[1].dev_type = DEV_TYPE_NONE;
 	}
 
 
 
 	kprintf("FDD: We found %s at fd0\n", fd_types[detect_floppy >> 4]);
+	if(fds[0].type != 4 && fds[0].type)
+		print("FDD: We don't support it\n");
 	kprintf("FDD: We found %s at fd1\n", fd_types[detect_floppy & 0xF]);
+	if(fds[1].type != 4 && fds[1].type)
+		print("FDD: We don't support it\n");
 
 	install_irq_handler(6, (void*)floppy_handler);
 }
@@ -134,7 +138,7 @@ void calibrate_drive(char drive) {
 	}
 }
 
-void init_dma_floppy(unsigned long buffer, size_t len) {
+void init_dma_floppy(unsigned long buffer, size_t len, int write) {
 	asm("cli");
 	outportb(0x0a, 0x06);      /* mask DMA channel 2 */
 	reset_flipflop_dma();
@@ -145,7 +149,7 @@ void init_dma_floppy(unsigned long buffer, size_t len) {
 	outportb(0x5, len & 0xFF);
 	outportb(0x5, len >> 8);
 	outportb(0x81, buffer >> 16);                               
-	outportb(0x0b, 0x46);  /* single transfer, read, channel 2 */
+	outportb(0x0b, (write ? 0x48: 0x44) + 2);  /* single transfer, write or read, channel 2 */
 	outportb(0x0a, 0x02);          /* unmask DMA channel 2 */
 	asm("sti");
 }
@@ -223,7 +227,7 @@ int read_sector(char drive, unsigned char sector, unsigned char head, unsigned c
 	if(drive < 0 || drive >= MAX_DRIVES)
 		return -1;
 
-	if(!fds[drive].type) {
+	if(!fds[(int)drive].type) {
 		return -1;
 	}
 	motor_on(drive);
@@ -234,7 +238,7 @@ int read_sector(char drive, unsigned char sector, unsigned char head, unsigned c
 	if(!inportb(FLOPPY_FIRST + MAIN_STATUS_REGISTER) & 0x20)
 		panic("Non-dma floppy transfer?\n");
 
-	init_dma_floppy(buffer, 512); /* block size */
+	init_dma_floppy(buffer, 512, 0); /* block size */
 
 	kwait(floppy_params.head_settle_time);
 	prepare_wait_irq(6);
@@ -256,7 +260,58 @@ int read_sector(char drive, unsigned char sector, unsigned char head, unsigned c
 	return 0;
 }
 
+int write_sector(char drive, unsigned char sector, unsigned char head, unsigned char cylinder, unsigned long buffer)
+{
+	if(drive < 0 || drive >= MAX_DRIVES)
+		return -1;
+
+	if(!fds[(int)drive].type) {
+		return -1;
+	}
+	motor_on(drive);
+	if(seek_track(drive, cylinder)) {
+		return -1; /* uhm, should we try to seek few times more? */
+	}
+
+	if(!inportb(FLOPPY_FIRST + MAIN_STATUS_REGISTER) & 0x20)
+		panic("Non-dma floppy transfer?\n");
+
+	init_dma_floppy(buffer, 512, 1); /* block size */
+
+	kwait(floppy_params.head_settle_time);
+	prepare_wait_irq(6);
+	send_command(WRITE_DATA);
+	send_command((head << 2) & drive);
+	send_command(cylinder);
+	send_command(head);
+	send_command(sector);
+	send_command(floppy_params.bytes_per_sector);  /*sector size = 128*2^size*/
+	send_command(floppy_params.sectors_per_track); /*last sector*/
+	send_command(floppy_params.gap_length);        /*27 default gap3 value*/
+	send_command(floppy_params.data_length);       /*default value for data length*/
+
+	kprintf("FDD: BPS: %u, SPT: %u, GL: %u, DL: %u\n", floppy_params.bytes_per_sector, floppy_params.sectors_per_track, floppy_params.gap_length, floppy_params.data_length);
+
+	wait_irq(6);
+
+	prepare_motor_off(drive);
+	return 0;
+}
+
+
 int read_block(BLOCK_DEVICE *self, size_t num, void * buf) {
+	int sector;
+	int head;
+	int cylinder;
+
+	head = (num % 2);
+	cylinder = num / floppy_params.sectors_per_track;
+	sector = num % floppy_params.sectors_per_track + 1;
+
+	return read_sector(self->index, sector, head, cylinder,(unsigned long) buf);
+}
+
+int write_block(BLOCK_DEVICE *self, size_t num, const void * buf) {
 	int sector;
 	int head;
 	int cylinder;

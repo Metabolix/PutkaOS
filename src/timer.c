@@ -67,7 +67,6 @@ void kregister_job(struct timer_job * job)
 		if(!tjobs[a].function) {
 			tjobs[a] = (*job);
 			job_count++;
-			print("Registered job\n");
 			return;
 		}
 	}

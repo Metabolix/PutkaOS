@@ -10,7 +10,7 @@ unsigned long * page_directory = (unsigned long *) 0x9C000;
 unsigned long * page_table = (unsigned long *) 0x9D000;
 unsigned long * memory_table = (unsigned long *) 0x10000; /* [is_free, is_protected, is_free, is_protected, ...] */
 
-#define MAX_MEMORY ((page_table - memory_table)) /* one byte can point one kilobyte (because 4 bytes can point page, 4 kilobytes) */
+#define MAX_MEMORY (0x4000) /* I guess that we don't need more than 16 megabytes of memory (at the moment) */
 int continue_block = 0;
 int ram_count = 20 * 1024;
 int block_count = 5 * 1024;
@@ -198,9 +198,11 @@ void init_memory(int memory) {
 	if(get_cr0() & 0x80000000)
 		print("Memory paging is enabled!\n");
 
-	print("We have ");
-	print_hex(block_count);
-	print(" blocks\n");
+	kprintf("MEM: We have %u kilobytes of memory", memory);
+	if(memory > ram_count) {
+		kprintf(", but we use only %u kilobytes of it", ram_count);
+	}
+	putch('\n');
 
 
 }
