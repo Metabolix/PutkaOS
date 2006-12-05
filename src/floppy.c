@@ -213,8 +213,9 @@ int seek_track(char drive, int track) {
 	fd_seeked = drive;
 
 	sense_interrupt();
-	if(track != fds[(int)cylinder].track) {
+	if(track != fds[(int)drive].track) {
 		kprintf("FDD: ERROR: fd%u couldn't seek\n", (int)drive);
+		prepare_motor_off(drive);
 		return -2;
 	}
 	kprintf("FDD: fd%u: Seeked track succesfully\n", (int)drive);
@@ -323,7 +324,7 @@ int write_sector(char drive, unsigned char sector, unsigned char head, unsigned 
 	kwait(floppy_params.head_settle_time);
 	prepare_wait_irq(6);
 	send_command(WRITE_DATA);
-	send_command((head << 2) & drive);
+	send_command((head << 2) | drive);
 	send_command(cylinder);
 	send_command(head);
 	send_command(sector);

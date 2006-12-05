@@ -50,6 +50,12 @@ void kmain(multiboot_info_t* mbt,unsigned int magic)
 		if ((i+1)%16 == 0) kprintf("\n");
 	}
 	dclose(dev);
+	
+	/*strcpy(buf,"Moi, nyt on menossa hassu kirjoitustesti\n");
+	dev = dopen(&fd_devices[1]);
+	dwrite(buf, 1, 256, dev);
+	dflush(dev);
+	dclose(dev);*/
 
 	/* nice job testing :) */
 	/*{
