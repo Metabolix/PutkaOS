@@ -1,6 +1,6 @@
 
 CC=gcc
-CFLAGS=-Wall -fomit-frame-pointer -fno-builtin -fno-stack-protector -nostdinc -I../include -O
+CFLAGS=-Wall -fomit-frame-pointer -fno-builtin -fno-stack-protector -nostdinc -I../include -O2
 
 ASM=nasm
 ASMFLAGS=-f elf

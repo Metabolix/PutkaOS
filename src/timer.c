@@ -88,8 +88,6 @@ void kunregister_job(struct timer_job * job)
 	}
 }
 
-
-
 void timer_install()
 {
 	extern void irq0();
@@ -103,10 +101,17 @@ void timer_install()
 	install_irq_handler(0, (void *)timer_handler);
 }
 
+int get_ticks();
+__asm__(
+"get_ticks:\n"
+"    movl ticks, %eax\n"
+"    ret\n"
+);
+
 void kwait(int ms)
 {
-	int cur_ticks = ticks;
+	int cur_ticks = get_ticks();
 	int ms_multiplier = 10;
 
-	while(((ticks - cur_ticks) * ms_multiplier) < ms);
+	while(((get_ticks() - cur_ticks) * ms_multiplier) < ms);
 }

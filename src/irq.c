@@ -39,11 +39,19 @@ void irq_remap(int offset1, int offset2)
 	print("IRQs remapped\n");
 }
 
+int get_irq_wait(int irq);
+__asm__(
+"get_irq_wait:\n"
+"    movl 4(%esp), %eax\n"
+"    movl irq_wait(,%eax,4), %eax\n"
+"    ret\n"
+);
+
 void wait_irq(int irq)
 {
 	if(irq < 16 && irq >= 0) {
 		/*kprintf("wait_irq: Waiting for irq %u (%#x)\n", irq, irq);*/
-		while(irq_wait[irq]);
+		while (get_irq_wait(irq));
 		/*kprintf("wait_irq: Got irq %u (%#x)\n", irq, irq);*/
 	} else {
 		kprintf("wait_irq: Invalid irq: %u (%#x)\n", irq, irq);

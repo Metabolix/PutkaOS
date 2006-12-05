@@ -110,6 +110,7 @@ laita_asetukset:
 
 void dclose(BD_DESC *device)
 {
+	dflush(device);
 #if ON_MALLOC
 	free(device->buffer);
 	free(device);
