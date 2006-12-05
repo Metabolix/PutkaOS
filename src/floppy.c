@@ -77,25 +77,28 @@ void reset_floppy() {
 
 	prepare_wait_irq(6);
 	outportb((FLOPPY_FIRST + DIGITAL_OUTPUT_REGISTER), 0x00); /*disable controller*/
-	outportb(FLOPPY_FIRST + CONFIGURATION_CONTROL_REGISTER, 0);
-	outportb(FLOPPY_FIRST + DATA_RATE_SELECT_REGISTER, 0);
 	kwait(50);
 	outportb((FLOPPY_FIRST + DIGITAL_OUTPUT_REGISTER), 0x0c); /*enable controller*/
+	outportb(FLOPPY_FIRST + CONFIGURATION_CONTROL_REGISTER, 0);
+	
 	print("FDD: Reseted controller\n");
 	wait_irq(6);
-	if(fds[0].type) {
+	print("FDD: Waited for it\n");
+	
+	for(a = 0; a < 4; a++) {
 		sense_interrupt();
-		seek_track(0,1);
+	}
+	
+	configure_drive();
+	
+	if(fds[0].type) {
 		calibrate_drive(0);
 	}
 	if(fds[1].type) {
-		sense_interrupt();
-		seek_track(1,1);
 		calibrate_drive(1);
 	}
 	print("FDD: Calibrated drives\n");
-	configure_drive();
-}
+	}
 
 void wait_floppy_data() {
 	while((inportb(FLOPPY_FIRST + MAIN_STATUS_REGISTER) & 0xc0) != 0xc0) /* While RQM and DIO aren't 1 */
@@ -106,7 +109,7 @@ void wait_floppy_data() {
 void configure_drive(){
 	send_command(SPECIFY);
 	send_command(floppy_params.steprate_headunload);
-	send_command(floppy_params.headload_ndma << 1);
+	send_command(floppy_params.headload_ndma & 254);
 	print("FDD: Drive configured\n");
 }	
 
@@ -243,7 +246,10 @@ int read_sector(char drive, unsigned char sector, unsigned char head, unsigned c
 	if(!fds[(int)drive].type) {
 		return -1;
 	}
-	
+	seek_track(drive, 1);
+	calibrate_drive(drive);
+	outportb(FLOPPY_FIRST + CONFIGURATION_CONTROL_REGISTER, 0);
+
 	if(seek_track(drive, cylinder)) {
 		return -1; /* uhm, should we try to seek few times more? */
 	}
@@ -289,10 +295,16 @@ int write_sector(char drive, unsigned char sector, unsigned char head, unsigned 
 	if(!fds[(int)drive].type) {
 		return -1;
 	}
-	motor_on(drive);
+
+	seek_track(drive, 1);
+	calibrate_drive(drive);
+	outportb(FLOPPY_FIRST + CONFIGURATION_CONTROL_REGISTER, 0);
+
 	if(seek_track(drive, cylinder)) {
 		return -1; /* uhm, should we try to seek few times more? */
 	}
+
+	motor_on(drive);
 
 	if(!inportb(FLOPPY_FIRST + MAIN_STATUS_REGISTER) & 0x20)
 		panic("Non-dma floppy transfer?\n");
