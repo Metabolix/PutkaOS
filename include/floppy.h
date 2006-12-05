@@ -74,4 +74,6 @@ int write_block(BLOCK_DEVICE *self, size_t num, const void * buf);
 void motor_0_off();
 void motor_1_off();
 
+extern BLOCK_DEVICE fd_devices[2];
+
 #endif

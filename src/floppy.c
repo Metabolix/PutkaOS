@@ -16,6 +16,7 @@ BLOCK_DEVICE fd_devices[2];
 const char * fd_types[6] = { "no floppy drive", "360KB 5.25\" floppy drive", "1.2MB 5.25\" floppy drive", "720KB 3.5\" floppy drive", "1.44MB 3.5\" floppy drive", "2.88MB 3.5\" floppy drive"};
 
 fd fds[2];
+char fdbuf[512];
 int fd_seeked = 0;
 char motors = 0;
 
@@ -28,7 +29,14 @@ void install_floppy() {
 	char detect_floppy;
 
 	memcpy(&floppy_params, (void*)DISK_PARAMETER_ADDRESS, sizeof(floppy_parameters));
-	memset(&fds, 0, sizeof(fd) * 2);
+	memset(fds, 0, sizeof(fd) * 2);
+	memset(fdbuf, 0, 512);
+
+	if(floppy_params.bytes_per_sector > 2) {
+		print("FDD: ERROR: Sector size bigger than 512 bytes (disabled floppies)\n");
+		fds[0].type = 0;
+		fds[1].type = 0;
+	}
 
 	outportb(0x70, 0x10);
 	detect_floppy = inportb(0x71);
@@ -80,17 +88,17 @@ void reset_floppy() {
 	kwait(50);
 	outportb((FLOPPY_FIRST + DIGITAL_OUTPUT_REGISTER), 0x0c); /*enable controller*/
 	outportb(FLOPPY_FIRST + CONFIGURATION_CONTROL_REGISTER, 0);
-	
+
 	print("FDD: Reseted controller\n");
 	wait_irq(6);
 	print("FDD: Waited for it\n");
-	
+
 	for(a = 0; a < 4; a++) {
 		sense_interrupt();
 	}
-	
+
 	configure_drive();
-	
+
 	if(fds[0].type) {
 		calibrate_drive(0);
 	}
@@ -98,7 +106,7 @@ void reset_floppy() {
 		calibrate_drive(1);
 	}
 	print("FDD: Calibrated drives\n");
-	}
+}
 
 void wait_floppy_data() {
 	while((inportb(FLOPPY_FIRST + MAIN_STATUS_REGISTER) & 0xc0) != 0xc0) /* While RQM and DIO aren't 1 */
@@ -340,12 +348,15 @@ int read_block(BLOCK_DEVICE *self, size_t num, void * buf) {
 	int sector;
 	int head;
 	int cylinder;
+	int retval;
 
 	head = (num % 2);
 	cylinder = num / floppy_params.sectors_per_track;
 	sector = num % floppy_params.sectors_per_track + 1;
 
-	return read_sector(self->index, sector, head, cylinder,(unsigned long) buf);
+	retval = read_sector(self->index, sector, head, cylinder,(unsigned long) fdbuf);
+	memcpy(buf, fdbuf, self->block_size);
+	return retval;
 }
 
 int write_block(BLOCK_DEVICE *self, size_t num, const void * buf) {
@@ -357,6 +368,7 @@ int write_block(BLOCK_DEVICE *self, size_t num, const void * buf) {
 	cylinder = num / floppy_params.sectors_per_track;
 	sector = num % floppy_params.sectors_per_track + 1;
 
-	return write_sector(self->index, sector, head, cylinder,(unsigned long) buf);
+	memcpy(fdbuf, buf, self->block_size);
+	return write_sector((char)self->index, sector, head, cylinder, (unsigned long)fdbuf);
 }
 
