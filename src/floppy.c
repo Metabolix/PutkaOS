@@ -40,7 +40,7 @@ void install_floppy() {
 		fd_devices[0].dev_type = DEV_TYPE_FLOPPY;
 		fd_devices[0].name = "fd0";
 		fd_devices[0].index = 0;
-		fd_devices[0].block_size = 128 * 2 << floppy_params.bytes_per_sector;
+		fd_devices[0].block_size = 128 * (1 << floppy_params.bytes_per_sector);
 		fd_devices[0].block_count = 2 * 80 * floppy_params.sectors_per_track; /* with 1.44MB 3.5" floppy disk, 2 sides and 80 tracks per side */
 		fd_devices[0].read_block = read_block;
 		fd_devices[0].write_block = write_block;
@@ -52,7 +52,7 @@ void install_floppy() {
 		fd_devices[1].dev_type = DEV_TYPE_FLOPPY;
 		fd_devices[1].name = "fd1";
 		fd_devices[1].index = 1;
-		fd_devices[1].block_size = 128 * 2 << floppy_params.bytes_per_sector;
+		fd_devices[1].block_size = 128 * (1 << floppy_params.bytes_per_sector);
 		fd_devices[1].block_count = 2 * 80 * floppy_params.sectors_per_track; /* with 1.44MB 3.5" floppy disk, 2 sides and 80 tracks per side */
 		fd_devices[1].read_block = read_block;
 		fd_devices[1].write_block = write_block;
@@ -77,24 +77,28 @@ void reset_floppy() {
 
 	prepare_wait_irq(6);
 	outportb((FLOPPY_FIRST + DIGITAL_OUTPUT_REGISTER), 0x00); /*disable controller*/
-	kwait(50);
-	outportb((FLOPPY_FIRST + DIGITAL_OUTPUT_REGISTER), 0x0c); /*enable controller*/
-
 	outportb(FLOPPY_FIRST + CONFIGURATION_CONTROL_REGISTER, 0);
 	outportb(FLOPPY_FIRST + DATA_RATE_SELECT_REGISTER, 0);
-
+	kwait(50);
+	outportb((FLOPPY_FIRST + DIGITAL_OUTPUT_REGISTER), 0x0c); /*enable controller*/
+	print("FDD: Reseted controller\n");
 	wait_irq(6);
-	for(a = 0; a < 4; a++)
+	if(fds[0].type) {
 		sense_interrupt();
-	configure_drive();
-	if(fds[0].type)
+		seek_track(0,1);
 		calibrate_drive(0);
-	if(fds[1].type)
+	}
+	if(fds[1].type) {
+		sense_interrupt();
+		seek_track(1,1);
 		calibrate_drive(1);
+	}
+	print("FDD: Calibrated drives\n");
+	configure_drive();
 }
 
 void wait_floppy_data() {
-	while((inportb(FLOPPY_FIRST + MAIN_STATUS_REGISTER) & 0xd0) != 0xd0) /* While RQM, DIO and CMD BUSY aren't 1 */
+	while((inportb(FLOPPY_FIRST + MAIN_STATUS_REGISTER) & 0xc0) != 0xc0) /* While RQM and DIO aren't 1 */
 		;
 }
 	
@@ -173,6 +177,7 @@ void prepare_motor_off(char drive) {
 	fds[(int)drive].djob.times = 1;
 	fds[(int)drive].djob.function = motor_stop[(int)drive];
 	fds[(int)drive].djob.time = kget_ticks() + 500;
+	kunregister_job(&fds[(int)drive].djob);
 	kregister_job(&(fds[(int)drive].djob));
 }
 
@@ -181,8 +186,10 @@ int seek_track(char drive, int track) {
 		return -1;
 	}
 
-	if(track == fds[(int)drive].track) /* already on right cylinder */
+	if(track == fds[(int)drive].track) {/* already on right cylinder */
+		kprintf("FDD: fd%u already on right cylinder\n", (int)drive);
 		return 0;
+	}
 
 	motor_on(drive);
 
@@ -195,11 +202,11 @@ int seek_track(char drive, int track) {
 	fd_seeked = drive;
 
 	sense_interrupt();
-	if(track != cylinder) {
-		print("FDD: ERROR: fd0 couldn't seek\n");
+	if(track != fds[(int)cylinder].track) {
+		kprintf("FDD: ERROR: fd%u couldn't seek\n", (int)drive);
 		return -2;
 	}
-	print("FDD: Seeked track succesfully\n");
+	kprintf("FDD: fd%u: Seeked track succesfully\n", (int)drive);
 	prepare_motor_off(drive);
 	return 0;
 }
@@ -209,6 +216,8 @@ void reset_flipflop_dma() {
 }
 
 void motor_0_off() {
+	if(fds[0].motor == 0)
+		return;
 	motors &= ~1;
 	fds[0].motor = 0;
 	outportb(FLOPPY_FIRST + DIGITAL_OUTPUT_REGISTER, 0xC | motors << 4);
@@ -216,6 +225,8 @@ void motor_0_off() {
 }
 
 void motor_1_off() {
+	if(fds[1].motor == 0)
+		return;
 	motors &= ~2;
 	fds[1].motor = 0;
 	outportb(FLOPPY_FIRST + DIGITAL_OUTPUT_REGISTER, 0xC | motors << 4);
@@ -223,17 +234,21 @@ void motor_1_off() {
 }
 
 int read_sector(char drive, unsigned char sector, unsigned char head, unsigned char cylinder, unsigned long buffer)
-{
+{	/* TODO: Combine read_sector and write_sector */
+	int a;
+
 	if(drive < 0 || drive >= MAX_DRIVES)
 		return -1;
 
 	if(!fds[(int)drive].type) {
 		return -1;
 	}
-	motor_on(drive);
+	
 	if(seek_track(drive, cylinder)) {
 		return -1; /* uhm, should we try to seek few times more? */
 	}
+
+	motor_on(drive); /* seek_track starts motor as well */
 
 	if(!inportb(FLOPPY_FIRST + MAIN_STATUS_REGISTER) & 0x20)
 		panic("Non-dma floppy transfer?\n");
@@ -241,9 +256,10 @@ int read_sector(char drive, unsigned char sector, unsigned char head, unsigned c
 	init_dma_floppy(buffer, 512, 0); /* block size */
 
 	kwait(floppy_params.head_settle_time);
+	wait_floppy();
 	prepare_wait_irq(6);
 	send_command(READ_DATA);
-	send_command((head << 2) & drive);
+	send_command((head << 2) | drive);
 	send_command(cylinder);
 	send_command(head);
 	send_command(sector);
@@ -255,13 +271,18 @@ int read_sector(char drive, unsigned char sector, unsigned char head, unsigned c
 	kprintf("FDD: BPS: %u, SPT: %u, GL: %u, DL: %u\n", floppy_params.bytes_per_sector, floppy_params.sectors_per_track, floppy_params.gap_length, floppy_params.data_length);
 
 	wait_irq(6);
-
+	for(a = 0; a < 7; a++) { /* TODO: Put these values somewhere? */
+		wait_floppy_data();
+		inportb(FLOPPY_FIRST + DATA_FIFO);
+	}
 	prepare_motor_off(drive);
 	return 0;
 }
 
 int write_sector(char drive, unsigned char sector, unsigned char head, unsigned char cylinder, unsigned long buffer)
 {
+	int a;
+
 	if(drive < 0 || drive >= MAX_DRIVES)
 		return -1;
 
@@ -278,6 +299,7 @@ int write_sector(char drive, unsigned char sector, unsigned char head, unsigned 
 
 	init_dma_floppy(buffer, 512, 1); /* block size */
 
+	wait_floppy();
 	kwait(floppy_params.head_settle_time);
 	prepare_wait_irq(6);
 	send_command(WRITE_DATA);
@@ -290,11 +312,14 @@ int write_sector(char drive, unsigned char sector, unsigned char head, unsigned 
 	send_command(floppy_params.gap_length);        /*27 default gap3 value*/
 	send_command(floppy_params.data_length);       /*default value for data length*/
 
-	kprintf("FDD: BPS: %u, SPT: %u, GL: %u, DL: %u\n", floppy_params.bytes_per_sector, floppy_params.sectors_per_track, floppy_params.gap_length, floppy_params.data_length);
-
 	wait_irq(6);
 
+	for(a = 0; a < 7; a++) {
+		wait_floppy_data();
+		inportb(FLOPPY_FIRST + DATA_FIFO);
+	}
 	prepare_motor_off(drive);
+
 	return 0;
 }
 
@@ -320,6 +345,6 @@ int write_block(BLOCK_DEVICE *self, size_t num, const void * buf) {
 	cylinder = num / floppy_params.sectors_per_track;
 	sector = num % floppy_params.sectors_per_track + 1;
 
-	return read_sector(self->index, sector, head, cylinder,(unsigned long) buf);
+	return write_sector(self->index, sector, head, cylinder,(unsigned long) buf);
 }
 

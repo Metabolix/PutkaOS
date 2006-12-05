@@ -70,7 +70,7 @@ void kregister_job(struct timer_job * job)
 			return;
 		}
 	}
-	print("DEBUG: Couldn't register job\n");
+	print("TIMER: Couldn't register job\n");
 }
 
 void kunregister_job(struct timer_job * job)

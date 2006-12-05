@@ -24,7 +24,7 @@
 #define SPECIFY  0x3
 #define SENSE_DRIVE_STATUS 0x4
 #define WRITE_DATA 0x5
-#define READ_DATA 0xE6
+#define READ_DATA 0x46
 #define RECALIBRATE 0x7
 #define SENSE_INTERRUPT 0x8
 #define SEEK 0xf
