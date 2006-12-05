@@ -36,6 +36,7 @@ void install_floppy() {
 		print("FDD: ERROR: Sector size bigger than 512 bytes (disabled floppies)\n");
 		fds[0].type = 0;
 		fds[1].type = 0;
+		return;
 	}
 
 	outportb(0x70, 0x10);
@@ -81,7 +82,7 @@ void install_floppy() {
 }
 
 void reset_floppy() {
-	int a;
+	/*int a;*/
 
 	prepare_wait_irq(6);
 	outportb((FLOPPY_FIRST + DIGITAL_OUTPUT_REGISTER), 0x00); /*disable controller*/
@@ -93,9 +94,9 @@ void reset_floppy() {
 	wait_irq(6);
 	print("FDD: Waited for it\n");
 
-	for(a = 0; a < 4; a++) {
+	/*for(a = 0; a < 4; a++) {
 		sense_interrupt();
-	}
+	}*/
 
 	configure_drive();
 
@@ -255,8 +256,23 @@ int read_sector(char drive, unsigned char sector, unsigned char head, unsigned c
 	if(!fds[(int)drive].type) {
 		return -1;
 	}
-	seek_track(drive, 1);
-	calibrate_drive(drive);
+	if(inportb(FLOPPY_FIRST + DIGITAL_INPUT_REGISTER) & 0x80) { /* disk was changed */
+		void (*motor_off)();
+
+		seek_track(drive, 1);
+		calibrate_drive(drive);
+		motor_off = motor_stop[(int)drive];
+		motor_off();
+		if(inportb(FLOPPY_FIRST + DIGITAL_INPUT_REGISTER) & 0x80) {
+			kprintf("FDD: There is not floppy in fd%u", (int)drive);
+			return -2;
+		} else {
+			print("FDD: Floppy changed, trying again\n");
+			return read_sector(drive, sector, head, cylinder, buffer);
+		}
+
+	}
+
 	outportb(FLOPPY_FIRST + CONFIGURATION_CONTROL_REGISTER, 0);
 
 	if(seek_track(drive, cylinder)) {
@@ -305,8 +321,23 @@ int write_sector(char drive, unsigned char sector, unsigned char head, unsigned 
 		return -1;
 	}
 
-	seek_track(drive, 1);
-	calibrate_drive(drive);
+	if(inportb(FLOPPY_FIRST + DIGITAL_INPUT_REGISTER) & 0x80) { /* disk was changed */
+		void (*motor_off)();
+
+		seek_track(drive, 1);
+		calibrate_drive(drive);
+		motor_off = motor_stop[(int)drive];
+		motor_off();
+		if(inportb(FLOPPY_FIRST + DIGITAL_INPUT_REGISTER) & 0x80) {
+			kprintf("FDD: There is not floppy in fd%u", (int)drive);
+			return -2;
+		} else {
+			print("FDD: Floppy changed, trying again\n");
+			return read_sector(drive, sector, head, cylinder, buffer);
+		}
+
+	}
+
 	outportb(FLOPPY_FIRST + CONFIGURATION_CONTROL_REGISTER, 0);
 
 	if(seek_track(drive, cylinder)) {
