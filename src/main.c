@@ -19,6 +19,9 @@ void say_hello() {
 
 const char systeemi[] = "PutkaOS";
 const char versio[] = "v0.001";
+BD_DESC *dev;
+char buf[512];
+int i;
 
 void kmain(multiboot_info_t* mbt,unsigned int magic)
 {
@@ -40,8 +43,13 @@ void kmain(multiboot_info_t* mbt,unsigned int magic)
 
 	reset_floppy();
 
-	read_sector(0,1,0,0,0x50000);
-	kprintf("The first bytes of floppy (in reverse order): %#010x\n", *(int*)0x50000);
+	dev = dopen(&fd_devices[0]);
+	dread(buf, 1, 256, dev);
+	for (i = 0; i < 256; ++i) {
+		kprintf("%02x ", (int)(unsigned char)buf[i]);
+		if ((i+1)%16 == 0) kprintf("\n");
+	}
+	dclose(dev);
 
 	/* nice job testing :) */
 	/*{

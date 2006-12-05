@@ -88,9 +88,7 @@ int find_free_pte() { /* find free PTE (and creates possibly new PDE) */
 		}
 		if(!(page_directory[i] & 1)) {
 			init_pde(i);
-			print("It was the ");
-			print_hex(MEMORY_PDE_LEN * i + a);
-			print(" pte2\n");
+			kprintf("It was the %#010x pte2.\n", MEMORY_PDE_LEN * i);
 
 			return i * MEMORY_PDE_LEN;
 		}

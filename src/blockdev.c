@@ -49,7 +49,7 @@ int dgetblock(BD_DESC *device)
 {
 	int retval;
 	device->has_read = 0;
-	if (device->block_in_dev == device->phys->block_count) {
+	if (device->block_in_dev >= device->phys->block_count) {
 		return EOD;
 	}
 	retval = device->phys->read_block(device->phys, device->block_in_dev, device->buffer);
@@ -127,14 +127,12 @@ void dclose(BD_DESC *device)
 
 int dread(void *buffer, size_t size, size_t count, BD_DESC *device)
 {
-#define dread_READ_BYTES (dtell(device) - pos_aluksi)
+#define POS_MUUTOS (dtell(device) - pos_aluksi)
 	char *buf = (char*)buffer;
 	size_t tavuja_yhteensa, kokonaisia_paloja, lue;
 	size_t pos_aluksi;
 	pos_aluksi = dtell(device);
 
-	kprintf("size = %i\n", size);
-	kprintf("device->phys->block_size = %i\n", device->phys->block_size);
 	// Voidaan lukea suoraan laitteelta annettuun bufferiin
 	tavuja_yhteensa = size * count;
 	if (tavuja_yhteensa < device->phys->block_size) {
@@ -178,28 +176,27 @@ int dread(void *buffer, size_t size, size_t count, BD_DESC *device)
 
 	while (kokonaisia_paloja) {
 		if (device->phys->read_block(device->phys, device->block_in_dev, buf)) {
-			return dread_READ_BYTES / size;
+			return POS_MUUTOS / size;
 		}
 		++device->block_in_dev;
 		buf += device->phys->block_size;
 		--kokonaisia_paloja;
 	}
 
-	lue = tavuja_yhteensa - dread_READ_BYTES;
+	lue = tavuja_yhteensa - POS_MUUTOS;
 	if (lue) {
 		if (dgetblock(device)) {
-			return dread_READ_BYTES / size;
+			return POS_MUUTOS / size;
 		}
 		memcpy(buf, device->buffer, lue);
 		device->pos_in_block += lue;
 	}
 
-	return dread_READ_BYTES / size;
+	return POS_MUUTOS / size;
 }
 
 int dwrite(const void *buffer, size_t size, size_t count, BD_DESC *device)
 {
-#define dwrite_WRITTEN_BYTES (dtell(device) - pos_aluksi)
 	char *buf = (char*)buffer;
 	size_t tavuja_yhteensa, kokonaisia_paloja, kirjoita;
 
@@ -254,22 +251,22 @@ int dwrite(const void *buffer, size_t size, size_t count, BD_DESC *device)
 
 	while (kokonaisia_paloja) {
 		if (device->phys->write_block(device->phys, device->block_in_dev, buf)) {
-			return dwrite_WRITTEN_BYTES / size;
+			return POS_MUUTOS / size;
 		}
 		++device->block_in_dev;
 		buf += device->phys->block_size;
 		--kokonaisia_paloja;
 	}
 
-	kirjoita = tavuja_yhteensa - dwrite_WRITTEN_BYTES;
+	kirjoita = tavuja_yhteensa - POS_MUUTOS;
 	if (kirjoita) {
 		if (dgetblock(device)) {
-			return dwrite_WRITTEN_BYTES / size;
+			return POS_MUUTOS / size;
 		}
 		memcpy(device->buffer, buf, kirjoita);
 		device->pos_in_block += kirjoita;
 		device->has_written = 1;
 	}
 
-	return dwrite_WRITTEN_BYTES / size;
+	return POS_MUUTOS / size;
 }

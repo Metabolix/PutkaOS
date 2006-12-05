@@ -101,6 +101,8 @@ int kprintf(const char *fmt, ...)
 		case '%':
 			memset(&tag, 0, sizeof(tag));
 			tag.fillchar = ' ';
+
+			// Tasaus, aina etumerkki, 0x-etuliite
 			flagisilmukka:
 			++fmt;
 			switch (*fmt) {
@@ -117,10 +119,13 @@ int kprintf(const char *fmt, ...)
 					tag.sharp = '#';
 					goto flagisilmukka;
 			}
+
+			// Minimileveys, parametrina tai tästä numeroin
 			if (*fmt == '*') {
 				tag.minwidth = va_arg(args, int);
 				++fmt;
 			} else {
+				// Paddaus nollilla?
 				if (*fmt == '0') {
 					tag.fillchar = '0';
 					++fmt;
@@ -130,6 +135,7 @@ int kprintf(const char *fmt, ...)
 					++fmt;
 				}
 			}
+			// Tarkkuus liukuluvulla, muilla vaihtoehtoinen minwidth
 			if (*fmt == '.') {
 				++fmt;
 				while (*fmt >= '0' && *fmt <= '9') {
@@ -137,6 +143,7 @@ int kprintf(const char *fmt, ...)
 					++fmt;
 				}
 			}
+			// short, long, long double
 			switch (*fmt) {
 				case 'h':
 				case 'l':
@@ -162,7 +169,7 @@ int kprintf(const char *fmt, ...)
 					}
 					numbytes += len;
 					break;
-				case 'u':
+				case 'u': // unsigned -> ei kuulu pakostakaan etumerkkiä
 					tag.always_sign = 0;
 				case 'd':
 				case 'i':
@@ -175,51 +182,62 @@ int kprintf(const char *fmt, ...)
 					} else {
 						types.i = va_arg(args, int);
 					}
-					if (*fmt == 'o') {
-						len = sprintf_uoct(abs_int(types.i));
-					} else if (*fmt == 'u') {
-						len = sprintf_uint(types.ui);
-					} else {
-						len = sprintf_uint(abs_int(types.i));
-					}
-					if (types.i < 0) {
+					// Etumerkkikö?
+					if (*fmt != 'u' && types.i < 0) {
 						tag.always_sign = '-';
+						types.i = -types.i;
 					}
+					// Printtaus sopivaksi
+					if (*fmt == 'o') {
+						len = sprintf_uoct(types.i);
+					} else {
+						len = sprintf_uint(types.i);
+					}
+
 					if (tag.left_align) {
+						// Left-alignattua ei voi paddata nollilla
 						tag.fillchar = ' ';
-					}
-					if (tag.fillchar == '0') {
+						// Merkki
 						if (tag.always_sign) {
 							putch(tag.always_sign);
 							++len;
 						}
+						// Luku
+						print(sprintf_buf);
+						// Paddaus
 						while (len < tag.minwidth || len < tag.minprec) {
 							putch(tag.fillchar);
 							++len;
 						}
-						print(sprintf_buf);
 					} else {
-						if (tag.left_align) {
+						if (tag.fillchar == '0') {
+							// Ensin merkki
 							if (tag.always_sign) {
 								putch(tag.always_sign);
 								++len;
 							}
+							// Paddaus
+							while (len < tag.minwidth || len < tag.minprec) {
+								putch(tag.fillchar);
+								++len;
+							}
+							// Luku
 							print(sprintf_buf);
-							while (len < tag.minwidth || len < tag.minprec) {
-								putch(tag.fillchar);
-								++len;
-							}
 						} else {
+							// Merkki mukaan pituuteen
 							if (tag.always_sign) {
 								++len;
 							}
+							// Paddaus
 							while (len < tag.minwidth || len < tag.minprec) {
 								putch(tag.fillchar);
 								++len;
 							}
+							// Merkki
 							if (tag.always_sign) {
 								putch(tag.always_sign);
 							}
+							// Luku
 							print(sprintf_buf);
 						}
 					}
@@ -307,25 +325,19 @@ int kprintf(const char *fmt, ...)
 				case 'p':
 					types.ui = va_arg(args, unsigned int);
 					tag.fillchar = ' ';
-					len = 9;
+					len = 12; //[12345678xP]
 					if (!tag.left_align) while (len < tag.minwidth) {
 						putch(tag.fillchar);
 						++len;
 					}
-					apu = sprintf_heX(types.ui >> 16);
-					while (apu < 4) {
+					putch('[');
+					apu = sprintf_heX(types.ui);
+					while (apu < 8) {
 						putch('0');
 						++apu;
 					}
 					print(sprintf_buf);
-					putch(':');
-					apu = sprintf_heX(types.ui & 0xffff);
-					while (apu < 4) {
-						putch('0');
-						++apu;
-					}
-					print(sprintf_buf);
-
+					print("xP]");
 					while (len < tag.minwidth) {
 						putch(tag.fillchar);
 						++len;
