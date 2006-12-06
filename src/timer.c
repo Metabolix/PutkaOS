@@ -54,10 +54,13 @@ void timer_handler()
 	execute_jobs();
 }
 
-unsigned int kget_ticks()
-{
-	return ticks;
-}
+unsigned int kget_ticks();
+__asm__(
+".globl kget_ticks\n"
+"kget_ticks:\n"
+"    mov ticks, %eax\n"
+"    ret\n"
+);
 
 void kregister_job(struct timer_job * job)
 {
@@ -101,17 +104,10 @@ void timer_install()
 	install_irq_handler(0, (void *)timer_handler);
 }
 
-int get_ticks();
-__asm__(
-"get_ticks:\n"
-"    movl ticks, %eax\n"
-"    ret\n"
-);
-
 void kwait(int ms)
 {
-	int cur_ticks = get_ticks();
-	int ms_multiplier = 10;
+	unsigned int cur_ticks = kget_ticks();
+	unsigned int ms_multiplier = 10;
 
-	while(((get_ticks() - cur_ticks) * ms_multiplier) < ms);
+	while(((kget_ticks() - cur_ticks) * ms_multiplier) < ms);
 }

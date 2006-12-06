@@ -62,11 +62,12 @@ int dgetblock(BD_DESC *device)
 
 void dflush(BD_DESC *device)
 {
-	if (!device->has_read || !device->has_written) {
-		return;
+	if (device->has_read && device->has_written) {
+		if (device->phys->write_block(device->phys, device->block_in_dev, device->buffer)) {
+			kprintf("dflush: kirjoitus laitteeseen %s kohtaan %#010x ei onnistunut.\n", device->phys->name, device->block_in_dev);
+		}
+		device->has_written = 0;
 	}
-	device->phys->write_block(device->phys, device->block_in_dev, device->buffer);
-	device->has_written = 0;
 }
 
 BD_DESC *dopen(BLOCK_DEVICE *phys)
@@ -181,9 +182,14 @@ int dread(void *buffer, size_t size, size_t count, BD_DESC *device)
 	device->has_read = 0;
 	while (kokonaisia_paloja) {
 		if (device->phys->read_block(device->phys, device->block_in_dev, buf)) {
+			kprintf("dread: luku laittesta %s kohdasta %#010x ei onnistunut.\n", device->phys->name, device->block_in_dev);
 			return POS_MUUTOS / size;
 		}
 		++device->block_in_dev;
+		if (device->block_in_dev >= device->phys->block_count) {
+			kprintf("dread: levy loppui.\n");
+			return POS_MUUTOS / size;
+		}
 		buf += device->phys->block_size;
 		--kokonaisia_paloja;
 	}
@@ -191,6 +197,7 @@ int dread(void *buffer, size_t size, size_t count, BD_DESC *device)
 	lue = tavuja_yhteensa - POS_MUUTOS;
 	if (lue) {
 		if (dgetblock(device)) {
+			kprintf("dread: luku laittesta %s kohdasta %#010x ei onnistunut.\n", device->phys->name, device->block_in_dev);
 			return POS_MUUTOS / size;
 		}
 		memcpy(buf, device->buffer, lue);
@@ -232,6 +239,7 @@ int dwrite(const void *buffer, size_t size, size_t count, BD_DESC *device)
 		kirjoita = device->phys->block_size - device->pos_in_block;
 		if (kirjoita >= tavuja_yhteensa) {
 			if (kirjoita == tavuja_yhteensa) {
+				// Jos sattuu juuri kohdalleen, kirjoitellaan ja valitaan seuraava sektori
 				memcpy(device->buffer + device->pos_in_block, buffer, tavuja_yhteensa);
 				device->has_written = 1;
 				dflush(device);
@@ -242,12 +250,13 @@ int dwrite(const void *buffer, size_t size, size_t count, BD_DESC *device)
 
 				return count;
 			}
+			// Kirjoitellaan puskuriin vain.
 			memcpy(device->buffer + device->pos_in_block, buffer, tavuja_yhteensa);
 			device->pos_in_block += tavuja_yhteensa;
 			device->has_written = 1;
-
 			return count;
 		}
+		// Kirjoitellaan sen verran, kuin mahtuu
 		memcpy(device->buffer + device->pos_in_block, buf, kirjoita);
 		buf += kirjoita;
 		device->has_written = 1;
@@ -261,16 +270,23 @@ int dwrite(const void *buffer, size_t size, size_t count, BD_DESC *device)
 
 	while (kokonaisia_paloja) {
 		if (device->phys->write_block(device->phys, device->block_in_dev, buf)) {
+			kprintf("dwrite: kirjoitus laitteeseen %s kohtaan %#010x ei onnistunut.\n", device->phys->name, device->block_in_dev);
 			return POS_MUUTOS / size;
 		}
 		++device->block_in_dev;
+		if (device->block_in_dev >= device->phys->block_count) {
+			kprintf("dwrite: tila loppui.\n");
+			return POS_MUUTOS / size;
+		}
 		buf += device->phys->block_size;
 		--kokonaisia_paloja;
 	}
 
+	// Jos on jäljellä, lataillaan se seuraava blokki
 	kirjoita = tavuja_yhteensa - POS_MUUTOS;
 	if (kirjoita) {
 		if (dgetblock(device)) {
+			kprintf("dwrite: luku laittesta %s kohdasta %#010x ei onnistunut.\n", device->phys->name, device->block_in_dev);
 			return POS_MUUTOS / size;
 		}
 		memcpy(device->buffer, buf, kirjoita);

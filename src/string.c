@@ -50,6 +50,7 @@ char *strcpy(char *dest, const char *src)
 		*dest = *src;
 		++dest; ++src;
 	}
+	*dest = 0;
 	return retval;
 }
 
