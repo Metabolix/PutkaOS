@@ -98,6 +98,9 @@ void reset_floppy() {
 		sense_interrupt();
 	}*/
 
+	if(inportb(FLOPPY_FIRST + DIGITAL_INPUT_REGISTER) & 0x80)
+		print("Disk change is set\n");
+
 	configure_drive();
 
 	if(fds[0].type) {
@@ -149,7 +152,7 @@ void calibrate_drive(char drive) {
 		send_command(RECALIBRATE); /* (re)calibrate drive*/
 		send_command(drive);
 		wait_irq(6);  /*wait for interrupt from controller*/
-		sense_interrupt();
+		/*sense_interrupt();*/
 		kprintf("FDD: fd%u calibrated\n", drive);
 	}
 }
