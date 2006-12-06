@@ -48,6 +48,7 @@ long dtell(BD_DESC *device)
 int dgetblock(BD_DESC *device)
 {
 	int retval;
+	dflush(device);
 	device->has_read = 0;
 	if (device->block_in_dev >= device->phys->block_count) {
 		return EOD;
@@ -156,13 +157,16 @@ int dread(void *buffer, size_t size, size_t count, BD_DESC *device)
 			if (lue == tavuja_yhteensa) {
 				memcpy(buffer, device->buffer + device->pos_in_block, tavuja_yhteensa);
 				dflush(device);
+
 				++device->block_in_dev;
 				device->pos_in_block = 0;
 				device->has_read = 0;
+
 				return count;
 			}
 			memcpy(buffer, device->buffer + device->pos_in_block, tavuja_yhteensa);
 			device->pos_in_block += tavuja_yhteensa;
+
 			return count;
 		}
 		memcpy(buf, device->buffer, lue);
@@ -172,9 +176,9 @@ int dread(void *buffer, size_t size, size_t count, BD_DESC *device)
 
 		++device->block_in_dev;
 		device->pos_in_block = 0;
-		device->has_read = 0;
 	}
 
+	device->has_read = 0;
 	while (kokonaisia_paloja) {
 		if (device->phys->read_block(device->phys, device->block_in_dev, buf)) {
 			return POS_MUUTOS / size;
@@ -229,15 +233,19 @@ int dwrite(const void *buffer, size_t size, size_t count, BD_DESC *device)
 		if (kirjoita >= tavuja_yhteensa) {
 			if (kirjoita == tavuja_yhteensa) {
 				memcpy(device->buffer + device->pos_in_block, buffer, tavuja_yhteensa);
+				device->has_written = 1;
 				dflush(device);
+
 				++device->block_in_dev;
 				device->pos_in_block = 0;
 				device->has_read = 0;
+
 				return count;
 			}
 			memcpy(device->buffer + device->pos_in_block, buffer, tavuja_yhteensa);
 			device->pos_in_block += tavuja_yhteensa;
 			device->has_written = 1;
+
 			return count;
 		}
 		memcpy(device->buffer + device->pos_in_block, buf, kirjoita);
@@ -247,8 +255,9 @@ int dwrite(const void *buffer, size_t size, size_t count, BD_DESC *device)
 
 		++device->block_in_dev;
 		device->pos_in_block = 0;
-		device->has_read = 0;
 	}
+
+	device->has_read = 0;
 
 	while (kokonaisia_paloja) {
 		if (device->phys->write_block(device->phys, device->block_in_dev, buf)) {
