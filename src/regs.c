@@ -13,6 +13,4 @@ void dump_regs(const struct regs_t *regs)
 	     regs->esi,    regs->edi);
 	kprintf("  ds = %08x      es = %08x      fs = %08x      gs = %08x\n",
 	      regs->ds,     regs->es,     regs->fs,     regs->gs);
-	kprintf("code = %08x  int_no = %08x\n",
-	      regs->error_code,     regs->int_no);
 }
