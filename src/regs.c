@@ -1,4 +1,5 @@
 #include <regs.h>
+#include <screen.h>
 
 void dump_regs(const struct regs_t *regs)
 {
