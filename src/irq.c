@@ -2,40 +2,41 @@
 #include <idt.h>
 #include <io.h>
 #include <panic.h>
+#include <thread.h>
+#include <regs.h>
 
 #define io_wait() asm("nop")
 
 void * irq_handlers[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 char irq_wait[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-
 void irq_remap(int offset1, int offset2)
 {
-        /*char  a1, a2;
+	/*char  a1, a2;
 
-        a1=inportb(0x21); */  /* save masks */
-        /*a2=inportb(0xA1);*/
+	a1=inportb(0x21); */  /* save masks */
+	/*a2=inportb(0xA1);*/
 
-        outportb(0x20, 0x11);  /* starts the initialization sequence */
-        io_wait();
-        outportb(0xA0, 0x11);
-        io_wait();
-        outportb(0x21, offset1);
+	outportb(0x20, 0x11);  /* starts the initialization sequence */
 	io_wait();
-        outportb(0xA1, offset2);
-        io_wait();
-        outportb(0x21, 2);
-        io_wait();
+	outportb(0xA0, 0x11);
+	io_wait();
+	outportb(0x21, offset1);
+	io_wait();
+	outportb(0xA1, offset2);
+	io_wait();
+	outportb(0x21, 2);
+	io_wait();
 	outportb(0xA1, 4);
-        io_wait();
+	io_wait();
 
-        outportb(0x21, 0x05);
-        io_wait();
-        outportb(0xA1, 0x01);
-        io_wait();
+	outportb(0x21, 0x05);
+	io_wait();
+	outportb(0xA1, 0x01);
+	io_wait();
 
-        /*outportb(0x21, a1);*/   /* restore saved masks */
-        /*outportb(0xA1, a2);*/
+	/*outportb(0x21, a1);*/   /* restore saved masks */
+	/*outportb(0xA1, a2);*/
 	print("IRQs remapped\n");
 }
 
@@ -65,7 +66,7 @@ void prepare_wait_irq(int irq)
 	}
 }
 
-void install_irq()
+void irq_install()
 {
 	extern void irq0();
 	extern void irq1();
@@ -128,26 +129,27 @@ void uninstall_irq_handler(int irq)
 	}
 }
 
-void irq_handler(unsigned int irq) /* NOTICE: This should be called only from our assembly code! */
+void irq_handler(struct regs_t *regs) /* NOTICE: This should be called only from our assembly code! */
 {
 	void (*handler)();
 
-
-	if(irq < 16 && irq >= 0) {
-		if(irq_handlers[irq]) {
-			handler = irq_handlers[irq];
+	if (regs->int_no & 0xfffffff0) {
+		kprintf("Irq_handler got irq %u which doesn't exist\n", regs->int_no);
+		dump_regs(regs);
+	} else {
+		if(irq_handlers[regs->int_no]) {
+			handler = irq_handlers[regs->int_no];
 			handler();
 		} else {
-			kprintf("Got interrupt on %u, but we don't have handler for it!\n", irq);
+			kprintf("Got interrupt on %u, but we don't have handler for it!\n", regs->int_no);
 		}
-	} else {
-		kprintf("Irq_handler got irq %u which doesn't exist\n", irq);
+		if (regs->int_no >= 8) {
+			outportb(0xA0, 0x20);
+		}
+		outportb(0x20, 0x20);
+		if (irq_wait[regs->int_no]) {
+			irq_wait[regs->int_no] = 0;
+		}
 	}
-	if(irq >= 8) {
-		outportb(0xA0, 0x20);
-	}
-	outportb(0x20, 0x20);
-	if(irq_wait[irq]) {
-		irq_wait[irq] = 0;
-	}
+	next_thread();
 }

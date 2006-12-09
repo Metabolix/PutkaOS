@@ -12,10 +12,8 @@
 #include <timer.h>
 #include <floppy.h>
 #include <multiboot.h>
-
-void say_hello() {
-	print("Hello\n");
-}
+#include <regs.h>
+#include <thread.h>
 
 const char systeemi[] = "PutkaOS";
 const char versio[] = "v0.001";
@@ -23,7 +21,16 @@ BD_DESC *dev;
 char buf[512];
 int i;
 
-void kmain(multiboot_info_t* mbt,unsigned int magic)
+void printtaa_aata(void)
+{
+	while (1) putch('a');
+}
+void printtaa_beeta(void)
+{
+	while (1) putch('b');
+}
+
+void kmain(multiboot_info_t* mbt, unsigned int magic)
 {
 	cls();
 	if((mbt->flags & 1) == 0)
@@ -32,7 +39,7 @@ void kmain(multiboot_info_t* mbt,unsigned int magic)
 	idt_install();
 	isrs_install();
 	init_memory(mbt->mem_upper + mbt->mem_lower);
-	install_irq();
+	irq_install();
 	keyboard_install();
 	timer_install();
 	install_floppy();
@@ -43,14 +50,20 @@ void kmain(multiboot_info_t* mbt,unsigned int magic)
 
 	reset_floppy();
 
+#if 0
 	dev = dopen(&fd_devices[0]);
 	dread(buf, 1, 256, dev);
-	for (i = 0; i < 256; ++i) {
+	for (i = 0; i < 128; ++i) {
 		kprintf("%02x ", (int)(unsigned char)buf[i]);
 		if ((i+1)%16 == 0) kprintf("\n");
 	}
 	dclose(dev);
-	
+	i = 0;
+#endif
+	for (i = 0; i < 128; ++i) {
+		kprintf("%02x ", (int)(unsigned char)buf[i]);
+		if ((i+1)%16 == 0) kprintf("\n");
+	}
 	/*strcpy(buf,"Moi, nyt on menossa hassu kirjoitustesti\n");
 	dev = dopen(&fd_devices[1]);
 	dwrite(buf, 1, 256, dev);
@@ -74,18 +87,18 @@ void kmain(multiboot_info_t* mbt,unsigned int magic)
 	print("\n");
 	free_page(memory);
 	memory = alloc_pages(2);
-        print("Allocated more memory, and we got address: ");
-        print_hex((unsigned int)memory);
-        print("\n");
+	print("Allocated more memory, and we got address: ");
+	print_hex((unsigned int)memory);
+	print("\n");
 	memory = alloc_page();
-        print("Allocated even more memory, and we got address: ");
-        print_hex((unsigned int)memory);
-        print("\n");
-        free_page(memory);*/
-
-
+	print("Allocated even more memory, and we got address: ");
+	print_hex((unsigned int)memory);
+	print("\n");
+	free_page(memory);*/
 
 	kprintf("%s %s is up and running _o/\n", systeemi, versio);
-
-	while(1);
+	new_thread(printtaa_aata, 0, 0);
+	new_thread(printtaa_beeta, 0, 0);
+	start_threading();
+	//for (;;);
 }

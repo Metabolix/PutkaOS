@@ -15,23 +15,22 @@ int continue_block = 0;
 int ram_count = 20 * 1024;
 int block_count = 5 * 1024;
 
-
-int get_cr0()
-{
-	int a;
-	asm("mov %%cr0,%0":"=r"(a));
-	return a;
-}
-
-void set_cr0(int cr0)
-{
-	asm("mov %0,%%cr0"::"r"(cr0));
-}
-
-void set_cr3(int cr3)
-{
-	asm("mov %0,%%cr3"::"r"(cr3));
-}
+int get_cr0();
+void set_cr0(int cr0);
+void set_cr3(int cr3);
+__asm__(
+"get_cr0:\n"
+"    movl %cr0,%eax\n"
+"    ret\n"
+"set_cr0:\n"
+"    movl 4(%esp),%eax\n"
+"    movl %eax,%cr0\n"
+"    ret\n"
+"set_cr3:\n"
+"    movl 4(%esp),%eax\n"
+"    movl %eax,%cr3\n"
+"    ret\n"
+);
 
 
 int find_free_block() { /* finds free block from physical ram */

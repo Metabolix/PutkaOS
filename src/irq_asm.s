@@ -1,16 +1,71 @@
+extern active_thread_ptr
+extern irq_handler
+
 %macro irq 1
 global irq%1
 irq%1:
+	cld
 	cli
-	pushad
-	push %1 ;interrupt number, for irq_handler
-	extern irq_handler
-	call irq_handler
-	pop eax ;clean stack
-	popad
-	sti
-	iret ;return from interrupt
+	push DWORD 0
+	push DWORD %1
+	jmp irq_handler_common
 %endmacro
+
+irq_handler_common:
+	pushad
+	push ds
+	push es
+	push fs
+	push gs
+
+	mov eax, [active_thread_ptr]
+	cmp eax, 0
+	je irq_handler_common_no_thread
+
+	mov [eax], esp
+	mov [eax+4], ss
+	mov ecx, esp
+
+	extern _sys_stack
+	mov esp, _sys_stack
+	mov eax, 0x10
+	mov ss, eax
+	mov ds, eax
+	mov es, eax
+	mov fs, eax
+	mov gs, eax
+
+	push ecx
+	call irq_handler
+	pop ecx
+
+	mov eax, [active_thread_ptr]
+	mov esp, [eax]
+	mov ss, [eax+4]
+
+	pop gs
+	pop fs
+	pop es
+	pop ds
+	popad
+	add esp, 8
+	sti
+	iret
+
+irq_handler_common_no_thread:
+	mov eax, esp
+	push eax
+	call irq_handler
+	pop eax
+
+	pop gs
+	pop fs
+	pop es
+	pop ds
+	popad
+	add esp, 8
+	sti
+	iret
 
 irq 0
 irq 1

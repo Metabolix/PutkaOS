@@ -1,46 +1,81 @@
-%macro isr 1
+;extern active_thread_ptr
+extern isr_handler
+
+%macro isr_0_7 1
 global isr%1
 isr%1:
-	;cli ;disable interrupts
-	pushad
-	push %1 ;interrupt number
-	extern isr_handler
-	call isr_handler
-	pop eax ;clean stack
-	popad
-	;sti ;enable interrupts
-	iret ;return from interrupt
+	push DWORD 0
+	push DWORD %1
+	jmp isr_common
 %endmacro
 
-isr 0
-isr 1
-isr 2
-isr 3
-isr 4
-isr 5
-isr 6
-isr 7
-isr 8
-isr 9
-isr 10
-isr 11
-isr 12
-isr 13
-isr 14
-isr 15
-isr 16
-isr 17
-isr 18
-isr 19
-isr 20
-isr 21
-isr 22
-isr 23
-isr 24
-isr 25
-isr 26
-isr 27
-isr 28
-isr 29
-isr 30
-isr 31
+%macro isr_8_31 1
+global isr%1
+isr%1:
+	push DWORD %1
+	jmp isr_common
+%endmacro
+
+isr_common:
+	pushad
+	push ds
+	push es
+	push fs
+	push gs
+
+	; pino talteen
+	;mov eax, [active_thread_ptr]
+	;mov [eax], esp
+	;mov [eax+4], ss
+
+	; kutsutaan
+	mov eax, esp
+	push eax
+	call isr_handler
+	pop eax
+
+	; pino takaisin
+	;mov eax, [active_thread_ptr]
+	;mov esp, [eax]
+	;mov ss, [eax+4]
+
+	pop gs
+	pop fs
+	pop es
+	pop ds
+	popad
+	add esp, 8
+	iret
+
+isr_0_7 0
+isr_0_7 1
+isr_0_7 2
+isr_0_7 3
+isr_0_7 4
+isr_0_7 5
+isr_0_7 6
+isr_0_7 7
+isr_8_31 8
+isr_8_31 9
+isr_8_31 10
+isr_8_31 11
+isr_8_31 12
+isr_8_31 13
+isr_8_31 14
+isr_8_31 15
+isr_8_31 16
+isr_8_31 17
+isr_8_31 18
+isr_8_31 19
+isr_8_31 20
+isr_8_31 21
+isr_8_31 22
+isr_8_31 23
+isr_8_31 24
+isr_8_31 25
+isr_8_31 26
+isr_8_31 27
+isr_8_31 28
+isr_8_31 29
+isr_8_31 30
+isr_8_31 31

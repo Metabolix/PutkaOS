@@ -1,4 +1,8 @@
 [BITS 32]
+extern kmain
+STACK_SIZE equ 1<<14
+
+global _sys_stack
 global start
 start:
     mov esp, _sys_stack
@@ -18,13 +22,12 @@ mboot:
     dd MULTIBOOT_HEADER_MAGIC
     dd MULTIBOOT_HEADER_FLAGS
     dd MULTIBOOT_CHECKSUM
-    
+
 main_caller:
-    extern kmain
     call kmain
     jmp $
 
 
 SECTION .bss
-    resb 16384
+    resb STACK_SIZE
 _sys_stack:
