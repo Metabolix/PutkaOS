@@ -25,12 +25,12 @@ void irq_remap(int offset1, int offset2)
 	io_wait();
 	outportb(0xA1, offset2);
 	io_wait();
-	outportb(0x21, 2);
+	outportb(0x21, 4);
 	io_wait();
-	outportb(0xA1, 4);
+	outportb(0xA1, 2);
 	io_wait();
 
-	outportb(0x21, 0x05);
+	outportb(0x21, 0x01);
 	io_wait();
 	outportb(0xA1, 0x01);
 	io_wait();

@@ -59,10 +59,9 @@ int sprintf_uoct(unsigned int num)
 
 int sprintf_hex(unsigned int num)
 {
-	const char convert[] = "0123456789abcdef";
 	int i = BUF_KOKO;
 	while (num) {
-		sprintf_buf[--i] = convert[num & 0x0f];
+		sprintf_buf[--i] = "0123456789abcdef"[num & 0x0f];
 		num >>= 4;
 	}
 
@@ -73,10 +72,9 @@ int sprintf_hex(unsigned int num)
 
 int sprintf_heX(unsigned int num)
 {
-	const char convert[] = "0123456789ABCDEF";
 	int i = BUF_KOKO;
 	while (num) {
-		sprintf_buf[--i] = convert[num & 0x0f];
+		sprintf_buf[--i] = "0123456789ABCDEF"[num & 0x0f];
 		num >>= 4;
 	}
 

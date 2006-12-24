@@ -24,7 +24,8 @@ int print(const char * string)
 	return s - string;
 }
 
-void putch(int c) {
+void putch(int c)
+{
 	if(c == '\b') { /* backspace */
 		if (ccol > 0) {
 			ccol--;
@@ -53,7 +54,7 @@ void putch(int c) {
 
 	if (crow >= 25) { /* scroll screen */
 		int amount = crow - 24;
-		memcpy((void *)0xB8000, (void *)0xB8000 + amount * 160, (25 - amount) * 160);
+		memmove((void *)0xB8000, (void *)0xB8000 + amount * 160, (25 - amount) * 160);
 		memset((void *)0xB8000 + (25 - amount) * 160, 0, 160);
 		crow = 24;
 	}
@@ -68,23 +69,5 @@ void move_cursor()
 	outportb(0x3D5, temp >> 8);
 	outportb(0x3D4, 15);
 	outportb(0x3D5, temp);
-}
-
-void print_hex(unsigned int num)
-{
-	int length = 8;
-	print("0x");
-	const char convert[] = "0123456789abcdef";
-
-	while(--length) { /* get the length */
-		if(num >> (4 * length) & 0xF)
-			break;
-	}
-	length++;
-
-	while(length--) { /* output it! */
-		int ch = (num >> (4 * length)) & 0xF;
-		putch(convert[ch]);
-	}
 }
 
