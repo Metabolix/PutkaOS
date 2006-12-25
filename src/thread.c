@@ -31,10 +31,10 @@ size_t num_processes = 0;
 size_t num_threads = 0;
 
 struct regs_t initial_regs = {
-	0x10, 0x10, 0x10, 0x10, // gs, fs, es, ds;
+	0x10, 0x10, 0x10, 0x10, 0x10, // gs, fs, es, ds, ss;
 	0, 0, 0, 0, 0, 0, 0, 0, // edi, esi, ebp, esp, ebx, edx, ecx, eax;
 	0, 0, // int_no, err_code;
-	0, 0x08, 0x0202, 0, 0x10 // eip, cs, eflags, useresp, ss;
+	0, 0x08, 0x0202, // eip, cs, eflags, useresp, ss;
 };
 
 /**
@@ -52,12 +52,6 @@ void kernel_idle_loop(void)
 void thread_ending(void)
 {
 	extern void process_ending(void);
-	kprintf("active_thread %i, kernel_idle_thread %i\n", active_thread, kernel_idle_thread);
-	kprintf("active_thread %i, kernel_idle_thread %i\n", active_thread, kernel_idle_thread);
-	kprintf("active_thread %i, kernel_idle_thread %i\n", active_thread, kernel_idle_thread);
-	kprintf("active_thread %i, kernel_idle_thread %i\n", active_thread, kernel_idle_thread);
-	kprintf("active_thread %i, kernel_idle_thread %i\n", active_thread, kernel_idle_thread);
-	kprintf("active_thread %i, kernel_idle_thread %i\n", active_thread, kernel_idle_thread);
 	kprintf("active_thread %i, kernel_idle_thread %i\n", active_thread, kernel_idle_thread);
 	if (active_thread == kernel_idle_thread) {
 		// TODO: Tunge sille sen oikea entrypointti takaisin. :P
@@ -128,13 +122,14 @@ thread_id_t new_thread(t_entry entry, void * initial_stack, size_t initial_stack
 
 	esp -= initial_stack_size;
 	memcpy(esp, initial_stack, initial_stack_size);
+kprintf("%p thread ending\n", thread_ending);
+kprintf("%p istack\n", esp);
 
 	esp -= sizeof(t_entry);
-	initial_regs.useresp = (uint_t)esp;
 	*(t_entry*)esp = thread_ending;
 
-	initial_regs.esp = initial_regs.useresp - 7;
 	initial_regs.eip = (uint_t)entry;
+	initial_regs.esp = (uint_t)esp - (5 * 4);
 
 	esp -= sizeof(struct regs_t);
 	memcpy(esp, &initial_regs, sizeof(struct regs_t));
@@ -205,7 +200,7 @@ void start_kernel_process(t_entry entry, char * esp, uint_t stack_size)
 	initial_regs.useresp = (uint_t)esp;
 	*(t_entry*)esp = thread_ending;
 
-	initial_regs.esp = initial_regs.useresp - 7;
+	initial_regs.esp = initial_regs.useresp - (7 * 4);
 	initial_regs.eip = (uint_t)entry;
 	esp -= sizeof(struct regs_t);
 	*(struct regs_t*)esp = initial_regs;

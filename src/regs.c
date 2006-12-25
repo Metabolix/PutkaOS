@@ -7,7 +7,7 @@ void dump_regs(const struct regs_t *regs)
 	kprintf(" eax = %08x     ebx = %08x     ecx = %08x     edx = %08x\n",
 	    regs->eax,     regs->ebx,     regs->ecx,     regs->edx);
 	kprintf(" esp = %08x     ebp = %08x      ss = %08x\n",
-	regs->useresp,     regs->ebp,      regs->ss);
+	    regs->esp,     regs->ebp,      regs->ss);
 	kprintf(" eip = %08x      cs = %08x  eflags = %08x\n",
 	    regs->eip,      regs->cs,  regs->eflags);
 	kprintf(" esi = %08x     edi = %08x\n",

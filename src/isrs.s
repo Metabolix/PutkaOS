@@ -18,6 +18,7 @@ isr%1:
 
 isr_common:
 	pushad
+	push ss
 	push ds
 	push es
 	push fs
@@ -43,6 +44,7 @@ isr_common:
 	pop fs
 	pop es
 	pop ds
+	pop ss
 	popad
 	add esp, 8
 	iret

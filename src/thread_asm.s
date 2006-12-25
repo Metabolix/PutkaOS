@@ -14,6 +14,7 @@ start_idle_thread:
 	pop fs
 	pop es
 	pop ds
+	pop ss
 	popad
 	add esp, 8
 	sti

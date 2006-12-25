@@ -13,6 +13,7 @@ irq%1:
 
 irq_handler_common:
 	pushad
+	push ss
 	push ds
 	push es
 	push fs
@@ -47,6 +48,7 @@ irq_handler_common:
 	pop fs
 	pop es
 	pop ds
+	pop ss
 	popad
 	add esp, 8
 	sti
@@ -62,6 +64,7 @@ irq_handler_common_no_thread:
 	pop fs
 	pop es
 	pop ds
+	pop ss
 	popad
 	add esp, 8
 	sti
