@@ -31,14 +31,13 @@
 
 #define MAX_DRIVES 2
 
-typedef struct {
+struct fd {
 	unsigned char motor;
 	unsigned char type;
 	unsigned char track;
 	unsigned char status;
-	struct timer_job djob;
-} fd;
-
+	timer_id_t motor_off_timer;
+};
 
 typedef struct {
 	unsigned char steprate_headunload;
@@ -60,19 +59,18 @@ void install_floppy();
 void reset_floppy();
 void wait_floppy_data();
 void configure_drive();
-void send_command(char command);
+void send_command(unsigned char command);
 void wait_floppy();
 void sense_interrupt();
-void calibrate_drive(char drive);
-int seek_track(char drive, int track);
+void calibrate_drive(unsigned int drive);
+int seek_track(unsigned int drive, unsigned int track);
 void reset_flipflop_dma();
 void init_dma_floppy(unsigned long buffer, size_t len, int write);
-int read_sector(char drive, unsigned char sector, unsigned char head, unsigned char cylinder, unsigned long buffer);
-int write_sector(char drive, unsigned char sector, unsigned char head, unsigned char cylinder, unsigned long buffer);
+int read_sector(unsigned int drive, unsigned char sector, unsigned char head, unsigned char cylinder, unsigned long buffer);
+int write_sector(unsigned int drive, unsigned char sector, unsigned char head, unsigned char cylinder, unsigned long buffer);
 int read_block(BLOCK_DEVICE *self, size_t num, void * buf);
 int write_block(BLOCK_DEVICE *self, size_t num, const void * buf);
-void motor_0_off();
-void motor_1_off();
+void motor_off(unsigned int drive);
 
 extern BLOCK_DEVICE fd_devices[2];
 

@@ -1,22 +1,34 @@
 #ifndef _TIMER_H
 #define _TIMER_H
 
-#define HZ 100
-#define CLOCK_TICK_RATE 1193180
-#define TIME  ((CLOCK_TICK_RATE + HZ/2) / HZ)
+#include <time.h>
 
-struct timer_job {
-	unsigned int time; /* next tick count to execute job */
-	int times; /* how many times to execute this job, -1 if no count */
-	int freq;
-	void * function; /* pointer to function which we will execute */
+#define TIMER_FREQUENCY 100UL
+/* CLOCKS_PER_SEC */
+#define TIMER_TICK_RATE 1193180UL
+#define TICKS_TO_MICROSEC(TICKS) (((1000000 / 20UL) * (time_t)TICKS) / (TIMER_TICK_RATE / 20UL))
+#define TIMER_TICKS_PER_CYCLE  ((TIMER_TICK_RATE + TIMER_FREQUENCY / 2UL) / TIMER_FREQUENCY)
+
+typedef unsigned int timer_id_t;
+
+struct timeval {
+	time_t sec;
+	time_t usec;
 };
 
+struct timer {
+	timer_id_t id;
+	int active;
+	void (*func)();
+	struct timeval freq;
+	int times, times_run;
+	struct timeval next_run;
+};
 
 extern void timer_install();
-extern void kwait(int ms);
+extern void kwait(unsigned int ms);
 extern unsigned int kget_ticks();
-extern void kregister_job(struct timer_job * job);
-extern void kunregister_job(struct timer_job * job);
+extern timer_id_t ktimer_start(void (*func)(void), unsigned int msec, int times);
+extern void ktimer_stop(timer_id_t timer);
 
 #endif

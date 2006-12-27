@@ -21,15 +21,6 @@ BD_DESC *dev;
 char buf[512];
 int i;
 
-void printtaa_aata(void)
-{
-	while (1) putch('a');
-}
-void printtaa_beeta(void)
-{
-	while (1) putch('b');
-}
-
 void kmain(multiboot_info_t* mbt, unsigned int magic)
 {
 	cls();
@@ -70,17 +61,6 @@ void kmain(multiboot_info_t* mbt, unsigned int magic)
 	dflush(dev);
 	dclose(dev);*/
 
-	/* nice job testing :) */
-	/*{
-		struct timer_job job;
-		job.function = &say_hello;
-		job.times = -1;
-		job.time = kget_ticks() + 100;
-		job.freq = 50;
-
-		kregister_job(&job);
-	}*/
-
 	/*char * memory = alloc_page();
 	print("Allocated memory, and we got address: ");
 	print_hex((unsigned int)memory);
@@ -97,8 +77,6 @@ void kmain(multiboot_info_t* mbt, unsigned int magic)
 	free_page(memory);*/
 
 	kprintf("%s %s is up and running _o/\n", systeemi, versio);
-	new_thread(printtaa_aata, 0, 0);
-	new_thread(printtaa_beeta, 0, 0);
 	start_threading();
 	//for (;;);
 }

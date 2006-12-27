@@ -122,8 +122,6 @@ thread_id_t new_thread(t_entry entry, void * initial_stack, size_t initial_stack
 
 	esp -= initial_stack_size;
 	memcpy(esp, initial_stack, initial_stack_size);
-kprintf("%p thread ending\n", thread_ending);
-kprintf("%p istack\n", esp);
 
 	esp -= sizeof(t_entry);
 	*(t_entry*)esp = thread_ending;

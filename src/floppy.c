@@ -13,26 +13,56 @@ int cylinder, status_0;
 
 BLOCK_DEVICE fd_devices[2];
 
-const char * fd_types[6] = { "no floppy drive", "360KB 5.25\" floppy drive", "1.2MB 5.25\" floppy drive", "720KB 3.5\" floppy drive", "1.44MB 3.5\" floppy drive", "2.88MB 3.5\" floppy drive"};
+const char * fd_types[6] = {
+	"no floppy drive",
+	"360KB 5.25\" floppy drive",
+	"1.2MB 5.25\" floppy drive",
+	"720KB 3.5\" floppy drive",
+	"1.44MB 3.5\" floppy drive",
+	"2.88MB 3.5\" floppy drive"
+};
 
-fd fds[2];
+struct fd fds[2];
 char fdbuf[512];
-int fd_seeked = 0;
-char motors = 0;
+unsigned int fd_seeked = 0;
+unsigned int motors = 0;
 
+void motor_0_off() {motor_off(0);}
+void motor_1_off() {motor_off(1);}
+void (*motor_stop[2])() = {motor_0_off, motor_1_off};
 
-void *motor_stop[2] = {&motor_0_off, &motor_1_off};
+volatile int floppy_waiting_interrupt = 0;
+void floppy_handler()
+{
+	floppy_waiting_interrupt = 0;
+}
+void prepare_floppy_wait_irq()
+{
+	floppy_waiting_interrupt = 1;
+}
+void floppy_wait_irq();
+__asm__(
+"floppy_wait_irq:\n"
+"    mov floppy_waiting_interrupt, %eax\n"
+"    cmp 1, %eax\n"
+"    je floppy_wait_irq\n"
+"    ret\n"
+);
+/*
+void floppy_wait_irq()
+{
+	while (floppy_waiting_interrupt);
+}*/
 
-void floppy_handler() { }
-
-void install_floppy() {
-	char detect_floppy;
+void install_floppy()
+{
+	unsigned char detect_floppy;
 
 	memcpy(&floppy_params, (void*)DISK_PARAMETER_ADDRESS, sizeof(floppy_parameters));
-	memset(fds, 0, sizeof(fd) * 2);
+	memset(fds, 0, sizeof(struct fd) * 2);
 	memset(fdbuf, 0, 512);
 
-	if(floppy_params.bytes_per_sector > 2) {
+	if (floppy_params.bytes_per_sector > 2) {
 		print("FDD: ERROR: Sector size bigger than 512 bytes (disabled floppies)\n");
 		fds[0].type = 0;
 		fds[1].type = 0;
@@ -69,8 +99,6 @@ void install_floppy() {
 		fd_devices[1].dev_type = DEV_TYPE_NONE;
 	}
 
-
-
 	kprintf("FDD: We found %s at fd0\n", fd_types[detect_floppy >> 4]);
 	if(fds[0].type != 4 && fds[0].type)
 		print("FDD: We don't support it\n");
@@ -81,57 +109,59 @@ void install_floppy() {
 	install_irq_handler(6, (void*)floppy_handler);
 }
 
-void reset_floppy() {
-	/*int a;*/
-
-	prepare_wait_irq(6);
+void reset_floppy()
+{
+	prepare_floppy_wait_irq();
 	outportb((FLOPPY_FIRST + DIGITAL_OUTPUT_REGISTER), 0x00); /*disable controller*/
 	kwait(50);
 	outportb((FLOPPY_FIRST + DIGITAL_OUTPUT_REGISTER), 0x0c); /*enable controller*/
 	outportb(FLOPPY_FIRST + CONFIGURATION_CONTROL_REGISTER, 0);
 
 	print("FDD: Reseted controller\n");
-	wait_irq(6);
+	floppy_wait_irq();
 	print("FDD: Waited for it\n");
 
 	/*for(a = 0; a < 4; a++) {
 		sense_interrupt();
 	}*/
 
-	if(inportb(FLOPPY_FIRST + DIGITAL_INPUT_REGISTER) & 0x80)
+	if (inportb(FLOPPY_FIRST + DIGITAL_INPUT_REGISTER) & 0x80) {
 		print("Disk change is set\n");
+	}
 
 	configure_drive();
 
-	if(fds[0].type) {
+	if (fds[0].type) {
 		calibrate_drive(0);
 	}
-	if(fds[1].type) {
+	if (fds[1].type) {
 		calibrate_drive(1);
 	}
 	print("FDD: Calibrated drives\n");
 }
 
-void wait_floppy_data() {
-	while((inportb(FLOPPY_FIRST + MAIN_STATUS_REGISTER) & 0xc0) != 0xc0) /* While RQM and DIO aren't 1 */
+void wait_floppy_data()
+{
+	while ((inportb(FLOPPY_FIRST + MAIN_STATUS_REGISTER) & 0xc0) != 0xc0) /* While RQM and DIO aren't 1 */
 		;
 }
 	
 	
-void configure_drive(){
+void configure_drive()
+{
 	send_command(SPECIFY);
 	send_command(floppy_params.steprate_headunload);
 	send_command(floppy_params.headload_ndma & 254);
 	print("FDD: Drive configured\n");
-}	
+}
 
-void send_command(char command) {
+void send_command(unsigned char command) {
 	wait_floppy();
 	outportb(FLOPPY_FIRST + DATA_FIFO, command);
 }
 
 void wait_floppy() {
-	while(!(inportb(FLOPPY_FIRST + MAIN_STATUS_REGISTER) & 0x80));
+	while (!(inportb(FLOPPY_FIRST + MAIN_STATUS_REGISTER) & 0x80));
 }
 
 void sense_interrupt() {
@@ -142,19 +172,18 @@ void sense_interrupt() {
 	fds[fd_seeked].track = inportb(FLOPPY_FIRST + DATA_FIFO);
 }
 
-void calibrate_drive(char drive) {
-	if(drive >= 0 && drive < MAX_DRIVES) {
-		if(!fds[(int)drive].type) {
-			return;
-		}
-
-		prepare_wait_irq(6);
-		send_command(RECALIBRATE); /* (re)calibrate drive*/
-		send_command(drive);
-		wait_irq(6);  /*wait for interrupt from controller*/
-		/*sense_interrupt();*/
-		kprintf("FDD: fd%u calibrated\n", drive);
+void calibrate_drive(unsigned int drive)
+{
+	if (drive >= MAX_DRIVES || !fds[drive].type) {
+		return;
 	}
+
+	prepare_floppy_wait_irq();
+	send_command(RECALIBRATE); /* (re)calibrate drive*/
+	send_command(drive);
+	floppy_wait_irq();
+	/*sense_interrupt();*/
+	kprintf("FDD: fd%u calibrated\n", drive);
 }
 
 void init_dma_floppy(unsigned long buffer, size_t len, int write) {
@@ -173,56 +202,59 @@ void init_dma_floppy(unsigned long buffer, size_t len, int write) {
 	asm("sti");
 }
 
-void motor_on(char drive) {
-	if(drive < 0 || drive >= MAX_DRIVES) {
+void motor_on(unsigned int drive) {
+	if (drive >= MAX_DRIVES) {
 		return;
 	}
-	if(fds[(int)drive].motor) { /* motor already on */
+	if (fds[drive].motor) { /* motor already on */
 		return;
 	}
-	fds[(int)drive].djob.function = motor_stop[(int)drive];
-	kunregister_job(&fds[(int)drive].djob);
-	fds[(int)drive].motor = 1;
+	if (fds[drive].motor_off_timer) {
+		ktimer_stop(fds[drive].motor_off_timer);
+		fds[drive].motor_off_timer = 0;
+	}
+	fds[drive].motor = 1;
 	motors |= (1 << drive);
 	outportb(FLOPPY_FIRST + DIGITAL_OUTPUT_REGISTER, 0xC + (motors << 4)); /* motor on */
 	kwait(500);
 }
 
-void prepare_motor_off(char drive) {
-	fds[(int)drive].djob.times = 1;
-	fds[(int)drive].djob.function = motor_stop[(int)drive];
-	fds[(int)drive].djob.time = kget_ticks() + 500;
-	kunregister_job(&fds[(int)drive].djob);
-	kregister_job(&(fds[(int)drive].djob));
+void prepare_motor_off(unsigned int drive) {
+	if (fds[drive].motor_off_timer) {
+		ktimer_stop(fds[drive].motor_off_timer);
+		fds[drive].motor_off_timer = 0;
+	}
+	fds[drive].motor_off_timer = ktimer_start(motor_stop[drive], 5000, 1);
 }
 
-int seek_track(char drive, int track) {
-	if(drive < 0 || drive >= MAX_DRIVES){
+int seek_track(unsigned int drive, unsigned int track)
+{
+	if (drive < 0 || drive >= MAX_DRIVES){
 		return -1;
 	}
 
-	if(track == fds[(int)drive].track) {/* already on right cylinder */
-		kprintf("FDD: fd%u already on right cylinder\n", (int)drive);
+	if (track == fds[drive].track) {/* already on right cylinder */
+		kprintf("FDD: fd%u already on right cylinder\n", drive);
 		return 0;
 	}
 
 	motor_on(drive);
 
-	prepare_wait_irq(6);
+	prepare_floppy_wait_irq();
 	send_command(SEEK);
 	send_command(drive);
 	send_command(track);
+	floppy_wait_irq();
 
-	wait_irq(6);
 	fd_seeked = drive;
 
 	sense_interrupt();
-	if(track != fds[(int)drive].track) {
-		kprintf("FDD: ERROR: fd%u couldn't seek\n", (int)drive);
+	if (track != fds[drive].track) {
+		kprintf("FDD: ERROR: fd%u couldn't seek\n", drive);
 		prepare_motor_off(drive);
 		return -2;
 	}
-	kprintf("FDD: fd%u: Seeked track succesfully\n", (int)drive);
+	kprintf("FDD: fd%u: Seeked track succesfully\n", drive);
 	prepare_motor_off(drive);
 	return 0;
 }
@@ -231,43 +263,39 @@ void reset_flipflop_dma() {
         outportb(0xC, 0);
 }
 
-void motor_0_off() {
-	if(fds[0].motor == 0)
+void motor_off(unsigned int drive)
+{
+	if (fds[drive].motor == 0) {
 		return;
-	motors &= ~1;
-	fds[0].motor = 0;
+	}
+	motors &= ~(1 << drive);
+	fds[drive].motor = 0;
 	outportb(FLOPPY_FIRST + DIGITAL_OUTPUT_REGISTER, 0xC | motors << 4);
-	print("FDD: Motor 0 off\n");
+	kprintf("FDD: Motor %u off\n", drive);
 }
 
-void motor_1_off() {
-	if(fds[1].motor == 0)
-		return;
-	motors &= ~2;
-	fds[1].motor = 0;
-	outportb(FLOPPY_FIRST + DIGITAL_OUTPUT_REGISTER, 0xC | motors << 4);
-	print("FDD: Motor 1 off\n");
-}
-
-int read_sector(char drive, unsigned char sector, unsigned char head, unsigned char cylinder, unsigned long buffer)
-{	/* TODO: Combine read_sector and write_sector */
+int read_sector(unsigned int drive, unsigned char sector, unsigned char head, unsigned char cylinder, unsigned long buffer)
+{
+	/* TODO: Combine read_sector and write_sector */
 	int a;
 
-	if(drive < 0 || drive >= MAX_DRIVES)
-		return -1;
-
-	if(!fds[(int)drive].type) {
+	if (drive >= MAX_DRIVES) {
 		return -1;
 	}
-	if(inportb(FLOPPY_FIRST + DIGITAL_INPUT_REGISTER) & 0x80) { /* disk was changed */
+
+	if (!fds[drive].type) {
+		return -1;
+	}
+	if (inportb(FLOPPY_FIRST + DIGITAL_INPUT_REGISTER) & 0x80) {
+		/* disk was changed */
 		void (*motor_off)();
 
 		seek_track(drive, 1);
 		calibrate_drive(drive);
-		motor_off = motor_stop[(int)drive];
+		motor_off = motor_stop[drive];
 		motor_off();
-		if(inportb(FLOPPY_FIRST + DIGITAL_INPUT_REGISTER) & 0x80) {
-			kprintf("FDD: There is not floppy in fd%u", (int)drive);
+		if (inportb(FLOPPY_FIRST + DIGITAL_INPUT_REGISTER) & 0x80) {
+			kprintf("FDD: There is not floppy in fd%u", drive);
 			return -2;
 		} else {
 			print("FDD: Floppy changed, trying again\n");
@@ -278,7 +306,7 @@ int read_sector(char drive, unsigned char sector, unsigned char head, unsigned c
 
 	outportb(FLOPPY_FIRST + CONFIGURATION_CONTROL_REGISTER, 0);
 
-	if(seek_track(drive, cylinder)) {
+	if (seek_track(drive, cylinder)) {
 		return -1; /* uhm, should we try to seek few times more? */
 	}
 
@@ -291,7 +319,7 @@ int read_sector(char drive, unsigned char sector, unsigned char head, unsigned c
 
 	kwait(floppy_params.head_settle_time);
 	wait_floppy();
-	prepare_wait_irq(6);
+	prepare_floppy_wait_irq();
 	send_command(READ_DATA);
 	send_command((head << 2) | drive);
 	send_command(cylinder);
@@ -304,7 +332,7 @@ int read_sector(char drive, unsigned char sector, unsigned char head, unsigned c
 
 	kprintf("FDD: BPS: %u, SPT: %u, GL: %u, DL: %u\n", floppy_params.bytes_per_sector, floppy_params.sectors_per_track, floppy_params.gap_length, floppy_params.data_length);
 
-	wait_irq(6);
+	floppy_wait_irq();
 	for(a = 0; a < 7; a++) { /* TODO: Put these values somewhere? */
 		wait_floppy_data();
 		inportb(FLOPPY_FIRST + DATA_FIFO);
@@ -313,14 +341,11 @@ int read_sector(char drive, unsigned char sector, unsigned char head, unsigned c
 	return 0;
 }
 
-int write_sector(char drive, unsigned char sector, unsigned char head, unsigned char cylinder, unsigned long buffer)
+int write_sector(unsigned int drive, unsigned char sector, unsigned char head, unsigned char cylinder, unsigned long buffer)
 {
 	int a;
 
-	if(drive < 0 || drive >= MAX_DRIVES)
-		return -1;
-
-	if(!fds[(int)drive].type) {
+	if (drive >= MAX_DRIVES || !fds[drive].type) {
 		return -1;
 	}
 
@@ -329,10 +354,10 @@ int write_sector(char drive, unsigned char sector, unsigned char head, unsigned 
 
 		seek_track(drive, 1);
 		calibrate_drive(drive);
-		motor_off = motor_stop[(int)drive];
+		motor_off = motor_stop[drive];
 		motor_off();
-		if(inportb(FLOPPY_FIRST + DIGITAL_INPUT_REGISTER) & 0x80) {
-			kprintf("FDD: There is not floppy in fd%u", (int)drive);
+		if (inportb(FLOPPY_FIRST + DIGITAL_INPUT_REGISTER) & 0x80) {
+			kprintf("FDD: There is not floppy in fd%u", drive);
 			return -2;
 		} else {
 			print("FDD: Floppy changed, trying again\n");
@@ -356,7 +381,8 @@ int write_sector(char drive, unsigned char sector, unsigned char head, unsigned 
 
 	wait_floppy();
 	kwait(floppy_params.head_settle_time);
-	prepare_wait_irq(6);
+
+	prepare_floppy_wait_irq();
 	send_command(WRITE_DATA);
 	send_command((head << 2) | drive);
 	send_command(cylinder);
@@ -366,10 +392,9 @@ int write_sector(char drive, unsigned char sector, unsigned char head, unsigned 
 	send_command(floppy_params.sectors_per_track); /*last sector*/
 	send_command(floppy_params.gap_length);        /*27 default gap3 value*/
 	send_command(floppy_params.data_length);       /*default value for data length*/
+	floppy_wait_irq();
 
-	wait_irq(6);
-
-	for(a = 0; a < 7; a++) {
+	for (a = 0; a < 7; a++) {
 		wait_floppy_data();
 		inportb(FLOPPY_FIRST + DATA_FIFO);
 	}
@@ -379,7 +404,8 @@ int write_sector(char drive, unsigned char sector, unsigned char head, unsigned 
 }
 
 
-int read_block(BLOCK_DEVICE *self, size_t num, void * buf) {
+int read_block(BLOCK_DEVICE *self, size_t num, void * buf)
+{
 	int sector;
 	int head;
 	int cylinder;
@@ -404,6 +430,6 @@ int write_block(BLOCK_DEVICE *self, size_t num, const void * buf) {
 	sector = num % floppy_params.sectors_per_track + 1;
 
 	memcpy(fdbuf, buf, self->block_size);
-	return write_sector((char)self->index, sector, head, cylinder, (unsigned long)fdbuf);
+	return write_sector(self->index, sector, head, cylinder, (unsigned long)fdbuf);
 }
 
