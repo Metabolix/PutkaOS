@@ -1,3 +1,4 @@
+BITS 32
 global set_bit
 set_bit:
 	mov ecx, [esp+8]

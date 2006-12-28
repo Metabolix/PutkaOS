@@ -1,12 +1,12 @@
 
 CC=gcc
-CFLAGS=-Wall -fomit-frame-pointer -fno-builtin -nostdinc -I../include -O2 -s
+CFLAGS=-Wall -fomit-frame-pointer -fno-builtin -nostdinc -I../include -O2 -s -m32
 
 ASM=nasm
 ASMFLAGS=-f elf
 
 ASM_SOURCES=start.s gdt_asm.s irq_asm.s isrs.s bit.s thread_asm.s
-C_SOURCES=gdt.c io.c isr.c main.c mem.c panic.c timer.c floppy.c idt.c irq.c keyboard.c malloc.c memory.c screen.c string.c kprintf.c blockdev.c thread.c process.c regs.c
+C_SOURCES=gdt.c io.c isr.c main.c mem.c panic.c timer.c floppy.c idt.c irq.c keyboard.c memory.c screen.c string.c kprintf.c blockdev.c thread.c process.c regs.c
 
 ASM_OBJS=$(ASM_SOURCES:.s=.o)
 C_OBJS=$(C_SOURCES:.c=.o)
@@ -14,7 +14,7 @@ C_OBJS=$(C_SOURCES:.c=.o)
 OBJS=$(ASM_OBJS) $(C_OBJS)
 
 all: $(ASM_OBJS) $(C_OBJS)
-	ld -T link.ld -o ../kernel $(ASM_OBJS) $(C_OBJS)
+	ld -T link.ld --format=elf32-i386 --oformat=elf32-i386 -o ../kernel $(ASM_OBJS) $(C_OBJS)
 
 $(ASM_OBJS): %.o: %.s
 	$(ASM) $(ASMFLAGS) $< -o $@

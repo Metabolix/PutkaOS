@@ -1,3 +1,4 @@
+BITS 32
 extern active_thread_ptr
 extern irq_handler
 

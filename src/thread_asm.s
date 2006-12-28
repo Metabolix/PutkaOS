@@ -1,3 +1,4 @@
+BITS 32
 global start_idle_thread
 extern active_process
 

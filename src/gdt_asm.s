@@ -1,3 +1,4 @@
+BITS 32
 global gdt_flush
 extern gdt_pointer
 
