@@ -94,6 +94,7 @@ int find_free_pte()
 
 void mmap(unsigned int real, unsigned int virtual_addr) {
 	page_table[virtual_addr >> 12] = real | 3;
+	kprintf("Mmaped %p at %p (%x)\n", real, virtual_addr, page_table[virtual_addr >> 12]);
 	set_cr3(page_directory);
 }
 
@@ -137,8 +138,8 @@ void free_real(void * pointer) {
 	block = ((unsigned int)pointer) / MEMORY_BLOCK_SIZE;
 
 	if (get_bit(memory_table[block >> 4], ((block & 0x0f) << 1) + 1)) {
-		kprintf("Trying to free protected memory at %p", pointer);
-		panic("!");
+		kprintf("Trying to free protected memory at %p\n", pointer);
+		panic("Trying to  free protected memory!");
 	}
 
 	if (block < continue_block) {

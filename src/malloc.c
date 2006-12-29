@@ -80,7 +80,6 @@ area mkmallocmem(size_t size) { /* make space for memarea */
 			break;
 		}
 	}
-	kprintf("We had to do %d cycles\n", cycles);
 	
 	while(mmem_free_p) { /* find big enough free thing */
 		for(a = 0; a < 255; a++) {
@@ -261,8 +260,8 @@ void kfree(void * pointer) {
 	if(last_alloc < pages_mapped + 1) {
 		
 		for(a = last_alloc; a <= pages_mapped; a++ ) {
-			free_real((void*)((page_table[0x1000 + 1024 * last_alloc]) & ~0xFFF));
-			unmmap(0x1000000 + 0x1000 * last_alloc);
+			free_real((void*)((page_table[0x1000 + 1024 * a]) & ~0xFFF));
+			unmmap(0x1000000 + 0x1000 * a);
 			kprintf("Freed a page\n");
 		}
 	}
