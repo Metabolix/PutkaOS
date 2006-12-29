@@ -94,10 +94,12 @@ int find_free_pte()
 
 void mmap(unsigned int real, unsigned int virtual_addr) {
 	page_table[virtual_addr >> 12] = real | 3;
+	set_cr3(page_directory);
 }
 
 void unmmap(unsigned int virtual_addr) {
-	page_table[virtual_addr >> 12] = 2;
+	page_table[virtual_addr >> 12] = 0;
+	set_cr3(page_directory);
 }
 
 
@@ -105,7 +107,7 @@ void init_pde(unsigned int pde) {
 	unsigned int i;
 	unsigned int pde_pointer = MEMORY_PDE_LEN * pde;
 	for(i = 0; i < MEMORY_PDE_LEN; i++) {
-		page_table[pde_pointer + i] = 2;
+		page_table[pde_pointer + i] = 0;
 	}
 	page_directory[pde] = (((unsigned int)page_table + pde_pointer) | 3);
 }
@@ -135,7 +137,8 @@ void free_real(void * pointer) {
 	block = ((unsigned int)pointer) / MEMORY_BLOCK_SIZE;
 
 	if (get_bit(memory_table[block >> 4], ((block & 0x0f) << 1) + 1)) {
-		panic("Trying to free protected memory!");
+		kprintf("Trying to free protected memory at %p", pointer);
+		panic("!");
 	}
 
 	if (block < continue_block) {
@@ -209,14 +212,14 @@ void init_memory(unsigned int memory) {
 		page_table[a] = address | 3;
 	}
 	for (a = 512; a < block_count; a++, address += MEMORY_BLOCK_SIZE) {
-		page_table[a] = address | 2;
+		page_table[a] = address;
 		if(a % 1024 == 0) {
 			kprintf("&Page_table[%d] is %x\n", a, &page_table[a]);
 		}
 	}
 
 	for(a = 4096; a < 6144; a++) {
-		page_table[a] = 0;
+		page_table[a] = 2;
 	}
 
 	/* page directories for malloc */

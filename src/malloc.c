@@ -47,7 +47,7 @@ void init_malloc_map(malloc_mem * mem) {
 void malloc_init() {
 	malloc_mem_first = (malloc_mem*)alloc_page();
 
-	pages_mapped = 0;
+	pages_mapped = -1;
 	
 	init_malloc_map(malloc_mem_first);
 	malloc_mem_first->free--;
@@ -221,13 +221,14 @@ void * kmalloc(size_t size) {
 	area memarea = mkmallocmem(size);
 	unsigned int page_first = (((unsigned int)memarea.start - 0x1000000) & ~0xFFF) >> 12;
 	unsigned int page_last = (((unsigned int)memarea.start + memarea.size - 0x1000000) & ~0xFFF) >> 12;
-	unsigned int a = 0;
+	int a = 0;
 	unsigned int cur_page = page_first;
 
 	if(page_last < pages_mapped) {
 		for(a = memarea.size; a > 0; a -= 4096, cur_page++) {
 			mmap((unsigned int)alloc_real(), (cur_page + 0x1000) << 12);
-			kprintf("Mapped a page\n");
+			kprintf("Mapped a page at %x\n", (cur_page + 0x1000) << 12);
+			kprintf("We will return %x\n", memarea.start);
 		}
 		pages_mapped = page_last;
 	}
@@ -239,6 +240,7 @@ void kfree(void * pointer) {
 	int temp;
 	int a;
 	int last_alloc = 0;
+	extern unsigned int * page_table;
 	
 	destroymallocmem(pointer);
 	
@@ -256,10 +258,10 @@ void kfree(void * pointer) {
 		mmem_alloc_p = (malloc_mem*)mmem_alloc_p->next;
 	}
 	
-	if(last_alloc < pages_mapped) {
+	if(last_alloc < pages_mapped + 1) {
 		
 		for(a = last_alloc; a <= pages_mapped; a++ ) {
-			free_real((void*)(*((unsigned int *)0x1000000 + 0x1000 * last_alloc) & ~0xFFF));
+			free_real((void*)((page_table[0x1000 + 1024 * last_alloc]) & ~0xFFF));
 			unmmap(0x1000000 + 0x1000 * last_alloc);
 			kprintf("Freed a page\n");
 		}
