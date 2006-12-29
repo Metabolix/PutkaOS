@@ -4,150 +4,264 @@
 #include <screen.h>
 
 
-typedef struct memory_block {
+
+typedef struct _area {
 	void * start;
-	int len;
+	size_t size;
+} area;
+
+typedef struct _malloc_mem {
+	area free_memory[255];
+	area alloc_memory[255];
+
+	void * next;  /* next malloc_mem */
+	int free;  /* how many free entries in free_memory */
+	int alloc; /* how many free entries in alloc_memory */
+	int reserved; /* what should we do with this? ;) */
+} malloc_mem;
+
+typedef struct _mem_maps {  /* this would be the first thing which needs cleanup */
+	int pte[1023];   /* we start at max_memory + 1*/
 	void * next;
-} memory_block_t;
+} mem_maps;
 
-typedef struct memory_entry {
-	int pte;
-	memory_block_t * mem;
-} memory_entry_t;
+mem_maps * mem_map_first;
+malloc_mem * malloc_mem_first;
 
-#define memarea_entries 511
+int pages_mapped; /* pages mapped from beginning of the pages_table[4096] */
 
-typedef struct memory_area { 
-	memory_entry_t entries[511]; /* 511 */ 
-	void * next;
-} memory_area_t;
+/* init_malloc_map - inits one malloc memory entry 
+ *
+ * @mem: pointer to the entry
+ */
 
-/*typedef struct list {
-	void * pointer;
-	list_t * next;
-} list_t;*/
-
-#define plist_memblocks 341 /* (4096-sizeof(void*)) / sizeof(memory_block) */
-
-typedef struct page_list {
-	memory_block_t memblock[plist_memblocks];
-	void * next;
-} page_list_t;
-
-page_list_t * mem_pages = 0; 
-memory_area_t * mem_area = 0;
-
-extern long * page_directory;
-extern long * page_table;
-extern void init_pde(int p);
-memory_block_t * get_memblock();
-memory_entry_t * get_mementry();
-
-/* Get area of free PTEs (and create them if need)  */
-int get_free_pte_area(int size) {
-        int a, i, find = 0;
-        for(i = 0; i < MEMORY_PDE_LEN; i++) {
-                if(page_directory[i] & 1) { /* if this PDE exists */
-                        for(a = 0; a < MEMORY_PDE_LEN; a++) {
-                                if(!(page_table[i * MEMORY_PDE_LEN + a] & 1)) {
-                                        if(++find == size)	/* if we found many enough */
-						return MEMORY_PDE_LEN * i + a;
-                                }
-				else
-					find = 0;
-                        }
-                } else {
-			init_pde(i);
-			i--;
-		}
-        }
-        panic("Out of PTEs");
-        return 0;
+void init_malloc_map(malloc_mem * mem) {
+	memset(malloc_mem_first, 0, sizeof(malloc_mem));
+	
+	malloc_mem_first->free=255;
+	malloc_mem_first->alloc=255;
 }
 
+/* malloc_init - inits things */
+ 
+void malloc_init() {
+	malloc_mem_first = (malloc_mem*)alloc_page();
 
-void * alloc_pages(int size)
-{
-	int a = 0;
-	/*int got = 0;*/
-	/*memory_area_t * mem_ar = mem_area;*/
-	int pte = get_free_pte_area(size); /* TODO: support areas which are not multiples of 4KB */
+	pages_mapped = 0;
+	
+	init_malloc_map(malloc_mem_first);
+	malloc_mem_first->free--;
+	malloc_mem_first->free_memory[0].start = (void*)0x1000000;	/* first 2 megabytes are reserved */
+	malloc_mem_first->free_memory[0].size = 0x800000;
+}
 
-	int mem_got = size;
-	memory_block_t * mem_block = get_memblock();
+/* mkmallocmem - find place for memory and marks it as allocated (doesn't allocate memory!)
+ *
+ * @size: size of the area to allocate
+ *
+ * returns area which was allocated */
+
+area mkmallocmem(size_t size) { /* make space for memarea */
+	malloc_mem * mmem_free_p = malloc_mem_first;
+	malloc_mem * mmem_alloc_p = malloc_mem_first;
+	int a,b;
+	int cycles = 0;
+	area ar = {(void*)0,0}; /* for nothing... */
+
+	while(!mmem_alloc_p->alloc) { /* find new alloc thing */
+		if(mmem_alloc_p->next) { 
+			mmem_alloc_p = (malloc_mem *) mmem_alloc_p->next;
+			cycles++;
+		} else {
+			mmem_alloc_p->next = (malloc_mem *) alloc_page();
+			init_malloc_map(mmem_alloc_p->next);
+			mmem_alloc_p = (malloc_mem *)mmem_alloc_p->next;
+			cycles++;
+			break;
+		}
+	}
+	kprintf("We had to do %d cycles\n", cycles);
+	
+	while(mmem_free_p) { /* find big enough free thing */
+		for(a = 0; a < 255; a++) {
+			if(mmem_free_p->free_memory[a].size >= size) { /* we can "take" memory from this entry */
+				for(b = 0; b < 255; b++) {
+					if(!mmem_alloc_p->alloc_memory[b].size) { /* free alloc entry */
+						mmem_alloc_p->alloc--;
+						mmem_alloc_p->alloc_memory[b].size = size;
+						mmem_alloc_p->alloc_memory[b].start = mmem_free_p->free_memory[a].start;
+
+						mmem_free_p->free_memory[a].start += size; /* move the free area forward */
+						mmem_free_p->free_memory[a].size -= size;
+
+						kprintf("mmem_alloc_p->alloc=%d, mmem_alloc_p->alloc_memory[%d].size == %x .start = %x, mmem_free_p->free_memory[%d].size = %x, .start=%x\n", mmem_alloc_p->alloc, b, mmem_alloc_p->alloc_memory[b].size, (unsigned int) mmem_alloc_p->alloc_memory[b].start, a, mmem_free_p->free_memory[a].size, (unsigned int) mmem_free_p->free_memory[a].start);
 
 
+						return mmem_alloc_p->alloc_memory[b];
+					}
+				}
+
+
+			}
+		}
+		mmem_free_p = (malloc_mem *)mmem_free_p->next;
+	}
+	panic("OOM 8)\n");
+	return ar;			
+}
+
+area destroymallocmem(void * start) {
+	malloc_mem * mmem_free_p = malloc_mem_first;
+	malloc_mem * mmem_alloc_p = malloc_mem_first;
+	int a;
+	int break_loop = 0;
+	int cycles = 0;
+	area ar = {(void*)0, 0};
+	int combine = 0;
+	area * to_combine = (area *)0;
+
+	while(mmem_alloc_p) { /* look for start */
+		for(a = 0; a < 255; a++) {
+			if((unsigned int)mmem_alloc_p->alloc_memory[a].start == (unsigned int)start) {
+				ar = mmem_alloc_p->alloc_memory[a];
+				mmem_alloc_p->alloc++;
+				mmem_alloc_p->alloc_memory[a].size = 0;
+				break_loop = 1;
+				break;
+			}
+		}
+		if(break_loop)
+			break;
+		mmem_alloc_p = mmem_alloc_p->next;
+		cycles++;
+	}
+
+	if(!mmem_alloc_p) {
+		kprintf("Couldn't find thing to free\n");
+		return ar;
+	}
+
+	kprintf("We had to do %d cycles\n", cycles);
+	
+	while(mmem_free_p) {
+		for(a = 0; a < 255; a++) {
+			if(mmem_free_p->free_memory[a].size)
+				kprintf("mmem_free_p->free_memory[%d].size = %x, .start=%x ar.start==%x start==%x ar.size==%x\n", a, mmem_free_p->free_memory[a].size, (unsigned int) mmem_free_p->free_memory[a].start, (unsigned int)ar.start, (unsigned int)start, ar.size);
+			if((unsigned int)mmem_free_p->free_memory[a].start == ((unsigned int)start + ar.size)) {
+				if(!(unsigned int)to_combine) {
+					kprintf("Combined area to area %x:%x\n", mmem_free_p->free_memory[a].start, mmem_free_p->free_memory[a].size);
+					mmem_free_p->free_memory[a].start -= ar.size;
+					to_combine = &mmem_free_p->free_memory[a];
+					combine = 0;
+				} else {
+					if(combine) {
+						kprintf("Combined area to area %x:%x\n", to_combine->start, to_combine->size);
+						to_combine->start -= mmem_free_p->free_memory[a].size;
+						mmem_free_p->free_memory[a].size = 0;
+						mmem_free_p->free++;
+						
+						return ar;
+						/*break_loop = 1;
+						break;*/
+					}
+				}
+			}
+			if(((unsigned int)mmem_free_p->free_memory[a].start + mmem_free_p->free_memory[a].size) == (unsigned int) start) {
+				if(!(unsigned int)to_combine) {
+					kprintf("Combined area to area %x:%x\n", mmem_free_p->free_memory[a].start, mmem_free_p->free_memory[a].size);
+					mmem_free_p->free_memory[a].size += ar.size;
+					to_combine = &mmem_free_p->free_memory[a];
+					combine = 1;
+				} else {
+					if(!combine) {
+						kprintf("Combined area to area %x:%x\n", to_combine->start, to_combine->size);
+						to_combine->size += mmem_free_p->free_memory[a].size;
+						mmem_free_p->free_memory[a].size = 0;
+						mmem_free_p->free++;
+						
+						return ar;
+						/*break_loop = 1;
+						break;*/
+					}
+				}
+			}
+		}
+		mmem_free_p = (malloc_mem *)mmem_free_p->next;
+	}
+	if(to_combine)
+		return ar;
+	kprintf("MEM: Couldn't combine area to any existing area\n");
+	
+	mmem_free_p = malloc_mem_first;
+	while(mmem_free_p) {
+		if(mmem_free_p->free) {
+			for(a = 0; a < 255; a++) {
+				if(mmem_free_p->free_memory[a].size == 0) {
+					mmem_free_p->free--;
+					mmem_free_p->free_memory[a] = ar;
+					return ar;
+				}
+			}
+		}
+		mmem_free_p = (malloc_mem*)mmem_free_p->next;
+		if((unsigned int)mmem_free_p == 0)
+			mmem_free_p = (malloc_mem *)alloc_page();
+	}
+	panic("MEM: Couldn't mark free area");
+	return ar;
+}
 	
 
-	mem_block->start = alloc_real();
-	mem_block->len = 4096;
-	mem_got--;
+/* kmalloc - our malloc function 
+ *
+ * @size: size of the area to allocate
+ */
 
-	while(mem_got > 0){ 
-		mem_block->next = get_memblock();	/* switch to next block */
-		mem_block = (memory_block_t*)mem_block->next;
-		
-		mem_block->start = alloc_real();	/* allocate */
-		mem_block->len = 4096;
-		
-		page_table[pte + a] = (int)mem_block->start | 3; /* map address */
+void * kmalloc(size_t size) {
+	area memarea = mkmallocmem(size);
+	unsigned int page_first = (((unsigned int)memarea.start - 0x1000000) & ~0xFFF) >> 12;
+	unsigned int page_last = (((unsigned int)memarea.start + memarea.size - 0x1000000) & ~0xFFF) >> 12;
+	unsigned int a = 0;
+	unsigned int cur_page = page_first;
 
-		mem_got -= 1; /* -= memblock_len */ 
-		a++;
+	if(page_last < pages_mapped) {
+		for(a = memarea.size; a > 0; a -= 4096, cur_page++) {
+			mmap((unsigned int)alloc_real(), (cur_page + 0x1000) << 12);
+			kprintf("Mapped a page\n");
+		}
+		pages_mapped = page_last;
 	}
-
-	return (void*)(pte * 4096);
+	return memarea.start;
 }
 
-
-memory_block_t * get_memblock() { /* get area for memory*/
+void kfree(void * pointer) {
+	malloc_mem * mmem_alloc_p = malloc_mem_first;
+	int temp;
 	int a;
-	void * pointer;
-	page_list_t * pages_p = mem_pages;
-
-	if(pages_p == 0) {
-		pages_p = alloc_page();
-		memset(pages_p, 0, 4096);
-	}
-
-	while(1) {
-		for(a = 0; a < plist_memblocks; a++) { /* loop through all blocks */
-			pointer = (void *)pages_p->memblock;
-			if(((memory_block_t *) pointer)[a].len == 0) {
-				return &((memory_block_t*)(pointer))[a];
+	int last_alloc = 0;
+	
+	destroymallocmem(pointer);
+	
+	while(mmem_alloc_p) {
+		if(mmem_alloc_p->alloc != 255) {
+			for(a = 0; a < 255; a++) {
+				if(mmem_alloc_p->alloc_memory[a].size != 0) {
+					temp = (((unsigned int)mmem_alloc_p->alloc_memory[a].start + mmem_alloc_p->alloc_memory[a].size - 0x1000000) & ~0xFFF) >> 12;
+					if(temp > last_alloc) {
+						last_alloc = temp;
+					}
+				}
 			}
 		}
-		if(pages_p->next == 0) {	/* use next page_list */
-			pages_p->next = alloc_page();
-			memset(pages_p->next, 0, 4096);
-		}
-		pages_p = pages_p->next;
+		mmem_alloc_p = (malloc_mem*)mmem_alloc_p->next;
 	}
-	return 0;
-}
-
-memory_entry_t * get_mementry() {
-	int a;
-	void * pointer;
-	memory_area_t * mem_area_p = mem_area;
-
-	if(mem_area == 0) {
-                mem_area = (memory_area_t *) alloc_page();
-		memset(mem_area, 0, 4096);
-	}
-
-	while(1) {
-		for(a = 0; a < memarea_entries; a++) {
-			pointer = mem_area_p->entries;
-			if(((memory_entry_t*) pointer)[a].mem == 0) {
-				return &((memory_entry_t*)(pointer))[a];
-			}
+	
+	if(last_alloc < pages_mapped) {
+		
+		for(a = last_alloc; a <= pages_mapped; a++ ) {
+			free_real((void*)(*((unsigned int *)0x1000000 + 0x1000 * last_alloc) & ~0xFFF));
+			unmmap(0x1000000 + 0x1000 * last_alloc);
+			kprintf("Freed a page\n");
 		}
-		if(mem_area_p->next == 0) {
-			mem_area_p->next = alloc_page();
-			memset(mem_area_p->next, 0, 4096);
-		}
-		mem_area_p = mem_area_p->next;
 	}
-	return 0;
 }

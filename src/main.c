@@ -34,6 +34,7 @@ void kmain(multiboot_info_t* mbt, unsigned int magic)
 	keyboard_install();
 	timer_install();
 	install_floppy();
+	malloc_init();
 
 	outportb(0x21,0x0); /* Don't mask any IRQ */
 	outportb(0xa1,0x0);
@@ -55,6 +56,17 @@ void kmain(multiboot_info_t* mbt, unsigned int magic)
 		kprintf("%02x ", (int)(unsigned char)buf[i]);
 		if ((i+1)%16 == 0) kprintf("\n");
 	}
+
+	void * addr = kmalloc(5);
+	void * addr2 = kmalloc(6);
+	kprintf("Kmalloc(5) == %x, Kmalloc(6)==%x\n", addr, addr2);
+	kfree(addr2);
+	/*kfree(addr);*/
+	kprintf("Kmalloc(4) == %x, Kmalloc(6)==%x\n", kmalloc(4), kmalloc(6));
+	int * num = kmalloc(4);
+
+	*num = 5;
+
 	/*strcpy(buf,"Moi, nyt on menossa hassu kirjoitustesti\n");
 	dev = dopen(&fd_devices[1]);
 	dwrite(buf, 1, 256, dev);

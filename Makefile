@@ -6,7 +6,7 @@ ASM=nasm
 ASMFLAGS=-f elf
 
 ASM_SOURCES=start.s gdt_asm.s irq_asm.s isrs.s bit.s thread_asm.s
-C_SOURCES=gdt.c io.c isr.c main.c mem.c panic.c timer.c floppy.c idt.c irq.c keyboard.c memory.c screen.c string.c kprintf.c blockdev.c thread.c process.c regs.c
+C_SOURCES=gdt.c io.c isr.c main.c mem.c panic.c timer.c floppy.c idt.c irq.c keyboard.c memory.c screen.c string.c kprintf.c blockdev.c thread.c process.c regs.c malloc.c
 
 ASM_SRC=$(addprefix src/,$(ASM_SOURCES))
 C_SRC=$(addprefix src/,$(C_SOURCES))

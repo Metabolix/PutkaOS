@@ -1,4 +1,7 @@
 #ifndef _MALLOC_H
 #define _MALLOC_H
-void * alloc_pages(int size);
+#include <stddef.h>
+extern void malloc_init();
+extern void * kmalloc(size_t size);
+extern void kfree(void * pointer);
 #endif
