@@ -19,18 +19,18 @@ int abs_int(int x)
 	return x;
 }
 
-int sprintf_uint(unsigned int luku)
+int sprintf_uint(unsigned int num)
 {
 	int i = BUF_KOKO;
-	if (!luku) {
+	if (!num) {
 		sprintf_buf[0] = '0';
 		sprintf_buf[1] = 0;
 		return 1;
 	}
-	while (luku) {
-		sprintf_buf[--i] = (luku % 10) + '0';
-		luku /= 10;
-	}
+	do {
+		sprintf_buf[--i] = (num % 10) + '0';
+		num /= 10;
+	} while (num);
 	memmove(sprintf_buf, sprintf_buf + i, BUF_KOKO - i);
 	sprintf_buf[BUF_KOKO - i] = 0;
 	return BUF_KOKO - i;
@@ -39,11 +39,10 @@ int sprintf_uint(unsigned int luku)
 int sprintf_uoct(unsigned int num)
 {
 	int i = BUF_KOKO;
-	while (num) {
+	do {
 		sprintf_buf[--i] = (num & 0x07) + '0';
 		num >>= 3;
-	}
-
+	} while (num);
 
 	if (tag.sharp) {
 		memmove(sprintf_buf + 1, sprintf_buf + i, BUF_KOKO - i);
@@ -60,10 +59,10 @@ int sprintf_uoct(unsigned int num)
 int sprintf_hex(unsigned int num)
 {
 	int i = BUF_KOKO;
-	while (num) {
+	do {
 		sprintf_buf[--i] = "0123456789abcdef"[num & 0x0f];
 		num >>= 4;
-	}
+	} while (num);
 
 	memmove(sprintf_buf, sprintf_buf + i, BUF_KOKO - i);
 	sprintf_buf[BUF_KOKO - i] = 0;
@@ -73,10 +72,10 @@ int sprintf_hex(unsigned int num)
 int sprintf_heX(unsigned int num)
 {
 	int i = BUF_KOKO;
-	while (num) {
+	do {
 		sprintf_buf[--i] = "0123456789ABCDEF"[num & 0x0f];
 		num >>= 4;
-	}
+	} while (num);
 
 	memmove(sprintf_buf, sprintf_buf + i, BUF_KOKO - i);
 	sprintf_buf[BUF_KOKO - i] = 0;
