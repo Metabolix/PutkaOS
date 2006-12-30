@@ -6,6 +6,8 @@
 #include <floppy.h>
 #include <mem.h>
 
+#define nop_func()
+
 volatile struct tm sys_time = {0};
 volatile struct timeval uptime;
 
@@ -171,6 +173,6 @@ void kwait(unsigned int msec)
 	jatkoaika.sec += msec / 1000;
 	jatkoaika.sec += (jatkoaika.usec / 1000000);
 	jatkoaika.usec %= 1000000;
-	while (jatkoaika.sec > uptime.sec);
-	while (jatkoaika.usec > uptime.usec);
+	while (jatkoaika.sec > uptime.sec) nop_func();
+	while (jatkoaika.sec == uptime.sec && jatkoaika.usec > uptime.usec) nop_func();
 }
