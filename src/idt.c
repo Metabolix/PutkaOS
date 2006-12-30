@@ -10,11 +10,6 @@ __asm__(
 "    lidt idt_pointer\n"
 "    ret\n"
 );
-#if 0
-void idt_load() {
-	__asm__("lidt %0": : "g"(idt_pointer));
-}
-#endif
 
 void idt_set_gate(unsigned char num, unsigned long base, unsigned short sel, unsigned char flags)
 {

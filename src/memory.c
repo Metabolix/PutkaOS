@@ -15,8 +15,8 @@ unsigned int continue_block = 0;
 unsigned int ram_count = 20 * 1024;
 unsigned int block_count = 5 * 1024;
 
-unsigned int get_cr0();
-void set_cr0(int cr0);
+unsigned long get_cr0();
+void set_cr0(unsigned long cr0);
 void set_cr3(void*);
 __asm__(
 "get_cr0:\n"
@@ -176,7 +176,7 @@ void free_page(void * pointer) {
 	/* it doesn't exist anymore, unmmap */
 	if(block >> 2 < MAX_MEMORY)
 		page_table[block] &= ~1;
- 
+
 
 	if(block < continue_block)
 		continue_block = block;

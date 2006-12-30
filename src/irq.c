@@ -7,10 +7,10 @@
 
 #define io_wait() asm("nop")
 
-void * irq_handlers[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-char irq_wait[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+void (*irq_handlers[16])() = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+volatile char irq_wait[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-void irq_remap(int offset1, int offset2)
+void irq_remap(unsigned char offset1, unsigned char offset2)
 {
 	/*char  a1, a2;
 
@@ -40,28 +40,33 @@ void irq_remap(int offset1, int offset2)
 	print("IRQs remapped\n");
 }
 
-int get_irq_wait(int irq);
+void asm_wait_irq(unsigned int irq);
 __asm__(
-"get_irq_wait:\n"
+"asm_wait_irq:\n"
 "    movl 4(%esp), %eax\n"
-"    movl irq_wait(,%eax,4), %eax\n"
+"    lea irq_wait(,%eax,4), %eax\n"
+"asm_wait_irq_loop:\n"
+"    movl (%eax), %edx\n"
+"    cmp 0, %edx\n"
+"    je asm_wait_irq_ret\n"
+"    hlt\n"
+"    jmp asm_wait_irq_loop\n"
+"asm_wait_irq_ret:\n"
 "    ret\n"
 );
 
-void wait_irq(int irq)
+void wait_irq(unsigned int irq)
 {
-	if(irq < 16 && irq >= 0) {
-		/*kprintf("wait_irq: Waiting for irq %u (%#x)\n", irq, irq);*/
-		while (get_irq_wait(irq));
-		/*kprintf("wait_irq: Got irq %u (%#x)\n", irq, irq);*/
+	if (irq < 16) {
+		asm_wait_irq(irq);
 	} else {
 		kprintf("wait_irq: Invalid irq: %u (%#x)\n", irq, irq);
 	}
 }
 
-void prepare_wait_irq(int irq)
+void prepare_wait_irq(unsigned int irq)
 {
-	if(irq < 16 && irq >= 0) {
+	if (irq < 16 && irq >= 0) {
 		irq_wait[irq] = 1;
 	}
 }
@@ -107,16 +112,16 @@ void irq_install()
 	outportb(0x20, 0x20);
 }
 
-void install_irq_handler(int irq, void (*irqhandler()))
+void install_irq_handler(unsigned int irq, void (*irqhandler)())
 {
-	if(irq < 16 && irq >= 0) {
+	if (irq < 16) {
 		irq_handlers[irq] = irqhandler;
 	} else {
 		kprintf("Trying to install irq handler on irq %i, which doesn't exist!\n", irq);
 	}
 }
 
-void uninstall_irq_handler(int irq)
+void uninstall_irq_handler(unsigned int irq)
 {
 	if(irq < 16 && irq >= 0) {
 		if(irq_handlers[irq] == 0) {
@@ -131,15 +136,12 @@ void uninstall_irq_handler(int irq)
 
 void irq_handler(struct regs_t *regs) /* NOTICE: This should be called only from our assembly code! */
 {
-	void (*handler)();
-
 	if (regs->int_no & 0xfffffff0) {
 		kprintf("Irq_handler got irq %u which doesn't exist\n", regs->int_no);
 		dump_regs(regs);
 	} else {
-		if(irq_handlers[regs->int_no]) {
-			handler = irq_handlers[regs->int_no];
-			handler();
+		if (irq_handlers[regs->int_no]) {
+			irq_handlers[regs->int_no]();
 		} else {
 			kprintf("Got interrupt on %u, but we don't have handler for it!\n", regs->int_no);
 		}
@@ -147,9 +149,7 @@ void irq_handler(struct regs_t *regs) /* NOTICE: This should be called only from
 			outportb(0xA0, 0x20);
 		}
 		outportb(0x20, 0x20);
-		if (irq_wait[regs->int_no]) {
-			irq_wait[regs->int_no] = 0;
-		}
+		irq_wait[regs->int_no] = 0;
 	}
 	next_thread();
 }

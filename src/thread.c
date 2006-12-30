@@ -38,17 +38,26 @@ struct regs_t initial_regs = {
 };
 
 /**
- * function kernel_idle_loop - nop & jmp
- */
-void kernel_idle_loop(void)
-{
-	print("Started idle loop...!\n");
-	for(;;);
-}
+ * function kernel_idle_loop - hlt & jmp
+**/
+
+const char *started_idle_loop = "Started idle loop!\n";
+void kernel_idle_loop(void);
+__asm__(
+"kernel_idle_loop:\n"
+"    movl started_idle_loop, %eax\n"
+"    pushl %eax\n"
+"    call print\n"
+"    addl $4, %esp\n"
+"kernel_idle_loop_loop:\n"
+"    hlt\n"
+"    jmp kernel_idle_loop_loop\n"
+"    ret\n"
+);
 
 /**
  * function thread_ending - this is where "ret" leads from a thread entry
- */
+**/
 void thread_ending(void)
 {
 	extern void process_ending(void);
@@ -174,36 +183,3 @@ void next_thread(void)
 	active_thread = find_running_thread();
 	active_thread_ptr = threads + active_thread;
 }
-
-/*
-void unsafe_goto_thread(thread_id_t thread)
-{
-}
-
-void start_kernel_process(t_entry entry, char * esp, uint_t stack_size)
-{
-	if (num_threads || num_processes) {
-		panic("Kernel process must be the first process to start!");
-	}
-	num_threads = num_processes = 1;
-	active_thread = active_process = 0;
-	processes[active_process].num_threads = 1;
-	processes[active_process].running = 1;
-	threads[active_thread].running = 1;
-
-	threads[active_thread].stack = (uint_t)esp - stack_size;
-	initial_regs.ebp = (uint_t)esp;
-
-	esp -= sizeof(t_entry);
-	initial_regs.useresp = (uint_t)esp;
-	*(t_entry*)esp = thread_ending;
-
-	initial_regs.esp = initial_regs.useresp - (7 * 4);
-	initial_regs.eip = (uint_t)entry;
-	esp -= sizeof(struct regs_t);
-	*(struct regs_t*)esp = initial_regs;
-	threads[active_thread].esp = (struct regs_t*)esp;
-	threads[active_thread].process = active_process;
-	threads[active_thread].running = 1;
-}
-*/
