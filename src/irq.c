@@ -47,7 +47,7 @@ __asm__(
 "    lea irq_wait(,%eax,4), %eax\n"
 "asm_wait_irq_loop:\n"
 "    movl (%eax), %edx\n"
-"    cmp 0, %edx\n"
+"    cmp $0, %edx\n"
 "    je asm_wait_irq_ret\n"
 "    hlt\n"
 "    jmp asm_wait_irq_loop\n"
