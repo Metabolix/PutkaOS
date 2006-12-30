@@ -23,9 +23,10 @@ void execute_jobs()
 			continue;
 		}
 		++j;
-		if (timers[i].next_run.sec < uptime.sec ||
-		(timers[i].next_run.sec == uptime.sec
-		&& timers[i].next_run.sec < uptime.sec)) {
+		if (timers[i].next_run.sec > uptime.sec) {
+			continue;
+		}
+		if (timers[i].next_run.sec == uptime.sec && timers[i].next_run.usec > uptime.usec) {
 			continue;
 		}
 
@@ -62,18 +63,16 @@ timer_id_t ktimer_start(void (*func)(void), unsigned int msec, int times)
 	++timer_count;
 	++retval;
 	for (i = 0; timers[i].active; ++i);
+	timers[i].id = retval;
+	timers[i].func = func;
 	timers[i].active = 1;
 	timers[i].times = times;
 	timers[i].times_run = 0;
 	timers[i].freq.sec = msec / 1000;
 	timers[i].freq.usec = 1000 * (msec % 1000);
-	timers[i].next_run = uptime;
-	timers[i].next_run.usec += timers[i].freq.usec;
-	timers[i].next_run.sec += timers[i].freq.sec;
-	timers[i].next_run.sec += (timers[i].next_run.usec / 1000000);
+	timers[i].next_run.usec = uptime.usec + timers[i].freq.usec;
+	timers[i].next_run.sec = uptime.sec + timers[i].freq.sec + (timers[i].next_run.usec / 1000000);
 	timers[i].next_run.usec %= 1000000;
-	timers[i].func = func;
-	timers[i].id = retval;
 	return timers[i].id;
 }
 
