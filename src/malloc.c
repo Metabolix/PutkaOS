@@ -218,12 +218,13 @@ area destroymallocmem(void * start) {
 
 void * kmalloc(size_t size) {
 	area memarea = mkmallocmem(size);
-	unsigned int page_first = (((unsigned int)memarea.start - 0x1000000) & ~0xFFF) >> 12;
-	unsigned int page_last = (((unsigned int)memarea.start + memarea.size - 0x1000000) & ~0xFFF) >> 12;
+	int page_first = ((((unsigned int)memarea.start - 0x1000000) & ~0xFFF) >> 12);
+	int page_last = ((((unsigned int)memarea.start + memarea.size - 0x1000000) & ~0xFFF) >> 12) ;
 	int a = 0;
 	unsigned int cur_page = page_first;
 
-	if(page_last < pages_mapped) {
+	kprintf("Page_first %d, page_last %d, pages_mapped %d\n", page_first, page_last, pages_mapped);
+	if(page_last > pages_mapped) {
 		for(a = memarea.size; a > 0; a -= 4096, cur_page++) {
 			mmap((unsigned int)alloc_real(), (cur_page + 0x1000) << 12);
 			kprintf("Mapped a page at %x\n", (cur_page + 0x1000) << 12);

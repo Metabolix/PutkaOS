@@ -50,7 +50,7 @@ int find_free_block()
 		}
 		//kprintf("It wasn't the %u^th memory_table_entry\n", i);
 	}
-	panic("Out of memory!");
+	panic("MEM: Out of memory!");
 	return 0;
 }
 
@@ -93,6 +93,7 @@ int find_free_pte()
 }
 
 void mmap(unsigned int real, unsigned int virtual_addr) {
+	kprintf("Going to mmap %p at %p\n", real, virtual_addr);
 	page_table[virtual_addr >> 12] = real | 3;
 	kprintf("Mmaped %p at %p (%x)\n", real, virtual_addr, page_table[virtual_addr >> 12]);
 	set_cr3(page_directory);
@@ -222,6 +223,8 @@ void init_memory(unsigned int memory) {
 	for(a = 4096; a < 6144; a++) {
 		page_table[a] = 2;
 	}
+
+	memset(page_directory, 0, 4096);
 
 	/* page directories for malloc */
 	page_directory[4] = (unsigned int)&page_table[4096] | 3;
