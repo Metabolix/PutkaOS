@@ -5,14 +5,11 @@
 #include <screen.h>
 
 /* TODO: MALLOC & FREE */
-#define free(a)
-char muisti[65536];
-char *vapaa = muisti;
+#define free(a) kfree(a)
 void * malloc(size_t a)
 {
 	kprintf("malloc: %i\n", a);
-	vapaa += a;
-	return vapaa - a;
+	return kmalloc(a);
 }
 
 struct process_t processes[K_MAX_PROCESSES] = {{0}};
@@ -76,7 +73,7 @@ void thread_ending(void)
 	}
 
 	threads[active_thread].process = 0;
-	free(threads[active_thread].stack);
+	free((void*)threads[active_thread].stack);
 	threads[active_thread].stack = 0;
 	threads[active_thread].running = 0;
 	// TODO: Siirry seuraavaan säikeeseen
@@ -171,8 +168,9 @@ void start_threading(void)
 	active_process_ptr = processes + active_process;
 	active_thread_ptr = threads + active_thread;
 
+	kprintf("start_idle_thread(&threads[%u], &active_process)\n", active_thread);
 	extern void start_idle_thread(struct thread_t *thread, process_id_t *set_active_process);
-	start_idle_thread(threads + active_thread, &active_process);
+	start_idle_thread(&threads[active_thread], &active_process);
 }
 
 void next_thread(void)

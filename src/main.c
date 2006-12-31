@@ -21,11 +21,26 @@ BD_DESC *dev;
 char buf[512];
 int i;
 
+void testattava_koodi()
+{
+#if 1
+	dev = dopen(&fd_devices[0]);
+	dread(buf, 1, 256, dev);
+	for (i = 0; i < 128; ++i) {
+		kprintf("%02x ", (int)(unsigned char)buf[i]);
+		if ((i+1)%16 == 0) kprintf("\n");
+	}
+	dclose(dev);
+	i = 0;
+#endif
+}
+
 void kmain(multiboot_info_t* mbt, unsigned int magic)
 {
 	cls();
-	if((mbt->flags & 1) == 0)
+	if ((mbt->flags & 1) == 0) {
 		panic("Mbt->flags bit 1 wasn't 1\n");
+	}
 	gdt_install();
 	idt_install();
 	isrs_install();
@@ -42,51 +57,7 @@ void kmain(multiboot_info_t* mbt, unsigned int magic)
 
 	reset_floppy();
 
-#if 0
-	dev = dopen(&fd_devices[0]);
-	dread(buf, 1, 256, dev);
-	for (i = 0; i < 128; ++i) {
-		kprintf("%02x ", (int)(unsigned char)buf[i]);
-		if ((i+1)%16 == 0) kprintf("\n");
-	}
-	dclose(dev);
-	i = 0;
-#endif
-	for (i = 0; i < 128; ++i) {
-		kprintf("%02x ", (int)(unsigned char)buf[i]);
-		if ((i+1)%16 == 0) kprintf("\n");
-	}
-
-	void * addr = kmalloc(5);
-	void * addr2 = kmalloc(6);
-	kprintf("Kmalloc(5) == %x, Kmalloc(6)==%x\n", addr, addr2);
-	kfree(addr2);
-	/*kfree(addr);*/
-	kprintf("Kmalloc(4) == %x, Kmalloc(6)==%x\n", kmalloc(4), kmalloc(6));
-	int * num = kmalloc(4);
-
-	*num = 5;
-
-	/*strcpy(buf,"Moi, nyt on menossa hassu kirjoitustesti\n");
-	dev = dopen(&fd_devices[1]);
-	dwrite(buf, 1, 256, dev);
-	dflush(dev);
-	dclose(dev);*/
-
-	/*char * memory = alloc_page();
-	print("Allocated memory, and we got address: ");
-	print_hex((unsigned int)memory);
-	print("\n");
-	free_page(memory);
-	memory = alloc_pages(2);
-	print("Allocated more memory, and we got address: ");
-	print_hex((unsigned int)memory);
-	print("\n");
-	memory = alloc_page();
-	print("Allocated even more memory, and we got address: ");
-	print_hex((unsigned int)memory);
-	print("\n");
-	free_page(memory);*/
+	testattava_koodi();
 
 	kprintf("%s %s is up and running _o/\n", systeemi, versio);
 	start_threading();

@@ -16,7 +16,7 @@ typedef unsigned int process_id_t;
  * @process: owning process
  *
  * Badly unready
- */
+**/
 struct thread_t {
 	struct regs_t *esp;
 	uint_t ss;
@@ -31,7 +31,7 @@ struct thread_t {
  * @is_running: is process running
  *
  * Badly unready
- */
+**/
 struct process_t {
 	size_t num_threads;
 	thread_id_t main_thread;
