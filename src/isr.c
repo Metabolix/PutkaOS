@@ -4,6 +4,12 @@
 #include <regs.h>
 #include <thread.h>
 
+struct isr_t {
+	const char *name;
+	void (*handler)(struct regs_t *regs);
+};
+void page_fault_handler(struct regs_t *regs);
+
 extern void isr0(); /* These are defined in our isrs.asm */
 extern void isr1();
 extern void isr2();
@@ -76,56 +82,80 @@ void isrs_install()
 	idt_set_gate(31, (unsigned)isr31, 0x08, 0x8E);
 	print("ISRs enabled\n");
 }
+struct isr_t isrs[32] = {
+	{"Division By Zero", 0},
+	{"Debug", 0},
+	{"Non Maskable Interrupt", 0},
+	{"Breakpoint", 0},
+	{"Into Detected Overflow", 0},
+	{"Out of Bounds", 0},
+	{"Invalid Opcode", 0},
+	{"No Coprocessor", 0},
 
-const char *exception_messages[] =
-{
-	"Division By Zero",
-	"Debug",
-	"Non Maskable Interrupt",
-	"Breakpoint",
-	"Into Detected Overflow",
-	"Out of Bounds",
-	"Invalid Opcode",
-	"No Coprocessor",
+	{"Double Fault", 0},
+	{"Coprocessor Segment Overrun", 0},
+	{"Bad TSS", 0},
+	{"Segment Not Present", 0},
+	{"Stack Fault", 0},
+	{"General Protection Fault", 0},
+	{"Page Fault", page_fault_handler},
+	{"Unknown Interrupt", 0},
 
-	"Double Fault",
-	"Coprocessor Segment Overrun",
-	"Bad TSS",
-	"Segment Not Present",
-	"Stack Fault",
-	"General Protection Fault",
-	"Page Fault",
-	"Unknown Interrupt",
+	{"Coprocessor Fault", 0},
+	{"Alignment Check", 0},
+	{"Machine Check", 0},
+	{"Reserved", 0},
+	{"Reserved", 0},
+	{"Reserved", 0},
+	{"Reserved", 0},
+	{"Reserved", 0},
 
-	"Coprocessor Fault",
-	"Alignment Check",
-	"Machine Check",
-	"Reserved",
-	"Reserved",
-	"Reserved",
-	"Reserved",
-	"Reserved",
-
-	"Reserved",
-	"Reserved",
-	"Reserved",
-	"Reserved",
-	"Reserved",
-	"Reserved",
-	"Reserved",
-	"Reserved"
+	{"Reserved", 0},
+	{"Reserved", 0},
+	{"Reserved", 0},
+	{"Reserved", 0},
+	{"Reserved", 0},
+	{"Reserved", 0},
+	{"Reserved", 0},
+	{"Reserved", 0}
 };
+
+void* get_cr2();
+__asm__(
+"get_cr2:\n"
+"    movl %cr2, %eax\n"
+"    ret\n"
+);
+
+void page_fault_handler(struct regs_t *regs)
+{
+	void* cr2 = get_cr2();
+	kprintf("Page Fault!\nThread %i, process %i\n", active_thread, active_process);
+	dump_regs(regs);
+
+	kprintf("Trying to %s address %p, %s. Processor is in %s mode.\n",
+		((regs->error_code & 2) ? "write" : "read"),
+		cr2,
+		((regs->error_code & 1) ? "page is not present" : "page-level protection violation"),
+		((regs->error_code & 4) ? "user" : "supervisor"));
+	panic("Can't survive a page fault!");
+}
 
 void isr_handler(struct regs_t *regs)
 {
 	if (regs->int_no & 0xffffffe0) { // > 31
 		panic("isr_handler got an absurd interrupt!");
-	} else if (regs->int_no & 0xfffffff8) { // > 7
-		kprintf("%s, code %i\n", exception_messages[regs->int_no], regs->error_code);
-	} else {
-		kprintf("%s\n", exception_messages[regs->int_no]);
 	}
-	dump_regs(regs);
-	kprintf("Thread %i, process %i\n", active_thread, active_process);
-	panic("ISR not handled!");
+	if (isrs[regs->int_no].handler) {
+		isrs[regs->int_no].handler(regs);
+	} else {
+		if (regs->int_no & 0xfffffff8) { // > 7
+			kprintf("%s, code %i\n", isrs[regs->int_no], regs->error_code);
+		} else {
+			kprintf("%s\n", isrs[regs->int_no]);
+		}
+		kprintf("Thread %i, process %i\n", active_thread, active_process);
+		dump_regs(regs);
+		panic("ISR not handled!");
+	}
 }
