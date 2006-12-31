@@ -30,7 +30,7 @@
 #define SEEK 0xf
 
 #define MAX_DRIVES 2
-
+#define FLOPPY_IRQ 6
 struct fd {
 	unsigned char motor;
 	unsigned char type;

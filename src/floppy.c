@@ -31,28 +31,7 @@ void motor_0_off() {motor_off(0);}
 void motor_1_off() {motor_off(1);}
 void (*motor_stop[2])() = {motor_0_off, motor_1_off};
 
-volatile int floppy_waiting_interrupt = 0;
-void floppy_handler()
-{
-	floppy_waiting_interrupt = 0;
-}
-void prepare_floppy_wait_irq()
-{
-	floppy_waiting_interrupt = 1;
-}
-void floppy_wait_irq();
-__asm__(
-"floppy_wait_irq:\n"
-"    mov floppy_waiting_interrupt, %eax\n"
-"    cmp 1, %eax\n"
-"    je floppy_wait_irq\n"
-"    ret\n"
-);
-/*
-void floppy_wait_irq()
-{
-	while (floppy_waiting_interrupt);
-}*/
+void floppy_handler() { }
 
 void install_floppy()
 {
@@ -111,23 +90,22 @@ void install_floppy()
 
 void reset_floppy()
 {
-	prepare_floppy_wait_irq();
+	int a;
+
+	prepare_wait_irq(FLOPPY_IRQ);
 	outportb((FLOPPY_FIRST + DIGITAL_OUTPUT_REGISTER), 0x00); /*disable controller*/
 	kwait(50);
 	outportb((FLOPPY_FIRST + DIGITAL_OUTPUT_REGISTER), 0x0c); /*enable controller*/
-	outportb(FLOPPY_FIRST + CONFIGURATION_CONTROL_REGISTER, 0);
 
 	print("FDD: Reseted controller\n");
-	floppy_wait_irq();
+	wait_irq(FLOPPY_IRQ);
 	print("FDD: Waited for it\n");
 
-	/*for(a = 0; a < 4; a++) {
+	for(a = 0; a < 4; a++) {
 		sense_interrupt();
-	}*/
-
-	if (inportb(FLOPPY_FIRST + DIGITAL_INPUT_REGISTER) & 0x80) {
-		print("Disk change is set\n");
 	}
+
+        outportb(FLOPPY_FIRST + CONFIGURATION_CONTROL_REGISTER, 0);
 
 	configure_drive();
 
@@ -142,7 +120,7 @@ void reset_floppy()
 
 void wait_floppy_data()
 {
-	while ((inportb(FLOPPY_FIRST + MAIN_STATUS_REGISTER) & 0xc0) != 0xc0) /* While RQM and DIO aren't 1 */
+	while ((inportb(FLOPPY_FIRST + MAIN_STATUS_REGISTER) & 0xd0) != 0xd0) /* While RQM and DIO aren't 1 */
 		;
 }
 	
@@ -178,11 +156,10 @@ void calibrate_drive(unsigned int drive)
 		return;
 	}
 
-	prepare_floppy_wait_irq();
+	prepare_wait_irq(FLOPPY_IRQ);
 	send_command(RECALIBRATE); /* (re)calibrate drive*/
 	send_command(drive);
-	floppy_wait_irq();
-	/*sense_interrupt();*/
+	wait_irq(FLOPPY_IRQ);
 	kprintf("FDD: fd%u calibrated\n", drive);
 }
 
@@ -216,7 +193,7 @@ void motor_on(unsigned int drive) {
 	fds[drive].motor = 1;
 	motors |= (1 << drive);
 	outportb(FLOPPY_FIRST + DIGITAL_OUTPUT_REGISTER, 0xC + (motors << 4)); /* motor on */
-	kwait(500);
+	kwait(500); /* wait it spins up */
 }
 
 void prepare_motor_off(unsigned int drive) {
@@ -229,7 +206,7 @@ void prepare_motor_off(unsigned int drive) {
 
 int seek_track(unsigned int drive, unsigned int track)
 {
-	if (drive < 0 || drive >= MAX_DRIVES){
+	if (drive >= MAX_DRIVES){
 		return -1;
 	}
 
@@ -240,11 +217,11 @@ int seek_track(unsigned int drive, unsigned int track)
 
 	motor_on(drive);
 
-	prepare_floppy_wait_irq();
+	prepare_wait_irq(FLOPPY_IRQ);
 	send_command(SEEK);
 	send_command(drive);
 	send_command(track);
-	floppy_wait_irq();
+	wait_irq(FLOPPY_IRQ);
 
 	fd_seeked = drive;
 
@@ -276,8 +253,8 @@ void motor_off(unsigned int drive)
 
 int read_sector(unsigned int drive, unsigned char sector, unsigned char head, unsigned char cylinder, unsigned long buffer)
 {
-	/* TODO: Combine read_sector and write_sector */
 	int a;
+	/* TODO: Combine read_sector and write_sector */
 
 	if (drive >= MAX_DRIVES) {
 		return -1;
@@ -304,8 +281,6 @@ int read_sector(unsigned int drive, unsigned char sector, unsigned char head, un
 
 	}
 
-	outportb(FLOPPY_FIRST + CONFIGURATION_CONTROL_REGISTER, 0);
-
 	if (seek_track(drive, cylinder)) {
 		return -1; /* uhm, should we try to seek few times more? */
 	}
@@ -319,7 +294,7 @@ int read_sector(unsigned int drive, unsigned char sector, unsigned char head, un
 
 	kwait(floppy_params.head_settle_time);
 	wait_floppy();
-	prepare_floppy_wait_irq();
+	prepare_wait_irq(FLOPPY_IRQ);
 	send_command(READ_DATA);
 	send_command((head << 2) | drive);
 	send_command(cylinder);
@@ -332,11 +307,13 @@ int read_sector(unsigned int drive, unsigned char sector, unsigned char head, un
 
 	kprintf("FDD: BPS: %u, SPT: %u, GL: %u, DL: %u\n", floppy_params.bytes_per_sector, floppy_params.sectors_per_track, floppy_params.gap_length, floppy_params.data_length);
 
-	floppy_wait_irq();
+	wait_irq(FLOPPY_IRQ);
+	kprintf("We got values ");
 	for(a = 0; a < 7; a++) { /* TODO: Put these values somewhere? */
 		wait_floppy_data();
-		inportb(FLOPPY_FIRST + DATA_FIFO);
+		kprintf("%d ", inportb(FLOPPY_FIRST + DATA_FIFO));
 	}
+	kprintf(" from floppy controller after reading\n");
 	prepare_motor_off(drive);
 	return 0;
 }
@@ -366,23 +343,18 @@ int write_sector(unsigned int drive, unsigned char sector, unsigned char head, u
 
 	}
 
-	outportb(FLOPPY_FIRST + CONFIGURATION_CONTROL_REGISTER, 0);
-
 	if(seek_track(drive, cylinder)) {
 		return -1; /* uhm, should we try to seek few times more? */
 	}
 
 	motor_on(drive);
 
-	if(!inportb(FLOPPY_FIRST + MAIN_STATUS_REGISTER) & 0x20)
-		panic("Non-dma floppy transfer?\n");
-
 	init_dma_floppy(buffer, 512, 1); /* block size */
 
 	wait_floppy();
 	kwait(floppy_params.head_settle_time);
 
-	prepare_floppy_wait_irq();
+	prepare_wait_irq(FLOPPY_IRQ);
 	send_command(WRITE_DATA);
 	send_command((head << 2) | drive);
 	send_command(cylinder);
@@ -392,7 +364,7 @@ int write_sector(unsigned int drive, unsigned char sector, unsigned char head, u
 	send_command(floppy_params.sectors_per_track); /*last sector*/
 	send_command(floppy_params.gap_length);        /*27 default gap3 value*/
 	send_command(floppy_params.data_length);       /*default value for data length*/
-	floppy_wait_irq();
+	wait_irq(FLOPPY_IRQ);
 
 	for (a = 0; a < 7; a++) {
 		wait_floppy_data();
