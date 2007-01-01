@@ -19,7 +19,7 @@ typedef unsigned int process_id_t;
 **/
 struct thread_t {
 	struct regs_t *esp;
-	uint_t ss;
+	unsigned short ss, reserved_01;
 	uint_t stack;
 	process_id_t process;
 	int running;

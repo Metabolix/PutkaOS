@@ -3,12 +3,9 @@
 #include <string.h>
 #include <panic.h>
 
-/* TODO: MALLOC & FREE */
-#define free(a)
-#define malloc(a) alloc_pages(a)
-
 void process_ending(void)
 {
+	panic("Jumalauta, ei kai prosessi voi loppua?!\n");
 }
 
 process_id_t find_free_process(void)

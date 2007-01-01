@@ -1,6 +1,6 @@
 #include <string.h>
 #include <mem.h>
-//#include <malloc.h>
+#include <malloc.h>
 
 char *strcat(char *s1, const char *s2)
 {
@@ -56,7 +56,7 @@ char *strcpy(char *dest, const char *src)
 
 size_t strcspn(const char *s1, const char *s2)
 {
-	char buf[256] = {0};
+	char *buf = kmalloc(256);
 	size_t retval = 0, current = 0;
 	while (*s2) {
 		buf[(unsigned char)*s2] = 1;

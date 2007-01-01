@@ -4,14 +4,6 @@
 #include <panic.h>
 #include <screen.h>
 
-/* TODO: MALLOC & FREE */
-#define free(a) kfree(a)
-void * malloc(size_t a)
-{
-	kprintf("malloc: %i\n", a);
-	return kmalloc(a);
-}
-
 struct process_t processes[K_MAX_PROCESSES] = {{0}};
 struct thread_t threads[K_MAX_THREADS] = {{0}};
 
@@ -27,11 +19,11 @@ thread_id_t kernel_idle_thread = NO_THREAD;
 size_t num_processes = 0;
 size_t num_threads = 0;
 
-struct regs_t initial_regs = {
+const struct regs_t initial_regs = {
 	0x10, 0x10, 0x10, 0x10, 0x10, // gs, fs, es, ds, ss;
 	0, 0, 0, 0, 0, 0, 0, 0, // edi, esi, ebp, esp, ebx, edx, ecx, eax;
 	0, 0, // int_no, err_code;
-	0, 0x08, 0x0202, // eip, cs, eflags, useresp, ss;
+	0, 0x08, 0x0202, // eip, cs, eflags;
 };
 
 /**
@@ -49,7 +41,6 @@ __asm__(
 "kernel_idle_loop_loop:\n"
 "    hlt\n"
 "    jmp kernel_idle_loop_loop\n"
-"    ret\n"
 );
 
 /**
@@ -73,7 +64,7 @@ void thread_ending(void)
 	}
 
 	threads[active_thread].process = 0;
-	free((void*)threads[active_thread].stack);
+	kfree((void*)threads[active_thread].stack);
 	threads[active_thread].stack = 0;
 	threads[active_thread].running = 0;
 	// TODO: Siirry seuraavaan säikeeseen
@@ -119,12 +110,11 @@ thread_id_t new_thread(t_entry entry, void * initial_stack, size_t initial_stack
 	if (thread == NO_THREAD) {
 		return NO_THREAD;
 	}
-	threads[thread].stack = (uint_t) malloc(K_THREAD_STACK_SIZE);
+	threads[thread].stack = (uint_t) kmalloc(K_THREAD_STACK_SIZE);
 	if (threads[thread].stack == 0) {
 		return NO_THREAD;
 	}
 	esp = (char*) (threads[thread].stack + K_THREAD_STACK_SIZE);
-	initial_regs.ebp = (uint_t)esp;
 
 	esp -= initial_stack_size;
 	memcpy(esp, initial_stack, initial_stack_size);
@@ -132,12 +122,11 @@ thread_id_t new_thread(t_entry entry, void * initial_stack, size_t initial_stack
 	esp -= sizeof(t_entry);
 	*(t_entry*)esp = thread_ending;
 
-	initial_regs.eip = (uint_t)entry;
-	initial_regs.esp = (uint_t)esp - (5 * 4);
-
-	esp -= sizeof(struct regs_t);
-	memcpy(esp, &initial_regs, sizeof(struct regs_t));
-	threads[thread].esp = (struct regs_t*)esp;
+	threads[thread].esp = ((struct regs_t*)esp) - 1;
+	memcpy(threads[thread].esp, &initial_regs, sizeof(struct regs_t));
+	threads[thread].esp->eip = (uint_t)entry;
+	threads[thread].esp->esp = (uint_t)&(threads[thread].esp->ss);
+	threads[thread].esp->ebp = threads[thread].stack + K_THREAD_STACK_SIZE;
 	threads[thread].ss = threads[thread].esp->ss;
 	threads[thread].process = active_process;
 	threads[thread].running = 1;
@@ -148,7 +137,7 @@ thread_id_t new_thread(t_entry entry, void * initial_stack, size_t initial_stack
 
 void kill_thread(thread_id_t thread)
 {
-	free((void*)threads[thread].stack);
+	kfree((void*)threads[thread].stack);
 	threads[thread].stack = 0;
 }
 
@@ -158,19 +147,21 @@ void start_threading(void)
 		panic("Threading already started!");
 	}
 	kernel_idle_process = new_process(kernel_idle_loop, 0, 0);
+
 	if (kernel_idle_process == NO_PROCESS) {
 		panic("Couldn't start kernel idle process!");
 	}
+	kernel_idle_thread = processes[kernel_idle_process].main_thread;
+
+	asm("cli");
 	active_process = kernel_idle_process;
-	active_thread =
-	kernel_idle_thread = processes[active_process].main_thread;
+	active_thread = kernel_idle_thread;
 
 	active_process_ptr = processes + active_process;
 	active_thread_ptr = threads + active_thread;
 
-	kprintf("start_idle_thread(&threads[%u], &active_process)\n", active_thread);
-	extern void start_idle_thread(struct thread_t *thread, process_id_t *set_active_process);
-	start_idle_thread(&threads[active_thread], &active_process);
+	extern void start_idle_thread();
+	start_idle_thread();
 }
 
 void next_thread(void)
