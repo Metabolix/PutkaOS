@@ -6,8 +6,8 @@
 
 void init_pde(unsigned int pde);
 
-unsigned long * page_directory = (unsigned long *) 0x9C000;
-unsigned long * page_table = (unsigned long *) 0x9D000; /* page_table[0-4096] are mapped in page_directory[0-4] (for "normal memory"), page_table[4096-6144] are in page_directory[4-5] (for malloc) */
+unsigned long * page_directory = (unsigned long *) 0x90000;
+unsigned long * page_table = (unsigned long *) 0x91000; /* page_table[0-4096] are mapped in page_directory[0-4] (for "normal memory"), page_table[4096-6144] are in page_directory[4-5] (for malloc) */
 unsigned long * memory_table = (unsigned long *) 0x10000; /* [is_free, is_protected, is_free, is_protected, ...] */
 
 
@@ -95,7 +95,7 @@ int find_free_pte()
 void mmap(unsigned int real, unsigned int virtual_addr) {
 	kprintf("Going to mmap %p at %p\n", real, virtual_addr);
 	page_table[virtual_addr >> 12] = real | 3;
-	kprintf("Mmaped %p at %p (%x)\n", real, virtual_addr, page_table[virtual_addr >> 12]);
+	kprintf("Mmaped %p at %p (%x, %p)\n", real, virtual_addr, page_table[virtual_addr >> 12], &page_table[virtual_addr>>12]);
 	set_cr3(page_directory);
 }
 
@@ -215,13 +215,10 @@ void init_memory(unsigned int memory) {
 	}
 	for (a = 512; a < block_count; a++, address += MEMORY_BLOCK_SIZE) {
 		page_table[a] = address;
-		if(a % 1024 == 0) {
-			kprintf("&Page_table[%d] is %x\n", a, &page_table[a]);
-		}
 	}
 
 	for(a = 4096; a < 6144; a++) {
-		page_table[a] = 2;
+		page_table[a] = 0;
 	}
 
 	memset(page_directory, 0, 4096);
@@ -233,7 +230,7 @@ void init_memory(unsigned int memory) {
 	/* page directories 0, and maybe 1,2,3 (if there is enough memory) */
 	page_directory[0] = (unsigned int)page_table | 3;
 	for(a = 0, i = 0; a < block_count / MEMORY_PDE_LEN; a++, i += MEMORY_PDE_LEN) {
-		kprintf("Page_directory[%d] is %x\n", a, (unsigned int)page_table + i * sizeof(int));
+		kprintf("Page_directory[%d] is %x\n", a, (unsigned int)page_table + i * sizeof(int)|3);
 		page_directory[a] = (((unsigned int) page_table) + i * sizeof(int)) | 3;
 	}
 
