@@ -173,7 +173,7 @@ void init_dma_floppy(unsigned long buffer, size_t len, int write) {
 	len--;
 	outportb(0x5, len & 0xFF);
 	outportb(0x5, len >> 8);
-	outportb(0x81, buffer >> 16);                               
+	outportb(0x81, buffer >> 16);
 	outportb(0x0b, (write ? 0x48: 0x44) + 2);  /* single transfer, write or read, channel 2 */
 	outportb(0x0a, 0x02);          /* unmask DMA channel 2 */
 	asm("sti");
@@ -211,7 +211,7 @@ int seek_track(unsigned int drive, unsigned int track)
 	}
 
 	if (track == fds[drive].track) {/* already on right cylinder */
-		kprintf("FDD: fd%u already on right cylinder\n", drive);
+		/*kprintf("FDD: fd%u already on right cylinder\n", drive);*/
 		return 0;
 	}
 
@@ -231,7 +231,7 @@ int seek_track(unsigned int drive, unsigned int track)
 		prepare_motor_off(drive);
 		return -2;
 	}
-	kprintf("FDD: fd%u: Seeked track succesfully\n", drive);
+	/*kprintf("FDD: fd%u: Seeked track succesfully\n", drive);*/
 	prepare_motor_off(drive);
 	return 0;
 }
@@ -376,6 +376,7 @@ int write_sector(unsigned int drive, unsigned char sector, unsigned char head, u
 }
 
 
+
 int read_block(BLOCK_DEVICE *self, size_t num, void * buf)
 {
 	int sector;
@@ -383,9 +384,9 @@ int read_block(BLOCK_DEVICE *self, size_t num, void * buf)
 	int cylinder;
 	int retval;
 
-	head = (num % 2);
-	cylinder = num / floppy_params.sectors_per_track;
-	sector = num % floppy_params.sectors_per_track + 1;
+	head = (num / floppy_params.sectors_per_track) & 1;
+	cylinder = num / (floppy_params.sectors_per_track * 2);
+	sector = (num % (floppy_params.sectors_per_track)) + 1;
 
 	retval = read_sector(self->index, sector, head, cylinder,(unsigned long) fdbuf);
 	memcpy(buf, fdbuf, self->block_size);
@@ -397,9 +398,10 @@ int write_block(BLOCK_DEVICE *self, size_t num, const void * buf) {
 	int head;
 	int cylinder;
 
-	head = (num % 2);
-	cylinder = num / floppy_params.sectors_per_track;
-	sector = num % floppy_params.sectors_per_track + 1;
+	head = (num / floppy_params.sectors_per_track) & 1;
+	cylinder = num / (floppy_params.sectors_per_track * 2);
+	sector = (num % (floppy_params.sectors_per_track)) + 1;
+	
 
 	memcpy(fdbuf, buf, self->block_size);
 	return write_sector(self->index, sector, head, cylinder, (unsigned long)fdbuf);

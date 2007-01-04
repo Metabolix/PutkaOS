@@ -23,12 +23,14 @@ int i;
 
 void testattava_koodi()
 {
-#if 1
+#ifdef TUHOA_KORPUN_SISALTO
 	dev = dopen(&fd_devices[0]);
-	dread(buf, 1, 256, dev);
-	for (i = 0; i < 128; ++i) {
-		kprintf("%02x ", (int)(unsigned char)buf[i]);
-		if ((i+1)%16 == 0) kprintf("\n");
+
+	for(i = 0; i < 512; i++)
+		buf[i] = 'P';
+	for(i = 0; i < 2880; i++) {
+		dwrite(buf, 512, 1, dev);
+		kprintf("Block %d\n", i);
 	}
 	dclose(dev);
 	i = 0;
