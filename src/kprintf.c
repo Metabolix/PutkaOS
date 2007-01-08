@@ -167,11 +167,12 @@ int kprintf(const char *fmt, ...)
 					numbytes += len;
 					break;
 				case 'u': // unsigned -> ei kuulu pakostakaan etumerkkiä
+				case 'o': // samoin oktaali
 					tag.always_sign = 0;
 				case 'd':
 				case 'i':
 					if (tag.modifier == 'h') {
-						if (*fmt == 'u') {
+						if (*fmt == 'u' || *fmt == 'o') {
 							types.i = (unsigned short)va_arg(args, unsigned int);
 						} else {
 							types.i = (short)va_arg(args, int);
@@ -180,7 +181,7 @@ int kprintf(const char *fmt, ...)
 						types.i = va_arg(args, int);
 					}
 					// Etumerkkikö?
-					if (*fmt != 'u' && types.i < 0) {
+					if (*fmt != 'u' && *fmt != 'o' && types.i < 0) {
 						tag.always_sign = '-';
 						types.i = -types.i;
 					}
