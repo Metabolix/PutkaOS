@@ -93,7 +93,7 @@ area mkmallocmem(size_t size) { /* make space for memarea */
 						mmem_free_p->free_memory[a].start += size; /* move the free area forward */
 						mmem_free_p->free_memory[a].size -= size;
 
-						kprintf("mmem_alloc_p->alloc=%d, mmem_alloc_p->alloc_memory[%d].size == %x .start = %x, mmem_free_p->free_memory[%d].size = %x, .start=%x\n", mmem_alloc_p->alloc, b, mmem_alloc_p->alloc_memory[b].size, (unsigned int) mmem_alloc_p->alloc_memory[b].start, a, mmem_free_p->free_memory[a].size, (unsigned int) mmem_free_p->free_memory[a].start);
+						//kprintf("mmem_alloc_p->alloc=%d, mmem_alloc_p->alloc_memory[%d].size == %x .start = %x, mmem_free_p->free_memory[%d].size = %x, .start=%x\n", mmem_alloc_p->alloc, b, mmem_alloc_p->alloc_memory[b].size, (unsigned int) mmem_alloc_p->alloc_memory[b].start, a, mmem_free_p->free_memory[a].size, (unsigned int) mmem_free_p->free_memory[a].start);
 
 
 						return mmem_alloc_p->alloc_memory[b];
@@ -140,21 +140,21 @@ area destroymallocmem(void * start) {
 		return ar;
 	}
 
-	kprintf("We had to do %d cycles\n", cycles);
+	/*kprintf("We had to do %d cycles\n", cycles);*/
 	
 	while(mmem_free_p) {
 		for(a = 0; a < 255; a++) {
 			if(mmem_free_p->free_memory[a].size)
-				kprintf("mmem_free_p->free_memory[%d].size = %x, .start=%x ar.start==%x start==%x ar.size==%x\n", a, mmem_free_p->free_memory[a].size, (unsigned int) mmem_free_p->free_memory[a].start, (unsigned int)ar.start, (unsigned int)start, ar.size);
+				//kprintf("mmem_free_p->free_memory[%d].size = %x, .start=%x ar.start==%x start==%x ar.size==%x\n", a, mmem_free_p->free_memory[a].size, (unsigned int) mmem_free_p->free_memory[a].start, (unsigned int)ar.start, (unsigned int)start, ar.size);
 			if((unsigned int)mmem_free_p->free_memory[a].start == ((unsigned int)start + ar.size)) {
 				if(!(unsigned int)to_combine) {
-					kprintf("Combined area to area %x:%x\n", mmem_free_p->free_memory[a].start, mmem_free_p->free_memory[a].size);
+					/*kprintf("Combined area to area %x:%x\n", mmem_free_p->free_memory[a].start, mmem_free_p->free_memory[a].size);*/
 					mmem_free_p->free_memory[a].start -= ar.size;
 					to_combine = &mmem_free_p->free_memory[a];
 					combine = 0;
 				} else {
 					if(combine) {
-						kprintf("Combined area to area %x:%x\n", to_combine->start, to_combine->size);
+						/*kprintf("Combined area to area %x:%x\n", to_combine->start, to_combine->size);*/
 						to_combine->start -= mmem_free_p->free_memory[a].size;
 						mmem_free_p->free_memory[a].size = 0;
 						mmem_free_p->free++;
@@ -167,13 +167,13 @@ area destroymallocmem(void * start) {
 			}
 			if(((unsigned int)mmem_free_p->free_memory[a].start + mmem_free_p->free_memory[a].size) == (unsigned int) start) {
 				if(!(unsigned int)to_combine) {
-					kprintf("Combined area to area %x:%x\n", mmem_free_p->free_memory[a].start, mmem_free_p->free_memory[a].size);
+					/*kprintf("Combined area to area %x:%x\n", mmem_free_p->free_memory[a].start, mmem_free_p->free_memory[a].size);*/
 					mmem_free_p->free_memory[a].size += ar.size;
 					to_combine = &mmem_free_p->free_memory[a];
 					combine = 1;
 				} else {
 					if(!combine) {
-						kprintf("Combined area to area %x:%x\n", to_combine->start, to_combine->size);
+						/*kprintf("Combined area to area %x:%x\n", to_combine->start, to_combine->size);*/
 						to_combine->size += mmem_free_p->free_memory[a].size;
 						mmem_free_p->free_memory[a].size = 0;
 						mmem_free_p->free++;
@@ -189,7 +189,7 @@ area destroymallocmem(void * start) {
 	}
 	if(to_combine)
 		return ar;
-	kprintf("MEM: Couldn't combine area to any existing area\n");
+	/*kprintf("MEM: Couldn't combine area to any existing area\n");*/
 	
 	mmem_free_p = malloc_mem_first;
 	while(mmem_free_p) {
@@ -221,14 +221,14 @@ void * kmalloc(size_t size) {
 	int page_first = ((((unsigned int)memarea.start - 0x1000000) & ~0xFFF) >> 12);
 	int page_last = ((((unsigned int)memarea.start + memarea.size - 0x1000000) & ~0xFFF) >> 12) ;
 	int a = 0;
-	unsigned int cur_page = page_first;
+	int cur_page = pages_mapped + 1;
 
-	kprintf("Page_first %d, page_last %d, pages_mapped %d\n", page_first, page_last, pages_mapped);
-	if(page_last > pages_mapped) {
+	//kprintf("Page_first %d, page_last %d, pages_mapped %d\n", page_first, page_last, pages_mapped);
+	if(page_last >= pages_mapped) {
 		for(a = memarea.size; a > 0; a -= 4096, cur_page++) {
 			mmap((unsigned int)alloc_real(), (cur_page + 0x1000) << 12);
-			kprintf("Mapped a page at %x\n", (cur_page + 0x1000) << 12);
-			kprintf("We will return %x\n", memarea.start);
+			/*kprintf("Mapped a page at %x\n", (cur_page + 0x1000) << 12);
+			kprintf("We will return %x\n", memarea.start);*/
 		}
 		pages_mapped = page_last;
 	}
@@ -241,7 +241,7 @@ void kfree(void * pointer) {
 	int a;
 	int last_alloc = 0;
 	extern unsigned int * page_table;
-	
+
 	destroymallocmem(pointer);
 	
 	while(mmem_alloc_p) {
@@ -257,13 +257,16 @@ void kfree(void * pointer) {
 		}
 		mmem_alloc_p = (malloc_mem*)mmem_alloc_p->next;
 	}
-	
-	if(last_alloc < pages_mapped + 1) {
-		
+	if(pages_mapped < 0)
+		return;
+
+	if(last_alloc - 1 <= pages_mapped + 1) {
 		for(a = last_alloc; a <= pages_mapped; a++ ) {
-			free_real((void*)((page_table[0x1000 + 1024 * a]) & ~0xFFF));
+			/*kprintf("Going to free %p\n", (0x1000 + a) << 12);*/
+			free_real((void*)((page_table[0x1000 + a]) & ~0xFFF));
 			unmmap(0x1000000 + 0x1000 * a);
-			kprintf("Freed a page\n");
+			/*kprintf("Freed a page\n");*/
 		}
 	}
+	pages_mapped = last_alloc - 1;
 }

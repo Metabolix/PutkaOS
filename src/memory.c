@@ -67,11 +67,11 @@ int find_free_pte()
 		for (j = 0; j < MEMORY_PDE_LEN; j++) {
 			o = (page_table[i * MEMORY_PDE_LEN + j] & ~2048) / MEMORY_BLOCK_SIZE;
 			if ((page_table[i * MEMORY_PDE_LEN + j] & 1)) {
-				kprintf("It was the %#010x pte\n", MEMORY_PDE_LEN * i + j);
+				/*kprintf("It was the %#010x pte\n", MEMORY_PDE_LEN * i + j);*/
 				return MEMORY_PDE_LEN * i + j;
 			/* If this is already pointed, but memory_table-entry which points to it isn't allocated */
 			} else if (get_bit(memory_table[o >> 4], (o & 0x0f) << 1) == 0) {
-				kprintf("Page_table %#010x has address %p\n", (i * MEMORY_PDE_LEN + j), o);
+				/*kprintf("Page_table %#010x has address %p\n", (i * MEMORY_PDE_LEN + j), o);*/
 				return MEMORY_PDE_LEN * i + j;
 			}
 		}
@@ -83,7 +83,7 @@ int find_free_pte()
 		}
 		if ((page_directory[i] & 1) == 0) {
 			init_pde(i);
-			kprintf("It was the %#010x pte2.\n", MEMORY_PDE_LEN * i);
+			/*kprintf("It was the %#010x pte2.\n", MEMORY_PDE_LEN * i);*/
 
 			return i * MEMORY_PDE_LEN;
 		}
@@ -93,9 +93,9 @@ int find_free_pte()
 }
 
 void mmap(unsigned int real, unsigned int virtual_addr) {
-	kprintf("Going to mmap %p at %p\n", real, virtual_addr);
+	/*kprintf("Going to mmap %p at %p\n", real, virtual_addr);*/
 	page_table[virtual_addr >> 12] = real | 3;
-	kprintf("Mmaped %p at %p (%x, %p)\n", real, virtual_addr, page_table[virtual_addr >> 12], &page_table[virtual_addr>>12]);
+	/*kprintf("Mmaped %p at %p (%x, %p)\n", real, virtual_addr, page_table[virtual_addr >> 12], &page_table[virtual_addr>>12]);*/
 	set_cr3(page_directory);
 }
 
@@ -119,7 +119,7 @@ void * alloc_page() {
 	void * page = (void *)(block * MEMORY_BLOCK_SIZE);
 	unsigned int pte = block; /* find_free_pte(); */
 
-	kprintf("Find_free_block returned %p\n", block);
+	/*kprintf("Find_free_block returned %p\n", block);*/
 	memory_table[block >> 4] = set_bit(memory_table[block >> 4], (block & 0x0f) << 1, 1);
 	page_table[pte] = (unsigned long)page | 3;
 
