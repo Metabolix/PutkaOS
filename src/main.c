@@ -55,7 +55,7 @@ void kmain(multiboot_info_t* mbt, unsigned int magic)
 
 	outportb(0x21,0x0); /* Don't mask any IRQ */
 	outportb(0xa1,0x0);
-	asm __volatile__("sti");	/* Allow interrupts */
+	asm __volatile__("sti"); /* Allow interrupts */
 
 	reset_floppy();
 
