@@ -305,15 +305,16 @@ int read_sector(unsigned int drive, unsigned char sector, unsigned char head, un
 	send_command(floppy_params.gap_length);        /*27 default gap3 value*/
 	send_command(floppy_params.data_length);       /*default value for data length*/
 
-	kprintf("FDD: BPS: %u, SPT: %u, GL: %u, DL: %u\n", floppy_params.bytes_per_sector, floppy_params.sectors_per_track, floppy_params.gap_length, floppy_params.data_length);
+	//kprintf("FDD: BPS: %u, SPT: %u, GL: %u, DL: %u\n", floppy_params.bytes_per_sector, floppy_params.sectors_per_track, floppy_params.gap_length, floppy_params.data_length);
 
 	wait_irq(FLOPPY_IRQ);
-	kprintf("We got values ");
+	//kprintf("We got values ");
 	for(a = 0; a < 7; a++) { /* TODO: Put these values somewhere? */
 		wait_floppy_data();
-		kprintf("%d ", inportb(FLOPPY_FIRST + DATA_FIFO));
+		inportb(FLOPPY_FIRST + DATA_FIFO);
+		//kprintf("%d ", inportb(FLOPPY_FIRST + DATA_FIFO));
 	}
-	kprintf(" from floppy controller after reading\n");
+	//kprintf(" from floppy controller after reading\n");
 	prepare_motor_off(drive);
 	return 0;
 }

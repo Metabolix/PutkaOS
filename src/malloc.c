@@ -218,7 +218,6 @@ area destroymallocmem(void * start) {
 
 void * kmalloc(size_t size) {
 	area memarea = mkmallocmem(size);
-	int page_first = ((((unsigned int)memarea.start - 0x1000000) & ~0xFFF) >> 12);
 	int page_last = ((((unsigned int)memarea.start + memarea.size - 0x1000000) & ~0xFFF) >> 12) ;
 	int a = 0;
 	int cur_page = pages_mapped + 1;
