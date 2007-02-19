@@ -25,4 +25,9 @@ extern char    *strtok_r(char *, const char *, char **);
 extern size_t   strxfrm(char *, const char *, size_t);
 */
 
+/*
+ * Non-standard
+ */
+extern size_t strrmsame(const char **s1, const char *s2);
+
 #endif

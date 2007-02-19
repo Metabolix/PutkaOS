@@ -173,7 +173,7 @@ int kprintf(const char *fmt, ...)
 					numbytes += len;
 					break;
 				case 'u': // unsigned -> ei kuulu pakostakaan etumerkkiä
-				case 'o': // samoin oktaali
+				case 'o': // samoin oktaali TODO!
 					tag.always_sign = 0;
 				case 'd':
 				case 'i':

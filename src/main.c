@@ -42,9 +42,9 @@ void testattava_koodi()
 	//kprintf("File hassu includes: %s\n", buffer);
 	dclose(dev);
 #endif
-	
-}
 
+}
+void __stack_chk_fail() {}
 extern void run_sh();
 
 void kmain(multiboot_info_t* mbt, unsigned int magic)

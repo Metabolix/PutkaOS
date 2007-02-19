@@ -137,3 +137,12 @@ char    *strtok(char *, const char *);
 char    *strtok_r(char *, const char *, char **);
 size_t   strxfrm(char *, const char *, size_t);
 */
+
+size_t strrmsame(const char **s1, const char *s2)
+{
+	size_t retval = 0;
+	while (**s1 && *s2 && **s1 == *s2) {
+		++*s1; ++s2; ++retval;
+	}
+	return retval;
+}
