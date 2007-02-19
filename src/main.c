@@ -1,3 +1,4 @@
+#include <putkaos.h>
 #include <screen.h>
 #include <gdt.h>
 #include <irq.h>
@@ -34,8 +35,17 @@ void testattava_koodi()
 	}
 	dclose(dev);
 	i = 0;
+	extern void read_super_block(BD_DESC * dev);
+	dev = dopen(&fd_devices[0]);
+	read_super_block(dev);
+	char * buffer = readfile("/mese/kebab");
+	//kprintf("File hassu includes: %s\n", buffer);
+	dclose(dev);
 #endif
+	
 }
+
+extern void run_sh();
 
 void kmain(multiboot_info_t* mbt, unsigned int magic)
 {
@@ -43,16 +53,19 @@ void kmain(multiboot_info_t* mbt, unsigned int magic)
 	if ((mbt->flags & 1) == 0) {
 		panic("Mbt->flags bit 1 wasn't 1\n");
 	}
+	screen_init();
 	gdt_install();
 	idt_install();
 	isrs_install();
 	init_memory(mbt->mem_upper + mbt->mem_lower);
 	irq_install();
-	keyboard_install();
 	timer_install();
+	keyboard_install();
 	install_floppy();
 	malloc_init();
+	vts_init();
 
+	kprintf("Going to unmask irqs\n");
 	outportb(0x21,0x0); /* Don't mask any IRQ */
 	outportb(0xa1,0x0);
 	asm __volatile__("sti"); /* Allow interrupts */
@@ -62,6 +75,7 @@ void kmain(multiboot_info_t* mbt, unsigned int magic)
 	testattava_koodi();
 
 	kprintf("%s %s is up and running _o/\n", systeemi, versio);
+	new_thread(run_sh, 0,0);
 	start_threading();
 	//for (;;);
 }

@@ -4,11 +4,13 @@
 #include <panic.h>
 #include <thread.h>
 #include <regs.h>
+#include <putkaos.h>
 
 #define io_wait() asm("nop")
 
 void (*irq_handlers[16])() = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 volatile char irq_wait[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+unsigned char irq_handling = 0;
 
 void irq_remap(unsigned char offset1, unsigned char offset2)
 {
@@ -44,11 +46,11 @@ void asm_wait_irq(unsigned int irq);
 __asm__(
 "asm_wait_irq:\n"
 "    movl 4(%esp), %eax\n"
-"    lea irq_wait(,%eax,4), %eax\n"
+"    lea irq_wait(,%eax,1), %eax\n"
 "asm_wait_irq_loop:\n"
 "    movl (%eax), %edx\n"
 "    cmp $0, %edx\n"
-"    je asm_wait_irq_ret\n"
+"    jz asm_wait_irq_ret\n"
 "    hlt\n"
 "    jmp asm_wait_irq_loop\n"
 "asm_wait_irq_ret:\n"
@@ -69,6 +71,10 @@ void prepare_wait_irq(unsigned int irq)
 	if (irq < 16 && irq >= 0) {
 		irq_wait[irq] = 1;
 	}
+}
+
+unsigned char in_irq_handler() {
+	return irq_handling;
 }
 
 void irq_install()
@@ -108,8 +114,6 @@ void irq_install()
 	idt_set_gate(0x2D, (unsigned)irq13, 0x08, 0x8E);
 	idt_set_gate(0x2E, (unsigned)irq14, 0x08, 0x8E);
 	idt_set_gate(0x2F, (unsigned)irq15, 0x08, 0x8E);
-
-	outportb(0x20, 0x20);
 }
 
 void install_irq_handler(unsigned int irq, void (*irqhandler)())
@@ -136,6 +140,7 @@ void uninstall_irq_handler(unsigned int irq)
 
 void irq_handler(struct regs_t *regs) /* NOTICE: This should be called only from our assembly code! */
 {
+	irq_handling = 1;
 	if (regs->int_no & 0xfffffff0) {
 		kprintf("Irq_handler got irq %u which doesn't exist\n", regs->int_no);
 		dump_regs(regs);
@@ -143,7 +148,7 @@ void irq_handler(struct regs_t *regs) /* NOTICE: This should be called only from
 		if (irq_handlers[regs->int_no]) {
 			irq_handlers[regs->int_no]();
 		} else {
-			kprintf("Got interrupt on %u, but we don't have handler for it!\n", regs->int_no);
+			/*kprintf("Got interrupt on %u, but we don't have handler for it!\n", regs->int_no);*/
 		}
 		if (regs->int_no >= 8) {
 			outportb(0xA0, 0x20);
@@ -151,5 +156,6 @@ void irq_handler(struct regs_t *regs) /* NOTICE: This should be called only from
 		outportb(0x20, 0x20);
 		irq_wait[regs->int_no] = 0;
 	}
+	irq_handling = 0;
 	next_thread();
 }

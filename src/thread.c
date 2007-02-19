@@ -152,6 +152,7 @@ void start_threading(void)
 		panic("Couldn't start kernel idle process!");
 	}
 	kernel_idle_thread = processes[kernel_idle_process].main_thread;
+	processes[kernel_idle_process].vt_num = VT_KERN_LOG;
 
 	asm("cli");
 	active_process = kernel_idle_process;

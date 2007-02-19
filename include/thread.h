@@ -36,6 +36,7 @@ struct process_t {
 	size_t num_threads;
 	thread_id_t main_thread;
 	int running;
+	int vt_num; /* < 0 if no vt */
 };
 
 #define K_THREAD_STACK_SIZE ((size_t)(1<<13))

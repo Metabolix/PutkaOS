@@ -130,10 +130,10 @@ void sys_next_minute()
 		sys_time.tm_min -= 60;
 		sys_next_hour();
 	}
-	kprintf("On %u.%u. vuonna %u ja kello on %02u.%02u.%02u; uptime %u,%06u sekuntia.\n",
+	/*kprintf("On %u.%u. vuonna %u ja kello on %02u.%02u.%02u; uptime %u,%06u sekuntia.\n",
 		sys_time.tm_mday, sys_time.tm_mon + 1, sys_time.tm_year + 1900,
 		sys_time.tm_hour, sys_time.tm_min, sys_time.tm_sec,
-		uptime.sec, uptime.usec);
+		uptime.sec, uptime.usec);*/
 }
 
 void timer_handler()
