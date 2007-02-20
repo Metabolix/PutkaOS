@@ -22,8 +22,8 @@ int pfs_umount(struct pfs_fs *this);
 void *pfs_fopen(struct pfs_fs *this, const char * filename, uint_t mode);
 int pfs_fclose(struct pfs_file *stream);
 
-size_t pfs_fread(void *buf, size_t size, size_t count, void *stream);
-size_t pfs_fwrite(void *buf, size_t size, size_t count, void *stream);
+size_t pfs_fread(void *buf, size_t size, size_t count, struct pfs_file *stream);
+size_t pfs_fwrite(void *buf, size_t size, size_t count, struct pfs_file *stream);
 
 int pfs_fgetpos(struct pfs_file *stream, fpos_t *pos);
 int pfs_fsetpos(struct pfs_file *stream, const fpos_t *pos);

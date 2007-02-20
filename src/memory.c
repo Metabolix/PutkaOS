@@ -244,9 +244,5 @@ void memory_init(unsigned int memory)
 		print("Memory paging is enabled!\n");
 	}
 
-	kprintf("MEM: We have %u kilobytes of memory", memory);
-	if (memory > ram_count) {
-		kprintf(", but we use only %u kilobytes of it", ram_count);
-	}
-	putch('\n');
+	kprintf("MEM: Using %u kilobytes of %u available\n", memory, ram_count);
 }

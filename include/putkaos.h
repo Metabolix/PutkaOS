@@ -5,7 +5,7 @@
 
 #define sti() asm("sti")
 #define cli() asm("cli")
-#define threading_on() (!in_irq_handler() && active_thread != NO_THREAD) /* Make better thing to replace that active_thread != NO_THREAD */
+#define threading_on() (!in_irq_handler() && active_thread_ptr && active_process_ptr) /* Eh? */
 
 #endif
 

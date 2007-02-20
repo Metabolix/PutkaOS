@@ -116,7 +116,7 @@ void sh_ei_tunnistettu(char *buf)
 
 void run_sh(void)
 {
-	unsigned int ch;
+	int ch;
 	char buffer[128];
 	char *bufptr;
 	const int buffer_size = 120;
@@ -126,29 +126,32 @@ void run_sh(void)
 		loc = 0;
 		buffer[0] = 0;
 		print("PutkaOS $ ");
-		while(loc ? buffer[loc - 1] != '\n' : 1) {
-			if(loc == buffer_size - 1) { /* Buffer is full */
-				break;
-			}
-
+		while (buffer[loc] != '\n') {
 			ch = kb_get();
-			if(ch & 256) { /* Key up */
+			if (ch & 256) { /* Key up */
 				continue;
 			}
 			ch = ktoasc(ch);
-			if(ch == '\b') {
-				if(loc > 0) {
-					putch(ch);
-					putch(' ');
-					putch(ch);
-					loc--;
+			if (!ch) {
+				continue;
+			}
+			if (ch == '\n') {
+				break;
+			}
+			if (ch == '\b') {
+				if (loc > 0) {
+					print("\b \b");
+					buffer[--loc] = 0;
 				}
-			} else {
-				buffer[loc++] = ch;
+				continue;
+			}
+			if (loc < buffer_size - 1) {
 				putch(ch);
+				buffer[loc] = ch;
+				buffer[++loc] = 0;
 			}
 		}
-		buffer[loc - 1] = 0;
+		putch('\n');
 
 		// Trim left
 		for (loc = 0; buffer[loc] == ' '; ++loc);
@@ -162,6 +165,10 @@ void run_sh(void)
 
 		komento = komennot;
 		while (komento->komento) {
+			if (strrmsame(komento->komento, buffer)[0]) {
+				++komento;
+				continue;
+			}
 			bufptr = strrmsame(buffer, komento->komento);
 			if (!*bufptr || bufptr[0] == ' ') {
 				komento->suoritus(bufptr);

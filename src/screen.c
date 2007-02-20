@@ -17,10 +17,10 @@ void do_eop(void)
 	}
 }
 
-int vt_out_get(void)
+unsigned int vt_out_get(void)
 {
 	if (threading_on()) {
-		return processes[active_process].vt_num;
+		return active_process_ptr->vt_num;
 	}
 
 	return VT_KERN_LOG;
@@ -28,28 +28,32 @@ int vt_out_get(void)
 
 int move(unsigned int y, unsigned int x)
 {
-	if(y > 25 || x > 80)
+	if (y > 25 || x > 80) {
 		return -1;
-
-	unsigned int out_get = vt_out_get();
-	if(threading_on()) {
-		spinl_spin(&vt[out_get].printlock);
-		spinl_lock(&vt[out_get].writelock);
 	}
 
-	vt[out_get].cx = x;
-	vt[out_get].cy = y;
+	unsigned int vt_num = vt_out_get();
+	if (vt_num >= VT_COUNT) {
+		return 0;
+	}
+	if (threading_on()) {
+		spinl_spin(&vt[vt_num].printlock);
+		spinl_lock(&vt[vt_num].writelock);
+	}
+
+	vt[vt_num].cx = x;
+	vt[vt_num].cy = y;
 
 	move_cursor();
 	if(threading_on())
-		spinl_unlock(&vt[out_get].writelock);
+		spinl_unlock(&vt[vt_num].writelock);
 	do_eop();
 	return 0;
 }
 
 void scroll_buffer(char * p, size_t count)
 {
-	if(vt[cur_vt].buffer) {
+	if (vt[cur_vt].buffer) {
 		memmove(vt[cur_vt].buffer, vt[cur_vt].buffer + count, SCREEN_BUFFER_SIZE - count);
 		memmove(vt[cur_vt].buffer + SCREEN_BUFFER_SIZE - count, p, count);
 	}
@@ -57,24 +61,36 @@ void scroll_buffer(char * p, size_t count)
 
 unsigned char get_colour(void)
 {
-	return vt[vt_out_get()].colour;
+	unsigned int vt_num = vt_out_get();
+	if (vt_num >= VT_COUNT) {
+		return 0;
+	}
+	return vt[vt_num].colour;
 }
 
 void set_colour(unsigned char c)
 {
-	vt[vt_out_get()].colour = c;
+	unsigned int vt_num = vt_out_get();
+	if (vt_num >= VT_COUNT) {
+		return 0;
+	}
+	vt[vt_num].colour = c;
 }
 
-void change_vt(unsigned int vt_n)
+void change_vt(unsigned int vt_num)
 {
-	if(cur_vt == vt_n)
+	if (vt_num >= VT_COUNT) {
 		return;
-	if(spinl_locked(&vt[cur_vt].writelock) || spinl_locked(&vt[cur_vt].printlock)) {
-		change_to_vt = vt_n;
+	}
+	if (cur_vt == vt_num) {
+		return;
+	}
+	if (spinl_locked(&vt[cur_vt].writelock) || spinl_locked(&vt[cur_vt].printlock)) {
+		change_to_vt = vt_num;
 		return;
 	}
 	change_to_vt = 0;
-	cur_vt = vt_n;
+	cur_vt = vt_num;
 	move_cursor();
 	memcpy((void*)0xB8000, vt[cur_vt].buffer + SCREEN_BUFFER_SIZE - SCREEN_SIZE, SCREEN_SIZE);
 	do_eop();
@@ -96,51 +112,61 @@ void scroll(int lines) {
 void cls(void)
 {
 	int a = 0;
-	int out_get = vt_out_get();
+	unsigned int vt_num = vt_out_get();
+	if (vt_num >= VT_COUNT) {
+		return 0;
+	}
 
-	while(a < SCREEN_SIZE) {
+	while (a < SCREEN_SIZE) {
 		*(char*)(0xB8000 + a++) = ' ';
 		*(char*)(0xB8000 + a++) = 0x7;
 	}
 	scroll_buffer((char*)0xB8000, SCREEN_SIZE);
-	vt[out_get].cx = 0;
-	vt[out_get].cy = 0;
+	vt[vt_num].cx = 0;
+	vt[vt_num].cy = 0;
 }
+
 int print(const char * string)
 {
-	int out_get = vt_out_get();
-	if(!vt[out_get].in_kprintf) {
-		if(threading_on()) {
-			spinl_lock(&vt[out_get].printlock);
+	unsigned int vt_num = vt_out_get();
+	if (vt_num >= VT_COUNT) {
+		return 0;
+	}
+	if (!vt[vt_num].in_kprintf) {
+		if (threading_on()) {
+			spinl_lock(&vt[vt_num].printlock);
 		}
 	}
 
 	char *s = (char *)string;
 	while (*s) {
-		putch(*s);
+		putch_vt(*s, vt_num);
 		++s;
 	}
 
-	if(!vt[out_get].in_kprintf) {
-		if(threading_on()) {
-			spinl_unlock(&vt[out_get].printlock);
+	if (!vt[vt_num].in_kprintf) {
+		if (threading_on()) {
+			spinl_unlock(&vt[vt_num].printlock);
 		}
 	}
 
 	return s - string;
 }
 
-void putch_vt(int c, int vt_num)
+void putch_vt(int c, unsigned int vt_num)
 {
-	if(threading_on()) {
+	if (vt_num >= VT_COUNT) {
+		return;
+	}
+	if (threading_on()) {
 		spinl_lock(&vt[vt_num].writelock);
 	}
 
-	if(vt[vt_num].scroll) {
+	if (vt[vt_num].scroll) {
 		vt[vt_num].scroll = 0;
 		//scroll(0);
 	}
-	if(c == '\b') { /* backspace */
+	if (c == '\b') { /* backspace */
 		if (vt[vt_num].cx > 0) {
 			vt[vt_num].cx--;
 		}
@@ -181,17 +207,13 @@ void putch_vt(int c, int vt_num)
 		scroll_buffer((char*)0xB8000 + (25 - amount) * 160, (25 - amount) * 160);
 		vt[vt_num].cy = 24;
 	}
-	if(threading_on())
+	if (threading_on()) {
 		spinl_unlock(&vt[vt_num].writelock);
-	if(vt_num == cur_vt)
+	}
+	if (vt_num == cur_vt) {
 		move_cursor();
+	}
 	do_eop();
-}
-
-void putch(int c) {
-	int out_vt = vt_out_get();
-	if(out_vt >= 0 && out_vt < VT_COUNT)
-		putch_vt(c, out_vt);
 }
 
 void move_cursor(void)
@@ -204,7 +226,8 @@ void move_cursor(void)
 	outportb(0x3D5, temp);
 }
 
-void vts_init(void) {
+void vts_init(void)
+{
 	int i;
 	for(i = 0; i < VT_COUNT; i++) {
 		vt[i].buffer = kmalloc(SCREEN_BUFFER_SIZE);

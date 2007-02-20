@@ -13,10 +13,11 @@
 #define VT_KERN_LOG 0 /* we put our log messages from kernel on that vt */
 
 struct vt_t {
+	volatile int kb_buf[KB_BUFFER_SIZE];
+	volatile int kb_buf_start, kb_buf_end, kb_buf_count;
+
 	char * buffer;
-	volatile int kb_buff[kb_buffer_size];
-	volatile int kb_buff_filled;
-	int scroll;     /* how many lines have we scrolled */
+	int scroll; /* how many lines have we scrolled */
 	unsigned int cx, cy; /* cursor x, y */
 	unsigned char colour;
 	struct spinlock printlock; /* we are going to get problems with these spinlocks, we should replace them with something better later */
@@ -25,11 +26,11 @@ struct vt_t {
 };
 
 extern void cls(void);
-extern int vt_out_get(void);
+extern unsigned int vt_out_get(void);
 extern int print(const char * string);
 extern void move_cursor(void);
-extern void putch_vt(int c, int vt);
-extern void putch(int c);
+extern void putch_vt(int c, unsigned int vt);
+#define putch(c) putch_vt(c, vt_out_get())
 extern int move(unsigned int y, unsigned int x);
 extern unsigned char get_color(void);
 extern void set_color(unsigned char c);

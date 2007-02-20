@@ -9,9 +9,10 @@ set_bit:
 	mov eax, [esp+4]
 	ret
 set_bit_jatka:
+	mov edx, [esp+12]
+	test edx, edx
 	mov edx, [esp+4]
-	cmp DWORD[esp+12], 0
-	je nollaksi
+	jz nollaksi
 	mov eax, 1
 	shl eax, cl
 	or eax, edx
@@ -35,3 +36,26 @@ get_bit_jatka:
 	shr eax, cl
 	and eax, 1
 	ret
+
+global add_rm_bits
+add_rm_bits:
+	mov ecx, [esp+8]
+	mov eax, [esp+12]
+	test eax, eax
+	mov eax, [esp+4]
+	jz add_rm_bits__rm
+add_rm_bits__add:
+	or eax, ecx
+	ret
+add_rm_bits__rm:
+	and ecx, eax
+	xor eax, ecx
+	ret
+
+global taikatemppu
+taikatemppu:
+	ret
+
+;extern unsigned int set_bit(unsigned int num, int bit, int value);
+;extern unsigned int add_rm_bits(unsigned int num, int bits, int add);
+;extern unsigned int get_bit(unsigned int num, int bit);

@@ -4,21 +4,38 @@
 void keyboard_install(void);
 unsigned int kb_get(void);
 
-unsigned char key_to_ascii(unsigned char key, unsigned char shift, unsigned char control, unsigned char alt);
-unsigned char ktoasc(unsigned char key);
+int key_to_ascii(int key, int mods);
+int ktoasc(int key);
 
-#define kb_buffer_size 100
+enum KEYB_MODS {
+	KEYB_MOD_RCTRL = 0x01,
+	KEYB_MOD_LCTRL = 0x02,
+	KEYB_MOD_CTRL = 0x03,
+	KEYB_MOD_LSHIFT = 0x04,
+	KEYB_MOD_RSHIFT = 0x08,
+	KEYB_MOD_SHIFT = KEYB_MOD_LSHIFT | KEYB_MOD_RSHIFT,
+	KEYB_MOD_LALT = 0x10,
+	KEYB_MOD_ALTGR = 0x20, // Recognize it? :P
+	KEYB_MOD_CAPS = 0x100,
+	KEYB_MOD_SCRL = 0x200,
+	KEYB_MOD_NUML = 0x400,
+
+	KEYB_MOD_UPCASE = KEYB_MOD_CAPS | KEYB_MOD_SHIFT,
+};
+
+#define KB_BUFFER_SIZE 128
 
 enum keys { /* let's put these here if someone needs them... */
 	KEY_ESC = 0x01,
 	KEY_BACKSPACE = 0x0e,
 	KEY_TAB = 0x0f,
 	KEY_CAPSLOCK = 0x3a,
+	KEY_NUMLOCK = 0x45,
 
 	KEY_LSHIFT = 0x2a,
 	KEY_RSHIFT = 0x36,
 	KEY_LCTRL = 0x1d,
-	KEY_RCTRL = 0x1d, // ja 0xe0
+	KEY_RCTRL = 0x1d | 0x80, // ja 0xe0
 	KEY_LALT = 0x38,
 	KEY_ENTER = 0x1c,
 

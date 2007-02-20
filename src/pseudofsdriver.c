@@ -52,11 +52,11 @@ int pfs_fclose(struct pfs_file *stream)
 	return 0;
 }
 
-size_t pfs_fread(void *buf, size_t size, size_t count, void *stream)
+size_t pfs_fread(void *buf, size_t size, size_t count, struct pfs_file *stream)
 {
 	return 0;
 }
-size_t pfs_fwrite(void *buf, size_t size, size_t count, void *stream)
+size_t pfs_fwrite(void *buf, size_t size, size_t count, struct pfs_file *stream)
 {
 	return 0;
 }

@@ -3,7 +3,9 @@
 #include <idt.h>
 #include <screen.h>
 #include <panic.h>
+#include <putkaos.h>
 #include <mem.h>
+#include <bit.h>
 
 char *nappien_nimet_qwerty[256] = {
 	"0x00",
@@ -104,8 +106,8 @@ const char keys_to_ascii[256] = {
 	0,
 	27, /* esc */
 	'1','2','3','4','5','6','7','8','9','0',
-	'-', '`','\b',				      /* left control */
-	'\t','q','w','e','r','t','y','u','i','o','p',0,'^','\n', 0,
+	'-', '`','\b',
+	'\t','q','w','e','r','t','y','u','i','o','p',0,'"','\n', 0,
 	'a','s','d','f','g','h','j','k','l',0,'\'', 0,
 	0, 0, 'z','x','c','v','b','n','m', ',', '.', 0,0,
 	'*',0,' ',0,
@@ -140,43 +142,123 @@ const char keys_to_ascii[256] = {
 	0,0,0,0
 };
 
+const char shifted_keys_to_ascii[256] = {
+	0,
+	27, /* esc */
+	'!','"','#',0,'%','&','/','(',')','=',
+	'_', '`','\b',
+	'\t','Q','W','E','R','T','Y','U','I','O','P',0,'^','\n', 0,
+	'A','S','D','F','G','H','J','K','L',0,'*', 0,
+	0, 0, 'Z','X','C','V','B','N','M', ';', ':', 0,0,
+	'*',0,' ',0,
+	/*"F1","F2","F3","F4","F5","F6","F7","F8","F9","F10",*/
+	0,0,0,0,0,0,0,0,0,0,
+	0,0,
+	'7','8','9','-','4','5','6','+','1','2','3','0',127,
+	0,0,0,
+	0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+	'\n',
+	0,
+	0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,0,
+	47,
+	0,
+	0,
+	0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,
+	0,
+	0,0,0,
+	0,
+	0,0,0,
+	0,
+	0,0,0,0,0,
+	0,0,0,0,
+	0,0,0,
+	0,0,0,
+	0,0,0,0,0,0,
+	0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0
+};
 
+const char altgred_keys_to_ascii[256] = {
+	0,
+	27, /* esc */
+	0,'@',0,'$',0,0,'{','[',']','}',
+	'-', '\'','\b',
+	'\t','q','w','e','r','t','y','u','i','o','p',0,'"','\n', 0,
+	'a','s','d','f','g','h','j','k','l',0,'\'', 0,
+	0, 0, 'z','x','c','v','b','n','m', ',', '.', 0,0,
+	'*',0,' ',0,
+	/*"F1","F2","F3","F4","F5","F6","F7","F8","F9","F10",*/
+	0,0,0,0,0,0,0,0,0,0,
+	0,0,
+	'7','8','9','-','4','5','6','+','1','2','3','0',127,
+	0,0,0,
+	0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+	'\n',
+	0,
+	0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,0,
+	47,
+	0,
+	0,
+	0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,
+	0,
+	0,0,0,
+	0,
+	0,0,0,
+	0,
+	0,0,0,0,0,
+	0,0,0,0,
+	0,0,0,
+	0,0,0,
+	0,0,0,0,0,0,
+	0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0
+};
 
-
-unsigned char key_to_ascii(unsigned char key, unsigned char shift, unsigned char control, unsigned char alt) {
+int key_to_ascii(int key, int mods)
+{
 	unsigned char ret = keys_to_ascii[key];
-	if(ret >= 'a' && ret <= 'z' && shift)
-		ret += 'A' - 'a';
-	if(ret == '+' && shift)
-		ret = '?';
-	if(ret == '-' && shift)
-		ret = '_'; /* and so on... we should make a table */
+	if (ret >= 'a' && ret <= 'z') {
+		if (mods & KEYB_MOD_UPCASE) {
+			return ret + 'A' - 'a';
+		}
+		return ret;
+	}
+	if (mods & KEYB_MOD_SHIFT) {
+		ret = shifted_keys_to_ascii[key];
+	} else if (mods & KEYB_MOD_LALT) { /* TODO: Alt Gr */
+		ret = altgred_keys_to_ascii[key];
+	}
 	return ret;
 }
 
-unsigned char shift = 0, control = 0, alt = 0;
+int mods = 0;
 unsigned char kb_buf_full = 0;
 
-unsigned char ktoasc(unsigned char key) {
-	return key_to_ascii(key, shift, control, alt);
+int ktoasc(int key) {
+	return key_to_ascii(key & 255, mods);
 }
 
 
 void keyboard_handle(void)
 {
-	static unsigned char escape, oli_escape, up;
+	static unsigned char escape, oli_escape, down;
 	static unsigned int code;
 
-	/*print("KBD: interrupt\n");
-	kprintf("%d %d %d\n", vt[cur_vt].kb_buff_filled, kb_buffer_size, kb_buf_full);*/
-
-	if (vt[cur_vt].kb_buff_filled == kb_buffer_size) { /* our buffer is full */
-		kprintf("buffer is full!\n");
-		kb_buf_full = 1;
+	if (vt[cur_vt].kb_buf_count == KB_BUFFER_SIZE) {
+		print("Keyboard buffer is full!\n");
+		++kb_buf_full;
 		return;
+	} else if (kb_buf_full) {
+		--kb_buf_full;
 	}
-
-	kb_buf_full = 0;
 
 	if (escape) {
 		--escape;
@@ -191,54 +273,78 @@ void keyboard_handle(void)
 		escape = 2;
 		oli_escape = 0x80;
 	} else if (!escape) {
-		up = (code & 0x80) ? 1 : 0;
+		down = (code & 0x80) ? 0 : 1;
 		code = (code & 0x7f) | oli_escape;
 
-		switch (code & 0x7f){
-			case 0x2a: /* left shift or right shift */
-			case 0x36:
-				shift =  !up;
+		switch (code) {
+			case KEY_LSHIFT:
+				mods = add_rm_bits(mods, KEYB_MOD_LSHIFT, down);
 				break;
-			case 0x1d: /* control */
-				control = !up;
+			case KEY_RSHIFT:
+				mods = add_rm_bits(mods, KEYB_MOD_RSHIFT, down);
 				break;
-			case 0x38: /* left alt */
-				alt = !up;
+			case KEY_LCTRL:
+				mods = add_rm_bits(mods, KEYB_MOD_LCTRL, down);
 				break;
+			case KEY_RCTRL:
+				mods = add_rm_bits(mods, KEYB_MOD_RCTRL, down);
+				break;
+			case KEY_LALT:
+				mods = add_rm_bits(mods, KEYB_MOD_LALT, down);
+				break;
+				/* TODO: Alt Gr */
+			case KEY_CAPSLOCK:
+				mods = add_rm_bits(mods, KEYB_MOD_CAPS, down);
+				break;
+			case KEY_NUMLOCK:
+				mods = add_rm_bits(mods, KEYB_MOD_NUML, down);
+				break;
+				/* TODO:
+			case KEY_SCROLL_LOCK:
+				mods = add_rm_bit(mods, KEYB_MOD_SCRL, down);
+				break;
+				*/
 			default:
-				if(code >= 0x3b && code <= 0x3f) { /* f1-f6 */
+				if (code >= 0x3b && code <= 0x40) { /* f1-f6 */
 					change_vt(code - 0x3b);
 				}
 		}
 
-		if(vt[cur_vt].kb_buff_filled == kb_buffer_size) {
-			memmove((void*)vt[cur_vt].kb_buff, (void*)(vt[cur_vt].kb_buff + 1), kb_buffer_size);
-			vt[cur_vt].kb_buff_filled--;
-		}
-		vt[cur_vt].kb_buff[vt[cur_vt].kb_buff_filled++] = code | (up?0:256);
-
-		//kprintf("DVORAK %s, QWERTY %s (%#04x) %s\n", nappien_nimet_dvorak[code], nappien_nimet_qwerty[code], code & 0x7f, (up ? "up" : "down"));
-		//kprintf("Keyboard: %s (%#04x) %s\n", nappien_nimet_qwerty[code], code & 0x7f, (up ? "up" : "down"));
+		vt[cur_vt].kb_buf[vt[cur_vt].kb_buf_end] = code | (down ? 0 : 256);
+		++vt[cur_vt].kb_buf_count;
+		++vt[cur_vt].kb_buf_end;
+		vt[cur_vt].kb_buf_end %= KB_BUFFER_SIZE;
 	}
 }
 
-unsigned int kb_get(void) {
+unsigned int kb_get(void)
+{
 	unsigned int ret;
 	unsigned int curr_vt = cur_vt;
- 	while(!vt[curr_vt].kb_buff_filled) {
+	extern void taikatemppu();
+
+	while (!vt[cur_vt].kb_buf_count) {
+		taikatemppu(&vt[cur_vt].kb_buf_count);
 	}
 
-	ret = vt[curr_vt].kb_buff[0];
-	memcpy((void*)(vt[curr_vt].kb_buff), (void*)(vt[curr_vt].kb_buff + 1), --vt[curr_vt].kb_buff_filled);
+	--vt[cur_vt].kb_buf_count;
+	ret = vt[curr_vt].kb_buf[vt[curr_vt].kb_buf_start];
+	++vt[cur_vt].kb_buf_start;
+	vt[cur_vt].kb_buf_start %= KB_BUFFER_SIZE;
 
-	if(kb_buf_full > 0) {
-		keyboard_handle();
+	if (kb_buf_full) {
+		cli();
+		while (kb_buf_full) {
+			keyboard_handle();
+		}
+		sti();
 	}
 
 	return ret;
 }
 
-void keyboard_install(void) {
+void keyboard_install(void)
+{
 	install_irq_handler(1, (void *) keyboard_handle);
 	inportb(0x60); /* There might be something in the buffer */
 	print("Keyboard installed\n");
