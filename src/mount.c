@@ -7,6 +7,7 @@
 #include <panic.h>
 #include <string.h>
 
+#if 0
 void *krealloc(void *ptr, size_t size)
 {
 	static struct mountpoint taulu[64];
@@ -17,6 +18,7 @@ void *krealloc(void *ptr, size_t size)
 	i += 8;
 	return taulu + i - 8;
 }
+#endif
 
 #define MAKE_NULL(b, a); {if (a) { b(a); (a) = 0; }}
 
@@ -68,8 +70,8 @@ struct mountpoint *etsi_kohta(const char ** filename_ptr)
 	}
 silmukka:
 	for (i = 0; i < mnt->subtree_size; ++i) {
-		newfilename = filename;
-		j = strrmsame(&newfilename, mnt->subtree[i].relative_path);
+		newfilename = strrmsame(filename, mnt->subtree[i].relative_path);
+		j = filename - newfilename;
 
 		if (mnt->subtree[i].relative_path[j] == 0) {
 			if (newfilename[0] == 0) {

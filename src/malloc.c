@@ -270,9 +270,12 @@ void kfree(void * pointer) {
 	pages_mapped = last_alloc - 1;
 }
 
-#if 0
 void * krealloc(void *ptr, size_t size)
 {
+	malloc_mem * mmem_alloc_p = malloc_mem_first;
+	void *retval;
+	int a;
+
 	if (!ptr) {
 		return kmalloc(size);
 	}
@@ -280,10 +283,24 @@ void * krealloc(void *ptr, size_t size)
 		kfree(ptr);
 		return 0;
 	}
-	/* Varaus ja sellaiset tähän! */
+	retval = kmalloc(size);
+	while (mmem_alloc_p) {
+		for (a = 0; a < 255; a++) {
+			if (mmem_alloc_p->alloc_memory[a].start == ptr) {
+				if (size > mmem_alloc_p->alloc_memory[a].size) {
+					size = mmem_alloc_p->alloc_memory[a].size;
+				}
+				memcpy(retval, ptr, size);
+				kfree(ptr);
+				return retval;
+			}
+		}
+		mmem_alloc_p = mmem_alloc_p->next;
+	}
+	kprintf("krealloc: Couldn't find previous area to copy. Data lost.\n");
+	kfree(ptr);
 	return retval;
 }
-#endif
 
 void * kcalloc(size_t nmemb, size_t size)
 {

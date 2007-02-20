@@ -55,6 +55,8 @@ void thread_ending(void)
 		panic("Thread 0 (kernel idle thread) is ending!");
 	}
 	kprintf("Thread %i ending...\n", active_thread);
+	kprintf("num_threads = %d, --\n", num_threads);
+	kprintf("processes[threads[active_thread].process].num_threads = %d, --\n", processes[threads[active_thread].process].num_threads); for(;;);
 	--num_threads;
 	--processes[threads[active_thread].process].num_threads;
 	if (processes[threads[active_thread].process].num_threads == 0) {

@@ -21,8 +21,8 @@ irq_handler_common:
 	push gs
 
 	mov eax, [active_thread_ptr]
-	cmp eax, 0
-	je irq_handler_common_no_thread
+	test eax, eax
+	jz irq_handler_common_no_thread
 
 	mov [eax], esp
 	mov [eax+4], ss
