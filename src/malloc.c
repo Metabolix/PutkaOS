@@ -270,6 +270,7 @@ void kfree(void * pointer) {
 	pages_mapped = last_alloc - 1;
 }
 
+#if 0
 void * krealloc(void *ptr, size_t size)
 {
 	if (!ptr) {
@@ -279,11 +280,10 @@ void * krealloc(void *ptr, size_t size)
 		kfree(ptr);
 		return 0;
 	}
-	void *retval = kmalloc(nmemb * size);
-	if (!retval) return 0;
-	memset(retval, 0, nmemb * size);
+	/* Varaus ja sellaiset tähän! */
 	return retval;
 }
+#endif
 
 void * kcalloc(size_t nmemb, size_t size)
 {
