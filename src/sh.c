@@ -33,6 +33,39 @@ struct komento *komento, komennot[] = {
 	{0, 0, sh_ei_tunnistettu} /* Terminaattori */
 };
 
+int sh_read_int(char **bufptr)
+{
+	char *buf = *bufptr;
+	int retval = 0;
+	if (buf[0] == '0') {
+		if (buf[1] == 'x') {
+			++buf;
+			while (++buf) if (*buf <= '9' && *buf >= '0') {
+				retval = 16 * retval + *buf - '0';
+			} else if (*buf <= 'f' && *buf >= 'a') {
+				retval = 16 * retval + 10 + *buf - 'a';
+			} else if (*buf <= 'F' && *buf >= 'A') {
+				retval = 16 * retval + 10 + *buf - 'A';
+			} else {
+				break;
+			}
+		} else {
+			while (++buf) if (*buf <= '7' && *buf >= '0') {
+				retval = 8 * retval + *buf - '0';
+			} else {
+				break;
+			}
+		}
+	} else {
+		while (*buf && (*buf <= '9' && *buf >= '0')) {
+			retval = 10 * retval + *buf - '0';
+			++buf;
+		}
+	}
+	*bufptr = buf;
+	return retval;
+}
+
 void sh_help(char *buf)
 {
 	komento = komennot;
@@ -58,16 +91,11 @@ void sh_uptime(char *buf)
 void sh_outportb(char *buf)
 {
 	unsigned int port = 0, byte = 0;
-	while (*buf && (*buf < '0' || *buf > '9')) ++buf;
-	while (*buf && (*buf <= '9' && *buf >= '0')) {
-		port = 10 * port + *buf - '0';
-		++buf;
-	}
-	while (*buf && (*buf < '0' || *buf > '9')) ++buf;
-	while (*buf && (*buf <= '9' && *buf >= '0')) {
-		byte = 10 * byte + *buf - '0';
-		++buf;
-	}
+	while (*buf && !(*buf <= '9' && *buf >= '0')) ++buf;
+	port = sh_read_int(&buf);
+	while (*buf && !(*buf <= '9' && *buf >= '0')) ++buf;
+	byte = sh_read_int(&buf);
+
 	kprintf("Port %d (%#x), sending %d (%#04x)\n", port, port, byte, byte);
 	outportb(port, byte);
 }
@@ -75,11 +103,8 @@ void sh_outportb(char *buf)
 void sh_inportb(char *buf)
 {
 	unsigned int port = 0, byte;
-	while (*buf && (*buf < '0' || *buf > '9')) ++buf;
-	while (*buf && (*buf <= '9' && *buf >= '0')) {
-		port = 10 * port + *buf - '0';
-		++buf;
-	}
+	while (*buf && !(*buf <= '9' && *buf >= '0')) ++buf;
+	port = sh_read_int(&buf);
 	byte = inportb(port);
 	kprintf("Port %d (%#x): got %d (%#04x)\n", port, port, byte, byte);
 }
@@ -92,9 +117,9 @@ void sh_ei_tunnistettu(char *buf)
 void run_sh(void)
 {
 	unsigned int ch;
-	char buffer[100];
+	char buffer[128];
 	char *bufptr;
-	const int buffer_size = 100;
+	const int buffer_size = 120;
 	int loc;
 
 	for(;;) {
