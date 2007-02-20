@@ -230,7 +230,7 @@ void init_memory(unsigned int memory) {
 	/* page directories 0, and maybe 1,2,3 (if there is enough memory) */
 	page_directory[0] = (unsigned int)page_table | 3;
 	for(a = 0, i = 0; a < block_count / MEMORY_PDE_LEN; a++, i += MEMORY_PDE_LEN) {
-		kprintf("Page_directory[%d] is %x\n", a, (unsigned int)page_table + i * sizeof(int)|3);
+		kprintf("Page_directory[%d] is %x\n", a, ((unsigned int)page_table + i * sizeof(int))|3);
 		page_directory[a] = (((unsigned int) page_table) + i * sizeof(int)) | 3;
 	}
 

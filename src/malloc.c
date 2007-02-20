@@ -30,25 +30,25 @@ malloc_mem * malloc_mem_first;
 
 int pages_mapped; /* pages mapped from beginning of the pages_table[4096] */
 
-/* init_malloc_map - inits one malloc memory entry 
+/* init_malloc_map - inits one malloc memory entry
  *
  * @mem: pointer to the entry
  */
 
 void init_malloc_map(malloc_mem * mem) {
 	memset(malloc_mem_first, 0, sizeof(malloc_mem));
-	
+
 	malloc_mem_first->free=255;
 	malloc_mem_first->alloc=255;
 }
 
 /* malloc_init - inits things */
- 
+
 void malloc_init() {
 	malloc_mem_first = (malloc_mem*)alloc_page();
 
 	pages_mapped = -1;
-	
+
 	init_malloc_map(malloc_mem_first);
 	malloc_mem_first->free--;
 	malloc_mem_first->free_memory[0].start = (void*)0x1000000;	/* first 2 megabytes are reserved */
@@ -69,7 +69,7 @@ area mkmallocmem(size_t size) { /* make space for memarea */
 	area ar = {(void*)0,0}; /* for nothing... */
 
 	while(!mmem_alloc_p->alloc) { /* find new alloc thing */
-		if(mmem_alloc_p->next) { 
+		if(mmem_alloc_p->next) {
 			mmem_alloc_p = (malloc_mem *) mmem_alloc_p->next;
 			cycles++;
 		} else {
@@ -80,7 +80,7 @@ area mkmallocmem(size_t size) { /* make space for memarea */
 			break;
 		}
 	}
-	
+
 	while(mmem_free_p) { /* find big enough free thing */
 		for(a = 0; a < 255; a++) {
 			if(mmem_free_p->free_memory[a].size >= size) { /* we can "take" memory from this entry */
@@ -106,7 +106,7 @@ area mkmallocmem(size_t size) { /* make space for memarea */
 		mmem_free_p = (malloc_mem *)mmem_free_p->next;
 	}
 	panic("OOM 8)\n");
-	return ar;			
+	return ar;
 }
 
 area destroymallocmem(void * start) {
@@ -141,7 +141,7 @@ area destroymallocmem(void * start) {
 	}
 
 	/*kprintf("We had to do %d cycles\n", cycles);*/
-	
+
 	while(mmem_free_p) {
 		for(a = 0; a < 255; a++) {
 			if(mmem_free_p->free_memory[a].size)
@@ -158,7 +158,7 @@ area destroymallocmem(void * start) {
 						to_combine->start -= mmem_free_p->free_memory[a].size;
 						mmem_free_p->free_memory[a].size = 0;
 						mmem_free_p->free++;
-						
+
 						return ar;
 						/*break_loop = 1;
 						break;*/
@@ -177,7 +177,7 @@ area destroymallocmem(void * start) {
 						to_combine->size += mmem_free_p->free_memory[a].size;
 						mmem_free_p->free_memory[a].size = 0;
 						mmem_free_p->free++;
-						
+
 						return ar;
 						/*break_loop = 1;
 						break;*/
@@ -190,7 +190,7 @@ area destroymallocmem(void * start) {
 	if(to_combine)
 		return ar;
 	/*kprintf("MEM: Couldn't combine area to any existing area\n");*/
-	
+
 	mmem_free_p = malloc_mem_first;
 	while(mmem_free_p) {
 		if(mmem_free_p->free) {
@@ -209,9 +209,9 @@ area destroymallocmem(void * start) {
 	panic("MEM: Couldn't mark free area");
 	return ar;
 }
-	
 
-/* kmalloc - our malloc function 
+
+/* kmalloc - our malloc function
  *
  * @size: size of the area to allocate
  */
@@ -242,7 +242,7 @@ void kfree(void * pointer) {
 	extern unsigned int * page_table;
 
 	destroymallocmem(pointer);
-	
+
 	while(mmem_alloc_p) {
 		if(mmem_alloc_p->alloc != 255) {
 			for(a = 0; a < 255; a++) {
@@ -268,4 +268,12 @@ void kfree(void * pointer) {
 		}
 	}
 	pages_mapped = last_alloc - 1;
+}
+
+void * kcalloc(size_t nmemb, size_t size)
+{
+	void *retval = kmalloc(nmemb * size);
+	if (!retval) return 0;
+	memset(retval, 0, nmemb * size);
+	return retval;
 }

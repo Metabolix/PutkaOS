@@ -28,6 +28,7 @@ extern size_t   strxfrm(char *, const char *, size_t);
 /*
  * Non-standard
  */
-extern size_t strrmsame(const char **s1, const char *s2);
+typedef const char const_char;
+extern size_t strrmsame(const_char **s1, const char *s2);
 
 #endif

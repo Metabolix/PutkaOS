@@ -2,6 +2,7 @@
 #define _STDIO_H 1
 
 #include <stddef.h>
+#include <stdint.h>
 
 typedef struct _fpos_t {
 	size_t lo_dword, hi_dword;
@@ -37,7 +38,7 @@ extern size_t fread(void *buf, size_t size, size_t count, FILE *file);
 extern size_t fwrite(void *buf, size_t size, size_t count, FILE *file);
 extern int fgetpos(FILE *stream, fpos_t *pos);
 extern int fsetpos(FILE *stream, const fpos_t *pos);
-extern FILE *fopen(const char * restrict filename, const char * restrict mode);
+extern FILE *fopen(const char * filename, const char * mode);
 extern int fclose(FILE *stream);
 /*
 extern int remove(const char *filename);
@@ -46,8 +47,8 @@ extern FILE *tmpfile(void); // wb+
 extern char *tmpnam(char *); // wb+
 extern int fclose(FILE *file); // 0, EOF
 extern int fflush(FILE *file); // 0, EOF
-extern FILE *fopen(const char * restrict filename, const char * restrict mode);
-extern FILE *freopen(const char * restrict filename, const char * restrict mode, FILE * restrict stream);
+extern FILE *fopen(const char * filename, const char * mode);
+extern FILE *freopen(const char * filename, const char * mode, FILE * stream);
 */
 
 #endif

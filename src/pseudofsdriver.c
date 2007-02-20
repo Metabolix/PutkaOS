@@ -1,33 +1,54 @@
 #include <pseudofsdriver.h>
 #include <malloc.h>
 
-extern fs_mount_t pfs_mount = (fs_mount_t) pfs_mount_;
+/* Esimerkiksi */
+struct pfs_fs pfs = {
+	{
+		(fopen_t)     pfs_fopen,
+		(fclose_t)    pfs_fclose,
+		(fread_t)     pfs_fread,
+		(fwrite_t)    pfs_fwrite,
+		(fgetpos_t)   pfs_fgetpos,
+		(fsetpos_t)   pfs_fsetpos,
+		(fs_mount_t)  pfs_mount,
+		(fs_umount_t) pfs_umount
+	},
+	0
+};
 
-struct pfs_fs *pfs_mount_(FILE *device, unsigned int mode)
+struct fs *pfs_mount(FILE *device, unsigned int mode)
 {
-	struct pfs_fs *retval = malloc(sizeof(struct pfs_fs));
-	retval->fs_umount = pfs_umount;
-	retval->fread = pfs_fread;
-	retval->fwrite = pfs_fwrite;
-	retval->fopen = pfs_fopen;
-	retval->fclose = pfs_fclose;
-	retval->fgetpos = pfs_fgetpos;
-	retval->fsetpos = pfs_fsetpos;
-	return retval;
+	return 0; /* Virhe ;) */
+
+	struct pfs_fs *retval = kcalloc(1, sizeof(struct pfs_fs));
+	*retval = pfs;
+	/* Ja tälle mountille spesifiset jutut... */
+	return (struct fs *) retval;
 }
+
 int pfs_umount(struct pfs_fs *this)
 {
-	free(this);
+	return -1; /* Virhe ;) */
+
+	kfree(this);
+	return 0;
 }
 
-void *pfs_fopen(const char * restrict filename, const char * restrict mode)
+void *pfs_fopen(struct pfs_fs *this, const char * filename, unsigned int mode)
 {
-	struct pfs_file *retval = malloc(sizeof(struct pfs_file));
+	return 0; /* Virhe ;) */
+
+	struct pfs_file *retval = kcalloc(1, sizeof(struct pfs_file));
+	retval->std.fs = &this->std; /* = this, in fact */
+	/* Ja mitä nyt tälle tiedostolle haluaakin tehdä... */
+	return retval;
 }
 
 int pfs_fclose(struct pfs_file *stream)
 {
-	free(stream);
+	return -1; /* Virhe ;) */
+
+	kfree(stream);
 	return 0;
 }
 
@@ -39,12 +60,12 @@ size_t pfs_fwrite(void *buf, size_t size, size_t count, void *stream)
 {
 	return 0;
 }
-int pfs_fgetpos(struct pfs_fileinfo *stream, fpos_t *pos)
+int pfs_fgetpos(struct pfs_file *stream, fpos_t *pos)
 {
 	pos->lo_dword = pos->hi_dword = 0;
 	return 0;
 }
-int pfs_fsetpos(struct pfs_fileinfo *stream, const fpos_t *pos)
+int pfs_fsetpos(struct pfs_file *stream, const fpos_t *pos)
 {
 	return EOF;
 }
