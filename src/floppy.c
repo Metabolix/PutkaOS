@@ -27,13 +27,13 @@ char fdbuf[512];
 unsigned int fd_seeked = 0;
 unsigned int motors = 0;
 
-void motor_0_off() {motor_off(0);}
-void motor_1_off() {motor_off(1);}
+void motor_0_off(void) {motor_off(0);}
+void motor_1_off(void) {motor_off(1);}
 void (*motor_stop[2])() = {motor_0_off, motor_1_off};
 
-void floppy_handler() { }
+void floppy_handler(void) { }
 
-void install_floppy()
+void install_floppy(void)
 {
 	unsigned char detect_floppy;
 
@@ -88,7 +88,7 @@ void install_floppy()
 	install_irq_handler(6, (void*)floppy_handler);
 }
 
-void reset_floppy()
+void reset_floppy(void)
 {
 	int a;
 
@@ -105,7 +105,7 @@ void reset_floppy()
 		sense_interrupt();
 	}
 
-        outportb(FLOPPY_FIRST + CONFIGURATION_CONTROL_REGISTER, 0);
+	outportb(FLOPPY_FIRST + CONFIGURATION_CONTROL_REGISTER, 0);
 
 	configure_drive();
 
@@ -118,14 +118,14 @@ void reset_floppy()
 	print("FDD: Calibrated drives\n");
 }
 
-void wait_floppy_data()
+void wait_floppy_data(void)
 {
-	while ((inportb(FLOPPY_FIRST + MAIN_STATUS_REGISTER) & 0xd0) != 0xd0) /* While RQM and DIO aren't 1 */
-		;
+	/* While RQM and DIO aren't 1 */
+	while ((inportb(FLOPPY_FIRST + MAIN_STATUS_REGISTER) & 0xd0) != 0xd0);
 }
-	
-	
-void configure_drive()
+
+
+void configure_drive(void)
 {
 	send_command(SPECIFY);
 	send_command(floppy_params.steprate_headunload);
@@ -133,16 +133,19 @@ void configure_drive()
 	print("FDD: Drive configured\n");
 }
 
-void send_command(unsigned char command) {
+void send_command(unsigned char command)
+{
 	wait_floppy();
 	outportb(FLOPPY_FIRST + DATA_FIFO, command);
 }
 
-void wait_floppy() {
+void wait_floppy(void)
+{
 	while (!(inportb(FLOPPY_FIRST + MAIN_STATUS_REGISTER) & 0x80));
 }
 
-void sense_interrupt() {
+void sense_interrupt(void)
+{
 	send_command(SENSE_INTERRUPT);
 	wait_floppy_data();
 	fds[fd_seeked].status = inportb(FLOPPY_FIRST + DATA_FIFO);
@@ -236,8 +239,8 @@ int seek_track(unsigned int drive, unsigned int track)
 	return 0;
 }
 
-void reset_flipflop_dma() {
-        outportb(0xC, 0);
+void reset_flipflop_dma(void) {
+	outportb(0xC, 0);
 }
 
 void motor_off(unsigned int drive)
@@ -402,7 +405,7 @@ int write_block(BLOCK_DEVICE *self, size_t num, const void * buf) {
 	head = (num / floppy_params.sectors_per_track) & 1;
 	cylinder = num / (floppy_params.sectors_per_track * 2);
 	sector = (num % (floppy_params.sectors_per_track)) + 1;
-	
+
 
 	memcpy(fdbuf, buf, self->block_size);
 	return write_sector(self->index, sector, head, cylinder, (unsigned long)fdbuf);

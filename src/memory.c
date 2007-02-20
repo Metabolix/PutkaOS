@@ -15,8 +15,8 @@ unsigned int continue_block = 0;
 unsigned int ram_count = 20 * 1024;
 unsigned int block_count = 5 * 1024;
 
-unsigned long get_cr0();
-void set_cr0(unsigned long cr0);
+unsigned long get_cr0(void);
+void set_cr0(unsigned long);
 void set_cr3(void*);
 __asm__(
 "get_cr0:\n"
@@ -34,7 +34,7 @@ __asm__(
 
 
 /* finds free block from physical ram */
-int find_free_block()
+int find_free_block(void)
 {
 	unsigned int i, j;
 
@@ -56,7 +56,7 @@ int find_free_block()
 
 
 /* find free PTE (and creates possibly new PDE) */
-int find_free_pte()
+int find_free_pte(void)
 {
 	unsigned int i, j, o;
 	for (i = 0; i < MEMORY_PDE_LEN; i++) {
@@ -114,7 +114,7 @@ void init_pde(unsigned int pde) {
 	page_directory[pde] = (((unsigned int)page_table + pde_pointer) | 3);
 }
 
-void * alloc_page() {
+void * alloc_page(void) {
 	unsigned int block = find_free_block();
 	void * page = (void *)(block * MEMORY_BLOCK_SIZE);
 	unsigned int pte = block; /* find_free_pte(); */
@@ -128,7 +128,7 @@ void * alloc_page() {
 	return (void*)(pte * 4096);
 }
 
-void * alloc_real() {
+void * alloc_real(void) {
 	unsigned int block = find_free_block();
 	memory_table[block >> 4] = set_bit(memory_table[block >> 4], (block & 0x0f) << 1, 1);
 	return (void*)(block * MEMORY_BLOCK_SIZE);
@@ -189,7 +189,8 @@ void free_page(void * pointer) {
 
 }
 
-void init_memory(unsigned int memory) {
+void memory_init(unsigned int memory)
+{
 	unsigned int a, i;
 	unsigned int address = 0;
 

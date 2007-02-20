@@ -6,8 +6,8 @@
 extern struct tm sys_time;
 extern struct timeval uptime;
 
-
-void run_sh() {
+void run_sh(void)
+{
 	unsigned int ch;
 	char buffer[100];
 	const int buffer_size = 100;
@@ -21,7 +21,7 @@ void run_sh() {
 			if(loc == buffer_size - 1) { /* Buffer is full */
 				break;
 			}
-			
+
 			ch = kb_get();
 			if(ch & 256) { /* Key up */
 				continue;

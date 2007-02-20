@@ -1,7 +1,9 @@
 #ifndef _KEYBOARD_H
 #define _KEYBOARD_H
-void keyboard_install();
-unsigned int kb_get();
+
+void keyboard_install(void);
+unsigned int kb_get(void);
+
 unsigned char key_to_ascii(unsigned char key, unsigned char shift, unsigned char control, unsigned char alt);
 unsigned char ktoasc(unsigned char key);
 
@@ -19,7 +21,7 @@ enum keys { /* let's put these here if someone needs them... */
 	KEY_RCTRL = 0x1d, // ja 0xe0
 	KEY_LALT = 0x38,
 	KEY_ENTER = 0x1c,
-	
+
 	KEY_PGUP = 0x49,
 	KEY_PGDOWN = 0x51,
 

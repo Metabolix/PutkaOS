@@ -44,7 +44,7 @@ void init_malloc_map(malloc_mem * mem) {
 
 /* malloc_init - inits things */
 
-void malloc_init() {
+void malloc_init(void) {
 	malloc_mem_first = (malloc_mem*)alloc_page();
 
 	pages_mapped = -1;
@@ -270,10 +270,26 @@ void kfree(void * pointer) {
 	pages_mapped = last_alloc - 1;
 }
 
-void * kcalloc(size_t nmemb, size_t size)
+void * krealloc(void *ptr, size_t size)
 {
+	if (!ptr) {
+		return kmalloc(size);
+	}
+	if (!size) {
+		kfree(ptr);
+		return 0;
+	}
 	void *retval = kmalloc(nmemb * size);
 	if (!retval) return 0;
 	memset(retval, 0, nmemb * size);
+	return retval;
+}
+
+void * kcalloc(size_t nmemb, size_t size)
+{
+	void *retval = kmalloc(nmemb * size);
+	if (retval) {
+		memset(retval, 0, nmemb * size);
+	}
 	return retval;
 }

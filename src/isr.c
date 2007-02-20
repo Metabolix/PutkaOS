@@ -43,7 +43,7 @@ extern void isr29();
 extern void isr30();
 extern void isr31();
 
-void isrs_install()
+void isrs_install(void)
 {
 	idt_set_gate(0, (unsigned)isr0, 0x08, 0x8E);
 	idt_set_gate(1, (unsigned)isr1, 0x08, 0x8E);
@@ -120,7 +120,7 @@ struct isr_t isrs[32] = {
 	{"Reserved", 0}
 };
 
-void* get_cr2();
+void* get_cr2(void);
 __asm__(
 "get_cr2:\n"
 "    movl %cr2, %eax\n"

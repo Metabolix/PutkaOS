@@ -22,7 +22,7 @@ BD_DESC *dev;
 char buf[512];
 int i;
 
-void testattava_koodi()
+void testattava_koodi(void)
 {
 #ifdef TUHOA_KORPUN_SISALTO
 	dev = dopen(&fd_devices[0]);
@@ -44,8 +44,8 @@ void testattava_koodi()
 #endif
 
 }
-void __stack_chk_fail() {}
-extern void run_sh();
+
+extern void run_sh(void);
 
 void kmain(multiboot_info_t* mbt, unsigned int magic)
 {
@@ -57,25 +57,27 @@ void kmain(multiboot_info_t* mbt, unsigned int magic)
 	gdt_install();
 	idt_install();
 	isrs_install();
-	init_memory(mbt->mem_upper + mbt->mem_lower);
+	memory_init(mbt->mem_upper + mbt->mem_lower);
 	irq_install();
 	timer_install();
 	keyboard_install();
 	install_floppy();
 	malloc_init();
 	vts_init();
+	threading_init();
 
 	kprintf("Going to unmask irqs\n");
 	outportb(0x21,0x0); /* Don't mask any IRQ */
 	outportb(0xa1,0x0);
 	asm __volatile__("sti"); /* Allow interrupts */
 
-	reset_floppy();
+	//reset_floppy();
 
 	testattava_koodi();
 
 	kprintf("%s %s is up and running _o/\n", systeemi, versio);
-	new_thread(run_sh, 0,0);
+	new_thread(run_sh, 0, 0);
 	start_threading();
 	//for (;;);
 }
+void __stack_chk_fail(void) {}

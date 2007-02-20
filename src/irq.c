@@ -8,7 +8,7 @@
 
 #define io_wait() asm("nop")
 
-void (*irq_handlers[16])() = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+void (*irq_handlers[16])(struct regs_t*) = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 volatile char irq_wait[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 unsigned char irq_handling = 0;
 
@@ -73,11 +73,12 @@ void prepare_wait_irq(unsigned int irq)
 	}
 }
 
-unsigned char in_irq_handler() {
+unsigned char in_irq_handler(void)
+{
 	return irq_handling;
 }
 
-void irq_install()
+void irq_install(void)
 {
 	extern void irq0();
 	extern void irq1();
@@ -146,7 +147,7 @@ void irq_handler(struct regs_t *regs) /* NOTICE: This should be called only from
 		dump_regs(regs);
 	} else {
 		if (irq_handlers[regs->int_no]) {
-			irq_handlers[regs->int_no]();
+			irq_handlers[regs->int_no](regs);
 		} else {
 			/*kprintf("Got interrupt on %u, but we don't have handler for it!\n", regs->int_no);*/
 		}

@@ -15,7 +15,7 @@ volatile struct timeval uptime;
 struct timer timers[MAX_TIMERS];
 int timer_count = 0;
 
-void execute_jobs()
+void execute_jobs(void)
 {
 	int i, j;
 	for (i = j = 0; j < timer_count; ++i) {
@@ -78,12 +78,12 @@ timer_id_t ktimer_start(void (*func)(void), unsigned int msec, int times)
 
 int days_in_month(int month, int year) { return (month != 1) ? (30 ^ (((month + 1) & 8) >> 3) ^ ((month + 1) & 1)) : ((((year + 1900) % 4 == 0) && (((year + 1900) % 100 != 0) || ((year + 1900) % 400 == 0))) ? 29 : 28); }
 
-void sys_next_year()
+void sys_next_year(void)
 {
 	++sys_time.tm_year;
 }
 
-void sys_next_month()
+void sys_next_month(void)
 {
 	if (++sys_time.tm_mon == 12) {
 		sys_time.tm_mon = 0;
@@ -92,12 +92,12 @@ void sys_next_month()
 	}
 }
 
-void sys_next_week()
+void sys_next_week(void)
 {
 	/* Jaa-a... */
 }
 
-void sys_next_day()
+void sys_next_day(void)
 {
 	++sys_time.tm_yday;
 	++sys_time.tm_mday;
@@ -116,7 +116,7 @@ void sys_next_day()
 	}
 }
 
-void sys_next_hour()
+void sys_next_hour(void)
 {
 	if (++sys_time.tm_hour > 23) {
 		sys_time.tm_hour -= 24;
@@ -124,7 +124,7 @@ void sys_next_hour()
 	}
 }
 
-void sys_next_minute()
+void sys_next_minute(void)
 {
 	if (++sys_time.tm_min > 59) {
 		sys_time.tm_min -= 60;
@@ -136,7 +136,7 @@ void sys_next_minute()
 		uptime.sec, uptime.usec);*/
 }
 
-void timer_handler()
+void timer_handler(void)
 {
 	static unsigned long ticks;
 	ticks += TIMER_TICKS_PER_CYCLE;
@@ -153,7 +153,7 @@ void timer_handler()
 }
 
 unsigned char cmos[128];
-void read_cmos();
+void read_cmos(void);
 __asm__(
 "read_cmos:\n"
 "    xorl %ecx, %ecx\n"
@@ -178,7 +178,7 @@ unsigned char xD(unsigned char a)
 	return ((10*(a>>4))+(a&0x0f));
 }
 
-void timer_install()
+void timer_install(void)
 {
 	extern void irq0();
 

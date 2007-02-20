@@ -63,7 +63,9 @@ extern size_t num_threads;
 extern process_id_t new_process(t_entry entry, void * initial_stack, size_t initial_stack_size);
 extern thread_id_t new_thread(t_entry entry, void * initial_stack, size_t initial_stack_size);
 extern void kill_thread(thread_id_t thread);
-extern void start_threading(void);
 extern void next_thread(void);
+
+extern void threading_init(void);
+extern void start_threading(void);
 
 #endif

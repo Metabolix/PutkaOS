@@ -162,11 +162,11 @@ unsigned char ktoasc(unsigned char key) {
 }
 
 
-void keyboard_handle()
+void keyboard_handle(void)
 {
 	static unsigned char escape, oli_escape, up;
 	static unsigned int code;
-	
+
 	/*print("KBD: interrupt\n");
 	kprintf("%d %d %d\n", vt[cur_vt].kb_buff_filled, kb_buffer_size, kb_buf_full);*/
 
@@ -193,7 +193,7 @@ void keyboard_handle()
 	} else if (!escape) {
 		up = (code & 0x80) ? 1 : 0;
 		code = (code & 0x7f) | oli_escape;
-		
+
 		switch (code & 0x7f){
 			case 0x2a: /* left shift or right shift */
 			case 0x36:
@@ -210,24 +210,24 @@ void keyboard_handle()
 					change_vt(code - 0x3b);
 				}
 		}
-		
+
 		if(vt[cur_vt].kb_buff_filled == kb_buffer_size) {
 			memmove((void*)vt[cur_vt].kb_buff, (void*)(vt[cur_vt].kb_buff + 1), kb_buffer_size);
 			vt[cur_vt].kb_buff_filled--;
 		}
 		vt[cur_vt].kb_buff[vt[cur_vt].kb_buff_filled++] = code | (up?0:256);
-		
+
 		//kprintf("DVORAK %s, QWERTY %s (%#04x) %s\n", nappien_nimet_dvorak[code], nappien_nimet_qwerty[code], code & 0x7f, (up ? "up" : "down"));
 		//kprintf("Keyboard: %s (%#04x) %s\n", nappien_nimet_qwerty[code], code & 0x7f, (up ? "up" : "down"));
 	}
 }
 
-unsigned int kb_get() {
+unsigned int kb_get(void) {
 	unsigned int ret;
 	unsigned int curr_vt = cur_vt;
  	while(!vt[curr_vt].kb_buff_filled) {
 	}
-	
+
 	ret = vt[curr_vt].kb_buff[0];
 	memcpy((void*)(vt[curr_vt].kb_buff), (void*)(vt[curr_vt].kb_buff + 1), --vt[curr_vt].kb_buff_filled);
 
@@ -238,7 +238,7 @@ unsigned int kb_get() {
 	return ret;
 }
 
-void keyboard_install() {
+void keyboard_install(void) {
 	install_irq_handler(1, (void *) keyboard_handle);
 	inportb(0x60); /* There might be something in the buffer */
 	print("Keyboard installed\n");

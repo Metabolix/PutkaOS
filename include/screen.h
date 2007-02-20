@@ -24,18 +24,18 @@ struct vt_t {
 	unsigned char in_kprintf;
 };
 
-extern void cls();
-extern int vt_out_get();
+extern void cls(void);
+extern int vt_out_get(void);
 extern int print(const char * string);
-extern void move_cursor();
+extern void move_cursor(void);
 extern void putch_vt(int c, int vt);
 extern void putch(int c);
 extern int move(unsigned int y, unsigned int x);
-extern unsigned char get_color();
+extern unsigned char get_color(void);
 extern void set_color(unsigned char c);
 extern void change_vt(unsigned int vt_n);
-extern void vts_init();
-extern void screen_init();
+extern void vts_init(void);
+extern void screen_init(void);
 /*extern void scroll(int lines);*/
 
 extern int kprintf(const char *fmt, ...);

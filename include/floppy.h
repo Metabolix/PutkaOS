@@ -13,8 +13,8 @@
 #define STATUS_REGISTER_B         0x1 /* read-only */
 #define DIGITAL_OUTPUT_REGISTER   0x2
 #define TAPE_DRIVE_REGISTER       0x3
-#define MAIN_STATUS_REGISTER      0x4 /* read-only */ 
-#define DATA_RATE_SELECT_REGISTER 0x4 /* write-only */ 
+#define MAIN_STATUS_REGISTER      0x4 /* read-only */
+#define DATA_RATE_SELECT_REGISTER 0x4 /* write-only */
 #define DATA_FIFO                 0x5
 #define DIGITAL_INPUT_REGISTER    0x7 /* read-only */
 #define CONFIGURATION_CONTROL_REGISTER  0x7 /* write only */
@@ -55,16 +55,16 @@ typedef struct {
 
 #define DISK_PARAMETER_ADDRESS 0x000fefc7
 
-void install_floppy();
-void reset_floppy();
-void wait_floppy_data();
-void configure_drive();
+void install_floppy(void);
+void reset_floppy(void);
+void wait_floppy_data(void);
+void configure_drive(void);
 void send_command(unsigned char command);
-void wait_floppy();
-void sense_interrupt();
+void wait_floppy(void);
+void sense_interrupt(void);
 void calibrate_drive(unsigned int drive);
 int seek_track(unsigned int drive, unsigned int track);
-void reset_flipflop_dma();
+void reset_flipflop_dma(void);
 void init_dma_floppy(unsigned long buffer, size_t len, int write);
 int read_sector(unsigned int drive, unsigned char sector, unsigned char head, unsigned char cylinder, unsigned long buffer);
 int write_sector(unsigned int drive, unsigned char sector, unsigned char head, unsigned char cylinder, unsigned long buffer);

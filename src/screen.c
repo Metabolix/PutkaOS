@@ -9,20 +9,24 @@ struct vt_t vt[VT_COUNT];
 unsigned int cur_vt = 0;
 char change_to_vt = 0;
 
-void do_eop() { /* if user wants to change vt while printing we queue it */
-	if(change_to_vt)
+void do_eop(void)
+{
+	/* if user wants to change vt while printing we queue it */
+	if (change_to_vt) {
 		change_vt(change_to_vt);
+	}
 }
 
-int vt_out_get() {
-	if(threading_on()) {
+int vt_out_get(void)
+{
+	if (threading_on()) {
 		return processes[active_process].vt_num;
 	}
 
 	return VT_KERN_LOG;
 }
 
-int move(unsigned int y, unsigned int x) 
+int move(unsigned int y, unsigned int x)
 {
 	if(y > 25 || x > 80)
 		return -1;
@@ -35,7 +39,7 @@ int move(unsigned int y, unsigned int x)
 
 	vt[out_get].cx = x;
 	vt[out_get].cy = y;
-	
+
 	move_cursor();
 	if(threading_on())
 		spinl_unlock(&vt[out_get].writelock);
@@ -43,22 +47,26 @@ int move(unsigned int y, unsigned int x)
 	return 0;
 }
 
-void scroll_buffer(char * p, size_t count) {
+void scroll_buffer(char * p, size_t count)
+{
 	if(vt[cur_vt].buffer) {
 		memmove(vt[cur_vt].buffer, vt[cur_vt].buffer + count, SCREEN_BUFFER_SIZE - count);
 		memmove(vt[cur_vt].buffer + SCREEN_BUFFER_SIZE - count, p, count);
 	}
 }
 
-unsigned char get_colour() {
+unsigned char get_colour(void)
+{
 	return vt[vt_out_get()].colour;
 }
 
-void set_colour(unsigned char c) {
+void set_colour(unsigned char c)
+{
 	vt[vt_out_get()].colour = c;
 }
 
-void change_vt(unsigned int vt_n) {
+void change_vt(unsigned int vt_n)
+{
 	if(cur_vt == vt_n)
 		return;
 	if(spinl_locked(&vt[cur_vt].writelock) || spinl_locked(&vt[cur_vt].printlock)) {
@@ -85,7 +93,7 @@ void scroll(int lines) {
 }
 #endif
 
-void cls()
+void cls(void)
 {
 	int a = 0;
 	int out_get = vt_out_get();
@@ -127,7 +135,7 @@ void putch_vt(int c, int vt_num)
 	if(threading_on()) {
 		spinl_lock(&vt[vt_num].writelock);
 	}
-	
+
 	if(vt[vt_num].scroll) {
 		vt[vt_num].scroll = 0;
 		//scroll(0);
@@ -167,7 +175,7 @@ void putch_vt(int c, int vt_num)
 
 	if (vt[vt_num].cy >= 25) { /* scroll screen */
 		int amount = vt[vt_num].cy - 24;
-		
+
 		memmove((void *)0xB8000, (void *)0xB8000 + amount * 160, (25 - amount) * 160);
 		memset((void *)0xB8000 + (25 - amount) * 160, 0, 160);
 		scroll_buffer((char*)0xB8000 + (25 - amount) * 160, (25 - amount) * 160);
@@ -186,7 +194,7 @@ void putch(int c) {
 		putch_vt(c, out_vt);
 }
 
-void move_cursor()
+void move_cursor(void)
 {
 	unsigned int temp = vt[cur_vt].cy * 80 + vt[cur_vt].cx;
 
@@ -196,16 +204,16 @@ void move_cursor()
 	outportb(0x3D5, temp);
 }
 
-void vts_init() {
+void vts_init(void) {
 	int i;
 	for(i = 0; i < VT_COUNT; i++) {
 		vt[i].buffer = kmalloc(SCREEN_BUFFER_SIZE);
 	}
-	
+
 	memcpy(vt[0].buffer + SCREEN_BUFFER_SIZE - SCREEN_SIZE, (const void *)0xB8000, SCREEN_SIZE);
 }
 
-void screen_init() {
+void screen_init(void) {
 	int i;
 	for(i = 0; i < VT_COUNT; i++) {
 		vt[i].scroll = 0;

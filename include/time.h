@@ -22,7 +22,7 @@ struct tm {
 };
 
 /*
-clock_t clock();
+clock_t clock(void);
 double difftime(time_t time0, time_t time1);
 time_t mktime(struct tm *timeptr);
 time_t time(time_t *timer);

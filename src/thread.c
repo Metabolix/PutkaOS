@@ -141,18 +141,20 @@ void kill_thread(thread_id_t thread)
 	threads[thread].stack = 0;
 }
 
+void threading_init(void)
+{
+	kernel_idle_process = new_process(kernel_idle_loop, 0, 0);
+	kernel_idle_thread = processes[kernel_idle_process].main_thread;
+	if (kernel_idle_process || kernel_idle_thread) {
+		kprintf("kernel_idle_thread = %d\nkernel_idle_process = %d\n", kernel_idle_thread, kernel_idle_process);
+		panic("Threading has a problem!\n");
+	}
+	processes[kernel_idle_process].vt_num = VT_KERN_LOG;
+}
+
 void start_threading(void)
 {
-	if (kernel_idle_thread != NO_THREAD) {
-		panic("Threading already started!");
-	}
-	kernel_idle_process = new_process(kernel_idle_loop, 0, 0);
-
-	if (kernel_idle_process == NO_PROCESS) {
-		panic("Couldn't start kernel idle process!");
-	}
-	kernel_idle_thread = processes[kernel_idle_process].main_thread;
-	processes[kernel_idle_process].vt_num = VT_KERN_LOG;
+	static int started; if (started) return; started = 1;
 
 	asm("cli");
 	active_process = kernel_idle_process;
