@@ -23,10 +23,16 @@ const char versio[] = "v0.001";
 BD_DESC *dev;
 char buf[512];
 int i;
-
+/*
 void testattava_koodi(void)
 {
+	struct timeval uptime;
+	struct timeval uptime2;
 	for (;;) {
+		get_uptime(&uptime);
+		get_uptime(&uptime2);
+		kwait(1);
+		if (uptime
 		move(0,0);
 		putch('m');
 	}
@@ -55,7 +61,7 @@ void testattava_koodi(void)
 #endif
 
 }
-
+*/
 void kmain(multiboot_info_t* mbt, unsigned int magic)
 {
 	cls();
@@ -82,7 +88,7 @@ void kmain(multiboot_info_t* mbt, unsigned int magic)
 
 	//reset_floppy();
 
-	testattava_koodi();
+	//testattava_koodi();
 
 	kprintf("%s %s is up and running _o/\n", systeemi, versio);
 	new_thread(run_sh, 0, 0);
