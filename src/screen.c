@@ -72,7 +72,7 @@ void set_colour(unsigned char c)
 {
 	unsigned int vt_num = vt_out_get();
 	if (vt_num >= VT_COUNT) {
-		return 0;
+		return;
 	}
 	vt[vt_num].colour = c;
 }
@@ -114,7 +114,7 @@ void cls(void)
 	int a = 0;
 	unsigned int vt_num = vt_out_get();
 	if (vt_num >= VT_COUNT) {
-		return 0;
+		return;
 	}
 
 	while (a < SCREEN_SIZE) {
@@ -238,13 +238,15 @@ void vts_init(void)
 
 void screen_init(void) {
 	int i;
-	for(i = 0; i < VT_COUNT; i++) {
+	for (i = 0; i < VT_COUNT; i++) {
 		vt[i].scroll = 0;
 		vt[i].in_kprintf = 0;
 		vt[i].cx = vt[i].cy = 0;
 		vt[i].colour = 0x7;
 		vt[i].buffer = 0;
-		vt[i].kb_buff_filled = 0;
+		vt[i].kb_buf_count = 0;
+		vt[i].kb_buf_start = 0;
+		vt[i].kb_buf_end = 0;
 		spinl_init(&vt[i].writelock);
 		spinl_init(&vt[i].printlock);
 	}
