@@ -139,19 +139,39 @@ void sys_next_minute(void)
 		uptime.sec, uptime.usec);*/
 }
 
+// TODO: Parempi Funktio!
+time_t ticks_to_microsecs(time_t ticks)
+{
+	const time_t jakaja = TIMER_TICK_RATE, kertoja = 1000000;
+	time_t jaettava, tulos, i;
+
+	tulos = jaettava = 0;
+	for (i = 0x100000; i; i >>= 1) {
+		if (ticks & i) {
+			jaettava += kertoja;
+		}
+		tulos = (tulos << 1) + (jaettava / jakaja);
+		jaettava %= jakaja;
+		jaettava <<= 1;
+	}
+	return tulos;
+}
+
 void timer_handler(void)
 {
 	static unsigned long ticks;
 	ticks += TIMER_TICKS_PER_CYCLE;
 	if (ticks > TIMER_TICK_RATE) {
 		ticks -= TIMER_TICK_RATE;
-		sys_time.tm_usec = uptime.usec = TICKS_TO_MICROSEC(ticks);
+		sys_time.tm_usec = uptime.usec = ticks_to_microsecs(ticks);
 		++uptime.sec;
 		if (++sys_time.tm_sec > 59) {
 			sys_time.tm_sec -= 60;
 			sys_next_minute();
 		}
-	} else sys_time.tm_usec = uptime.usec = TICKS_TO_MICROSEC(ticks);
+	} else {
+		sys_time.tm_usec = uptime.usec = ticks_to_microsecs(ticks);
+	}
 	execute_jobs();
 }
 
