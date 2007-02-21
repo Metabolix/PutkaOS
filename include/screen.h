@@ -32,8 +32,8 @@ extern void move_cursor(void);
 extern void putch_vt(int c, unsigned int vt);
 #define putch(c) putch_vt(c, vt_out_get())
 extern int move(unsigned int y, unsigned int x);
-extern unsigned char get_color(void);
-extern void set_color(unsigned char c);
+extern unsigned char get_colour(void);
+extern void set_colour(unsigned char c);
 extern void change_vt(unsigned int vt_n);
 extern void vts_init(void);
 extern void screen_init(void);

@@ -8,13 +8,17 @@
 extern struct tm sys_time;
 extern struct timeval uptime;
 
+void sh_help(char *buf);
+void sh_uptime(char *buf);
+void sh_exit(char *buf);
+void sh_outportb(char *buf);
+void sh_inportb(char *buf);
+void sh_ei_tunnistettu(char *buf);
+void sh_list_colours(char *buf);
+void sh_set_colour(char *buf);
+void sh_reset(char *buf);
 
-void sh_help(char*);
-void sh_uptime(char*);
-void sh_exit(char*);
-void sh_outportb(char*);
-void sh_inportb(char*);
-void sh_ei_tunnistettu(char*);
+int sh_colour = 7;
 
 struct komento {
 	char *komento;
@@ -28,6 +32,9 @@ struct komento *komento, komennot[] = {
 	{"exit", "Paniikki", sh_exit},
 	{"panic", "Paniikki", sh_exit},
 	{"uptime", "Uptime", sh_uptime},
+	{"lscolours", "Listaa varit", sh_list_colours},
+	{"colour", "Aseta vari", sh_set_colour},
+	{"reset", "Tyhjenna ruutu ja aseta perusvari", sh_reset},
 	{"outp", "outb port byte, laheta tavu porttiin", sh_outportb},
 	{"inp", "inp port byte, hae tavu portista", sh_inportb},
 	{0, 0, sh_ei_tunnistettu} /* Terminaattori */
@@ -75,9 +82,90 @@ void sh_help(char *buf)
 	}
 }
 
+void sh_reset(char *buf)
+{
+	cls();
+	sh_colour = 7;
+}
+
+void sh_set_colour(char *buf)
+{
+	int colour;
+	while (*buf && !(*buf <= '9' && *buf >= '0')) ++buf;
+	if (!*buf) return;
+	colour = sh_read_int(&buf);
+	if (colour < 0 || colour > 255) return;
+	sh_colour = colour;
+}
+
+void sh_list_colours(char *buf)
+{
+	int i, j;
+	set_colour(8);
+	print("    ");
+	for (j = 0; j < 16; ++j) {
+		kprintf("x%02x ", j);
+	}
+	putch('\n');
+	for (i = 0; i < 256; i += 16) {
+		kprintf("x%02x ", i);
+		for (j = 0; j < 16; ++j) {
+			set_colour(i+j);
+			kprintf("x%02x ", i+j);
+		}
+		set_colour(8);
+		putch('\n');
+	}
+}
+
 void sh_exit(char *buf)
 {
-	panic("exit kutsuttu!\n");
+	char vari[256] = {0};
+	vari[' '] = 0;
+	vari['.'] = 0x44;
+	vari['$'] = 0xdd;
+	vari['+'] = 0x99;
+	static const char * dont_panic_xpm[] = {
+	"  ++                 +        ++                                    ...   ",
+	"+++++++     ++++     ++     + ++ ++++++++                         .....   ",
+	"++    ++   ++  ++   +++    ++ ++ ++++++++++                 .     ..      ",
+	"++     +   ++  ++   +++    +   +     ++                 .   .    ..       ",
+	"++     ++ ++   ++  ++ ++  ++        +++           .     .  ..    .        ",
+	"++     ++ ++   ++ ++  ++  +         ++           ...    .   ..  ..        ",
+	"++     +  +    ++ ++   + ++         ++   ..       ..    .   ..  ..        ",
+	"++    ++  +    +  ++   +++          ++   ...      ...   .   ..   ..     ..",
+	"++   ++   ++++++ ++    +++       ...$+   .. .     .. .  .    .    .. .... ",
+	"++ +++     ++++  ++     +      .....$$.  .   .     .  ....   ..    .....  ",
+	"+++++                        ...    +..  .   ..    .   ...   ..           ",
+	"                             ..      ..  .   ...   ..   ..    .           ",
+	"                             ..      ..  .  .....  ..    .    .           ",
+	"                              ..      .  ...    .. ..    .                ",
+	"                              ..    ..   .       .  .                     ",
+	"                               ......    .        .                       ",
+	"                               ....      .                                ",
+	"                                ..       .                                ",
+	"                                ..                                        ",
+	"                                 .                                        ",
+	"                                 ..                                       ",
+	"                                  .                                       ",
+	0};
+	const char **rivi, *merkki;
+	putch('\n');
+	for (rivi = dont_panic_xpm; *rivi; ++rivi) {
+		print("  ");
+		for (merkki = *rivi; *merkki; ++merkki) {
+			set_colour(vari[(unsigned char)*merkki]);
+			putch(' ');
+			while (merkki[0] == merkki[1]) {
+				putch(' ');
+				++merkki;
+			}
+		}
+		print("\n");
+		set_colour(8);
+	}
+	putch('\n');
+	panic("exit kutsuttu!");
 }
 
 void sh_uptime(char *buf)
@@ -125,6 +213,7 @@ void run_sh(void)
 	for(;;) {
 		loc = 0;
 		buffer[0] = 0;
+		set_colour(sh_colour);
 		print("PutkaOS $ ");
 		while (buffer[loc] != '\n') {
 			ch = kb_get();
