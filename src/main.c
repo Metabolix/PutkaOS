@@ -26,6 +26,10 @@ int i;
 
 void testattava_koodi(void)
 {
+	for (;;) {
+		move(0,0);
+		putch('m');
+	}
 	lcd_init(0x378);
 	lcd_move(0,0);
 	lcd_putch('m');

@@ -209,6 +209,7 @@ void kwait(unsigned int msec)
 	jatkoaika.sec += msec / 1000;
 	jatkoaika.sec += (jatkoaika.usec / 1000000);
 	jatkoaika.usec %= 1000000;
-	while (jatkoaika.sec > uptime.sec) nop_func();
-	while (jatkoaika.sec == uptime.sec && jatkoaika.usec > uptime.usec) nop_func();
+	extern void taikatemppu();
+	while (jatkoaika.sec > uptime.sec) taikatemppu();
+	while ((jatkoaika.sec == uptime.sec) && (jatkoaika.usec > uptime.usec)) taikatemppu();
 }
