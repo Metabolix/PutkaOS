@@ -25,6 +25,9 @@ struct timer {
 	struct timeval next_run;
 };
 
+extern void get_sys_time(struct tm *sys_time_ptr);
+extern void get_uptime(struct timeval *uptime_ptr);
+
 extern void timer_install();
 extern void kwait(unsigned int ms);
 extern unsigned int kget_ticks(void);

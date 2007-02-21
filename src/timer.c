@@ -11,6 +11,9 @@
 volatile struct tm sys_time = {0};
 volatile struct timeval uptime;
 
+void get_sys_time(struct tm *sys_time_ptr) {if(sys_time_ptr)*sys_time_ptr = sys_time;}
+void get_uptime(struct timeval *uptime_ptr) {if(uptime_ptr)*uptime_ptr = uptime;}
+
 #define MAX_TIMERS 16
 struct timer timers[MAX_TIMERS];
 int timer_count = 0;

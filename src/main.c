@@ -14,6 +14,8 @@
 #include <floppy.h>
 #include <multiboot.h>
 #include <regs.h>
+#include <sh.h>
+#include <lcdscreen.h>
 #include <thread.h>
 
 const char systeemi[] = "PutkaOS";
@@ -49,8 +51,6 @@ void testattava_koodi(void)
 #endif
 
 }
-
-extern void run_sh(void);
 
 void kmain(multiboot_info_t* mbt, unsigned int magic)
 {
