@@ -5,6 +5,8 @@
 #include <panic.h>
 #include <io.h>
 
+#define HISTORY_SIZE 20
+
 extern struct tm sys_time;
 extern struct timeval uptime;
 
@@ -17,8 +19,10 @@ void sh_ei_tunnistettu(char *buf);
 void sh_list_colours(char *buf);
 void sh_set_colour(char *buf);
 void sh_reset(char *buf);
+void sh_history(char *buf);
 
 int sh_colour = 7;
+char history[HISTORY_SIZE][128];
 
 struct komento {
 	char *komento;
@@ -37,6 +41,7 @@ struct komento *komento, komennot[] = {
 	{"reset", "Tyhjenna ruutu ja aseta perusvari", sh_reset},
 	{"outp", "outb port byte, laheta tavu porttiin", sh_outportb},
 	{"inp", "inp port byte, hae tavu portista", sh_inportb},
+	{"history", "Komentohistoria", sh_history},
 	{0, 0, sh_ei_tunnistettu} /* Terminaattori */
 };
 
@@ -202,6 +207,17 @@ void sh_ei_tunnistettu(char *buf)
 	kprintf("Tunnistamaton komento (%s) Mutta 'help' auttaa!\n", buf);
 }
 
+void sh_history(char *buf)
+{
+	int i;
+	for (i=0; i<HISTORY_SIZE; i++) {
+		if (history[i][0]=='\0')
+			return;
+		kprintf("%s\n", history[i]);
+	}
+}
+
+
 void run_sh(void)
 {
 	int ch;
@@ -209,6 +225,10 @@ void run_sh(void)
 	char *bufptr;
 	const int buffer_size = 120;
 	int loc;
+	int history_index=-1;
+	int h;
+	for (h=0; h < HISTORY_SIZE; h++) 
+		history[h][0]='\0';
 
 	for(;;) {
 		loc = 0;
@@ -218,8 +238,48 @@ void run_sh(void)
 		while (buffer[loc] != '\n') {
 			ch = kb_get();
 			if (ch & 256) { /* Key up */
-				continue;
+				continue; 
 			}
+			
+			/* Up arrow */
+			if (ch == 0xc8) {
+				/* If the history is boring (empty) */
+				if (history[history_index+1][0]=='\0') {
+					continue;
+				}
+				history_index++;
+				/* Clear */
+				while(loc>0) {
+					print("\b \b");
+					buffer[--loc] = 0;
+				}
+				strcpy(buffer,history[history_index]);
+				kprintf("%s", buffer);
+				loc = strlen(buffer);
+
+			}
+
+			/* Down arrow */
+			if (ch == 0xd0) {
+				if (history_index>0) {
+					/* Clear */
+					while(loc>0) {
+						print("\b \b");
+						buffer[--loc] = 0;
+					}
+					history_index--;
+					strcpy(buffer,history[history_index]);
+					kprintf("%s", buffer);
+					loc = strlen(buffer);
+				}
+				else if (history_index==0) { /* Clear */
+					while(loc>0) {
+						print("\b \b");
+						buffer[--loc] = 0;
+					}
+				}
+			}
+
 			ch = ktoasc(ch);
 			if (!ch) {
 				continue;
@@ -266,6 +326,16 @@ void run_sh(void)
 			++komento;
 		}
 		komento->suoritus(buffer);
+
+		/* Lets add this line at the beginning of the history list */
+		int i;
+		/* First move every command from the list one step down and drop the lastest one */
+		for (i=HISTORY_SIZE-2; i >=0;  i--) 
+			strcpy(history[i+1], history[i]);
+		/* And then save new command and do some other usefull stuff */
+		history_index=-1;
+		strcpy(history[0], buffer);
+		
 		ajettu: {}
 	}
 }
