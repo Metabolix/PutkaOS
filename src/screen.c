@@ -169,6 +169,9 @@ void putch_vt(int c, unsigned int vt_num)
 	if (c == '\b') { /* backspace */
 		if (vt[vt_num].cx > 0) {
 			vt[vt_num].cx--;
+		} else {
+			vt[vt_num].cx = 79;
+			vt[vt_num].cy--;
 		}
 	}
 	else if (c == '\t') { /* tab */
