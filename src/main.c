@@ -24,6 +24,11 @@ int i;
 
 void testattava_koodi(void)
 {
+	lcd_init(0x378);
+	lcd_move(0,0);
+	lcd_putch('m');
+	lcd_putch('o');
+	lcd_putch('i');
 #ifdef TUHOA_KORPUN_SISALTO
 	dev = dopen(&fd_devices[0]);
 
