@@ -22,3 +22,15 @@ struct fs *fs_mount(FILE *dev, uint_t mode)
 	}
 	return 0;
 }
+
+int fs_add_driver(fs_mount_t mount_function)
+{
+	int i;
+	for (i = 0; i < MAX_FS_DRIVERS; ++i) {
+		if (!list_of_fs_mount[i]) {
+			list_of_fs_mount[i] = mount_function;
+			return 0;
+		}
+	}
+	return -1;
+}

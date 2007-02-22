@@ -59,5 +59,6 @@ struct fs {
 };
 
 extern struct fs *fs_mount(FILE *dev, uint_t mode);
+extern int fs_add_driver(fs_mount_t mount_function);
 
 #endif
