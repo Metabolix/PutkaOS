@@ -76,13 +76,13 @@ void run_sh(void)
 				}
 				continue;
 			}
-
+			int hex = ch;
 			ch = ktoasc(ch);
+			if (ch == '\n' || hex == 0x9c) {
+				break;
+			}
 			if (!ch) {
 				continue;
-			}
-			if (ch == '\n') {
-				break;
 			}
 			if (ch == '\b') {
 				if (loc > 0) {
