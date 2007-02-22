@@ -78,7 +78,7 @@ void run_sh(void)
 			}
 			int hex = ch;
 			ch = ktoasc(ch);
-			if (ch == '\n' || hex == 0x9c) {
+			if (ch == '\n' || hex == KEY_NUM_ENTER) {
 				break;
 			}
 			if (!ch) {
