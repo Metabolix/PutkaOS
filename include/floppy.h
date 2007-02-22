@@ -68,10 +68,8 @@ void reset_flipflop_dma(void);
 void init_dma_floppy(unsigned long buffer, size_t len, int write);
 int read_sector(unsigned int drive, unsigned char sector, unsigned char head, unsigned char cylinder, unsigned long buffer);
 int write_sector(unsigned int drive, unsigned char sector, unsigned char head, unsigned char cylinder, unsigned long buffer);
-int read_block(BLOCK_DEVICE *self, size_t num, void * buf);
-int write_block(BLOCK_DEVICE *self, size_t num, const void * buf);
+int read_block(BD_DEVICE *self, size_t num, void * buf);
+int write_block(BD_DEVICE *self, size_t num, const void * buf);
 void motor_off(unsigned int drive);
-
-extern BLOCK_DEVICE fd_devices[2];
 
 #endif

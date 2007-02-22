@@ -1,8 +1,9 @@
 #ifndef _MOUNT_H
 #define _MOUNT_H 1
 
-#include <filesystem.h>
-#include <stdio.h>
+#include <filesys/filesystem.h>
+#include <filesys/file.h>
+#include <filesys/dir.h>
 
 struct mountpoint {
 	char *dev_name;
@@ -24,13 +25,15 @@ enum MOUNT_ERR {
 	MOUNT_ERR_DEVICE_ERROR = -5,
 	MOUNT_ERR_FILESYS_ERROR = -5,
 
-	MOUNT_ERR_FREE_ERRORCODE = -128 // ;)
+	MOUNT_ERR_FREE_ERRORCODE = -0x10000 // ;)
 };
 
-extern int init_mount(const char * root_device);
-extern void uninit_mount(void);
+extern int mount_init(const char * root_device);
+extern void mount_uninit(void);
 extern int mount_something(const char * device_filename, const char * mountpoint, int flags);
 extern int umount_something(const char * device_or_point);
+
+extern const struct mountpoint *mount_etsi_kohta(const char ** filename_ptr);
 
 /*
  * Internals

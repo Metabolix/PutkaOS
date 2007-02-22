@@ -1,5 +1,5 @@
-#include <pseudofsdriver.h>
-#include <filesystem.h>
+#include <filesys/pseudofsdriver.h>
+#include <filesys/filesystem.h>
 #include <malloc.h>
 
 #define MAX_FS_DRIVERS 16

@@ -1,24 +1,17 @@
-#include <mount.h>
 #include <devmanager.h>
-#include <filesystem.h>
-#include <stdio.h>
+#include <filesys/mount.h>
+#include <filesys/filesystem.h>
+#include <filesys/file.h>
+#include <filesys/dir.h>
 #include <malloc.h>
 #include <screen.h>
 #include <panic.h>
 #include <string.h>
 
-#if 0
-void *krealloc(void *ptr, size_t size)
+const struct mountpoint *mount_etsi_kohta(const char ** filename_ptr)
 {
-	static struct mountpoint taulu[64];
-	static int i;
-	if (ptr) return ptr;
-	if (size > 8 * sizeof(struct mountpoint)) panic("Megant saisi tehda kreallocin... Liian iso pala, max. 8 * mountpoint.\n");
-	if (i >= 64) panic("Megant saisi tehda kreallocin... Liikaa varauksia, max. 8\n");
-	i += 8;
-	return taulu + i - 8;
+	return etsi_kohta(filename_ptr);
 }
-#endif
 
 #define MAKE_NULL(b, a); {if (a) { b(a); (a) = 0; }}
 
@@ -97,12 +90,12 @@ oikea_paikka:
 /**
  * Käynnistää mount-systeemin
 **/
-int init_mount(const char * root_device)
+int mount_init(const char * root_device)
 {
 	uint_t flags;
 	/* Ensin /dev */
 	root.subtree_size = 1;
-	root.subtree = krealloc(0, sizeof(struct mountpoint));
+	root.subtree = kcalloc(1, sizeof(struct mountpoint));
 	if (!root.subtree) {
 		panic("Mount: Out of kernel memory!\n");
 	}
@@ -116,28 +109,33 @@ int init_mount(const char * root_device)
 	root.subtree->fs = &devfs;
 	strcpy(root.subtree->absolute_path, "/dev");
 	strcpy(root.subtree->dev_name, "devman");
+	kprintf("Devmanager mountattu\n");
 
 	/* Sitten / */
 	flags = FILE_MODE_READ | FILE_MODE_WRITE;
-	root.dev = devfs.fopen(&devfs, root_device, flags);
+	kprintf("root.dev = devfs.filefunc.fopen(&devfs, root_device, flags);\n");
+	root.dev = devfs.filefunc.fopen(&devfs, root_device, flags);
 	if (!root.dev) {
 		flags = FILE_MODE_READ;
-		root.dev = devfs.fopen(&devfs, root_device, flags);
+		root.dev = devfs.filefunc.fopen(&devfs, root_device, flags);
 	}
 	if (!root.dev) {
 		kprintf("Mount: Couldn't open root device (%s).\n", root_device);
 		/* TODO: Creating ramfs instead...\n */
 		return -1;
 	}
+	kprintf("root.dev = devfs.filefunc.fopen(&devfs, root_device, flags); ... DONE\n");
 
+	kprintf("root.fs = fs_mount(root.dev, flags);\n");
 	root.fs = fs_mount(root.dev, flags);
 	if (!root.fs) {
 		kprintf("Mount: Couldn't mount root device (%s).\n", root_device);
 		return -1;
 	}
-	if (!root.fs->fwrite) {
+	if (!root.fs->filefunc.fwrite) {
 		kprintf("Mount: Warning: root device (%s) mounted read-only!\n", root_device);
 	}
+	kprintf("root.fs = fs_mount(root.dev, flags); O_o\n");
 
 	root.dev_name = kmalloc(strlen(root_device) + 1);
 	if (!root.dev_name) {
@@ -150,7 +148,7 @@ int init_mount(const char * root_device)
 
 /**
  * Irrottaa taulukollisen rekursiivisesti
- * Käytetään vain uninit_mountissa!
+ * Käytetään vain mount_uninitissa!
 **/
 int umount_array(struct mountpoint *array, size_t size)
 {
@@ -175,7 +173,7 @@ int umount_array(struct mountpoint *array, size_t size)
  * Lopettaa mount-systeemin
  * Jatkuu virheistä huolimatta! Ehkä jotain saa silloin pelastettua.
 **/
-void uninit_mount(void)
+void mount_uninit(void)
 {
 	int i;
 	if ((i = umount_array(root.subtree, root.subtree_size)))
@@ -226,13 +224,13 @@ int mount_something(const char * device_filename, const char * mountpoint, int f
 		return MOUNT_ERR_ALREADY_MOUNTED;
 	}
 
-	if (!(uusi.dev = devfs.fopen(&devfs, device_filename, flags)))
-	if (!(uusi.dev = devfs.fopen(&devfs, device_filename, flags))) {
+	if (!(uusi.dev = devfs.filefunc.fopen(&devfs, device_filename, flags)))
+	if (!(uusi.dev = devfs.filefunc.fopen(&devfs, device_filename, flags))) {
 		kprintf("Mount: (%s) => (%s): Couldn't open device.\n", device_filename, mountpoint);
 		return MOUNT_ERR_DEVICE_ERROR;
 	}
 	if (!(flags & FILE_MODE_WRITE)) {
-		uusi.dev->fs->fwrite = 0;
+		uusi.dev->func->fwrite = 0;
 		// TODO: Flagit xD
 	}
 
@@ -242,7 +240,7 @@ int mount_something(const char * device_filename, const char * mountpoint, int f
 		fclose(uusi.dev);
 		return MOUNT_ERR_FILESYS_ERROR;
 	}
-	if (!uusi.fs->fwrite && (flags & FILE_MODE_WRITE)) {
+	if (!uusi.fs->filefunc.fwrite && (flags & FILE_MODE_WRITE)) {
 		kprintf("Mount: (%s) => (%s): Warning: mounted read-only!\n", device_filename, mountpoint);
 	}
 

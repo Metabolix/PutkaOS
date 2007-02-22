@@ -10,11 +10,6 @@
 
 typedef unsigned int timer_id_t;
 
-struct timeval {
-	time_t sec;
-	time_t usec;
-};
-
 struct timer {
 	timer_id_t id;
 	int active;

@@ -17,34 +17,14 @@
 #include <sh.h>
 #include <lcdscreen.h>
 #include <thread.h>
+#include <devmanager.h>
+#include <filesys/mount.h>
 
 const char systeemi[] = "PutkaOS";
 const char versio[] = "v0.001";
-BD_DESC *dev;
-char buf[512];
-int i;
 
 void testattava_koodi(void)
 {
-#ifdef TUHOA_KORPUN_SISALTO
-	dev = dopen(&fd_devices[0]);
-
-	for(i = 0; i < 512; i++)
-		buf[i] = 'P';
-	for(i = 0; i < 2880; i++) {
-		dwrite(buf, 512, 1, dev);
-		kprintf("Block %d\n", i);
-	}
-	dclose(dev);
-	i = 0;
-	extern void read_super_block(BD_DESC * dev);
-	dev = dopen(&fd_devices[0]);
-	read_super_block(dev);
-	char * buffer = readfile("/mese/kebab");
-	//kprintf("File hassu includes: %s\n", buffer);
-	dclose(dev);
-#endif
-
 }
 
 void kmain(multiboot_info_t* mbt, unsigned int magic)
@@ -60,9 +40,11 @@ void kmain(multiboot_info_t* mbt, unsigned int magic)
 	memory_init(mbt->mem_upper + mbt->mem_lower);
 	irq_install();
 	timer_install();
-	keyboard_install();
-	install_floppy();
 	malloc_init();
+	keyboard_install();
+
+	devmanager_init();
+	install_floppy();
 	vts_init();
 	threading_init();
 
@@ -72,6 +54,7 @@ void kmain(multiboot_info_t* mbt, unsigned int magic)
 	asm __volatile__("sti"); /* Allow interrupts */
 
 	//reset_floppy();
+	//mount_init("/dev/fd0");
 
 	//testattava_koodi();
 

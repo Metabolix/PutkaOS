@@ -11,7 +11,40 @@
 floppy_parameters floppy_params;
 int cylinder, status_0;
 
-BLOCK_DEVICE fd_devices[2];
+BD_DEVICE fd_devices[2] = {
+	{
+		{
+			"fd0",
+			DEV_CLASS_BLOCK,
+			DEV_TYPE_FLOPPY,
+			-1, // devmanager sets
+			(devopen_t) blockdev_fopen,
+			(devrm_t) 0, // TODO: safely remove... :P
+		},
+
+		0, // size_t block_size;
+		0, // size_t block_count;
+
+		(read_block_t) read_block,
+		(write_block_t) write_block
+	},
+	{
+		{
+			"fd1",
+			DEV_CLASS_BLOCK,
+			DEV_TYPE_FLOPPY,
+			-1, // devmanager sets
+			(devopen_t) blockdev_fopen,
+			(devrm_t) 0, // TODO: safely remove... :P
+		},
+
+		0, // size_t block_size;
+		0, // size_t block_count;
+
+		(read_block_t) read_block,
+		(write_block_t) write_block
+	}
+};
 
 const char * fd_types[6] = {
 	"no floppy drive",
@@ -54,36 +87,34 @@ void install_floppy(void)
 	fds[0].type = detect_floppy >> 4;
 	fds[1].type = detect_floppy & 0xF;
 
-	if(fds[0].type == 4) {
-		fd_devices[0].dev_type = DEV_TYPE_FLOPPY;
-		fd_devices[0].name = "fd0";
-		fd_devices[0].index = 0;
-		fd_devices[0].block_size = 128 * (1 << floppy_params.bytes_per_sector);
-		fd_devices[0].block_count = 2 * 80 * floppy_params.sectors_per_track; /* with 1.44MB 3.5" floppy disk, 2 sides and 80 tracks per side */
-		fd_devices[0].read_block = read_block;
-		fd_devices[0].write_block = write_block;
-	} else {
-		fd_devices[0].dev_type = DEV_TYPE_NONE;
-	}
-
-	if(fds[1].type == 4) {
-		fd_devices[1].dev_type = DEV_TYPE_FLOPPY;
-		fd_devices[1].name = "fd1";
-		fd_devices[1].index = 1;
-		fd_devices[1].block_size = 128 * (1 << floppy_params.bytes_per_sector);
-		fd_devices[1].block_count = 2 * 80 * floppy_params.sectors_per_track; /* with 1.44MB 3.5" floppy disk, 2 sides and 80 tracks per side */
-		fd_devices[1].read_block = read_block;
-		fd_devices[1].write_block = write_block;
-	} else {
-		fd_devices[1].dev_type = DEV_TYPE_NONE;
-	}
-
 	kprintf("FDD: We found %s at fd0\n", fd_types[detect_floppy >> 4]);
-	if(fds[0].type != 4 && fds[0].type)
+	if (fds[0].type != 4 && fds[0].type) {
 		print("FDD: We don't support it\n");
+	}
 	kprintf("FDD: We found %s at fd1\n", fd_types[detect_floppy & 0xF]);
-	if(fds[1].type != 4 && fds[1].type)
+	if (fds[1].type != 4 && fds[1].type) {
 		print("FDD: We don't support it\n");
+	}
+
+	if (fds[0].type == 4) {
+		device_insert((DEVICE*)(fd_devices + 0));
+
+		/* with 1.44MB 3.5" floppy disk, 2 sides and 80 tracks per side */
+		fd_devices[0].block_size = 128 * (1 << floppy_params.bytes_per_sector);
+		fd_devices[0].block_count = 2 * 80 * floppy_params.sectors_per_track;
+	} else {
+		fd_devices[0].std.dev_type = DEV_TYPE_NONE;
+	}
+
+	if (fds[1].type == 4) {
+		device_insert((DEVICE*)(fd_devices + 1));
+
+		/* with 1.44MB 3.5" floppy disk, 2 sides and 80 tracks per side */
+		fd_devices[1].block_size = 128 * (1 << floppy_params.bytes_per_sector);
+		fd_devices[1].block_count = 2 * 80 * floppy_params.sectors_per_track;
+	} else {
+		fd_devices[1].std.dev_type = DEV_TYPE_NONE;
+	}
 
 	install_irq_handler(6, (void*)floppy_handler);
 }
@@ -320,7 +351,7 @@ alku:
 	return 0;
 }
 
-int read_block(BLOCK_DEVICE *self, size_t num, void * buf)
+int read_block(BD_DEVICE *self, size_t num, void * buf)
 {
 	int sector;
 	int head;
@@ -331,12 +362,12 @@ int read_block(BLOCK_DEVICE *self, size_t num, void * buf)
 	cylinder = num / (floppy_params.sectors_per_track * 2);
 	sector = (num % (floppy_params.sectors_per_track)) + 1;
 
-	retval = rw_sector(self->index, sector, head, cylinder,(unsigned long) fdbuf, 0);
+	retval = rw_sector(self->std.name[2] - '0', sector, head, cylinder,(unsigned long) fdbuf, 0);
 	memcpy(buf, fdbuf, self->block_size);
 	return retval;
 }
 
-int write_block(BLOCK_DEVICE *self, size_t num, const void * buf)
+int write_block(BD_DEVICE *self, size_t num, const void * buf)
 {
 	int sector;
 	int head;
@@ -347,6 +378,6 @@ int write_block(BLOCK_DEVICE *self, size_t num, const void * buf)
 	sector = (num % (floppy_params.sectors_per_track)) + 1;
 
 	memcpy(fdbuf, buf, self->block_size);
-	return rw_sector(self->index, sector, head, cylinder, (unsigned long)fdbuf, 1);
+	return rw_sector(self->std.name[2] - '0', sector, head, cylinder, (unsigned long)fdbuf, 1);
 }
 

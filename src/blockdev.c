@@ -1,38 +1,43 @@
 #include "blockdev.h"
 #include <string.h>
 #include <screen.h>
+#include <malloc.h>
 
-int dgetblock(BD_DESC *device);
+int blockdev_getblock(BD_FILE *device);
 
-#define ON_MALLOC 0
+struct filefunc blockdev_func = {
+	(fopen_t)   blockdev_fopen,
+	(fclose_t)  blockdev_fclose,
+	(fread_t)   blockdev_fread,
+	(fwrite_t)  blockdev_fwrite,
+	(fflush_t)  blockdev_fflush,
+	(ftell_t)   blockdev_ftell,
+	(fseek_t)   blockdev_fseek,
+	(fgetpos_t) blockdev_fgetpos,
+	(fsetpos_t) blockdev_fsetpos
+};
 
-#if !ON_MALLOC
-#define DESCIEN_MAARA 1
-BD_DESC descit[DESCIEN_MAARA];
-int desc_kaytossa[DESCIEN_MAARA] = {0};
-char yhteinen_buf[512];
-#endif
+/* TODO: Tuki yli 4 Gt laitteille */
+int blockdev_fgetpos(BD_FILE *device, fpos_t *pos)
+{
+	pos->lo_dword =
+		+ device->pos_in_block
+		+ device->block_in_dev * device->phys->block_size;
+	pos->hi_dword = 0;
+	*pos = device->std.pos;
+	return 0;
+}
 
-int dseek(BD_DESC *device, long offset, int origin)
+int blockdev_fsetpos(BD_FILE *device, const fpos_t *pos)
 {
 	size_t block, pos_in;
-	if (origin == SEEK_SET) {
-		block = offset / device->phys->block_size;
-		pos_in = offset % device->phys->block_size;
-	} else if (origin == SEEK_END) {
-		offset = (device->phys->block_count * device->phys->block_size) - offset;
-		block = offset / device->phys->block_size;
-		pos_in = offset % device->phys->block_size;
-	} else {
-		offset += device->pos_in_block + (device->block_in_dev * device->phys->block_size);
-		block = offset / device->phys->block_size;
-		pos_in = offset % device->phys->block_size;
-	}
+	pos_in = pos->lo_dword % device->phys->block_size;
+	block = pos->lo_dword / device->phys->block_size;
 	if (block > device->phys->block_count) {
 		return -1;
 	}
 	if (block != device->block_in_dev) {
-		dflush(device);
+		blockdev_fflush(device);
 		device->block_in_dev = block;
 		device->has_read = 0;
 	}
@@ -40,18 +45,55 @@ int dseek(BD_DESC *device, long offset, int origin)
 	return 0;
 }
 
-long dtell(BD_DESC *device)
+int blockdev_fseek(BD_FILE *device, long offset, int origin)
+{
+	size_t block, pos_in;
+	switch (origin) {
+		case SEEK_SET:
+			block = offset / device->phys->block_size;
+			pos_in = offset % device->phys->block_size;
+			break;
+		case SEEK_END:
+			offset = (device->phys->block_count * device->phys->block_size) - offset;
+			block = offset / device->phys->block_size;
+			pos_in = offset % device->phys->block_size;
+			break;
+		case SEEK_CUR:
+			offset += device->pos_in_block + (device->block_in_dev * device->phys->block_size);
+			block = offset / device->phys->block_size;
+			pos_in = offset % device->phys->block_size;
+			break;
+		default:
+			return -1;
+	}
+	if (block > device->phys->block_count) {
+		return -1;
+	}
+
+	device->std.pos.hi_dword = 0;
+	device->std.pos.lo_dword = offset;
+
+	if (block != device->block_in_dev) {
+		blockdev_fflush(device);
+		device->block_in_dev = block;
+		device->has_read = 0;
+	}
+	device->pos_in_block = pos_in;
+	return 0;
+}
+
+long blockdev_ftell(BD_FILE *device)
 {
 	return device->block_in_dev * device->phys->block_size + device->pos_in_block;
 }
 
-int dgetblock(BD_DESC *device)
+int blockdev_getblock(BD_FILE *device)
 {
 	int retval;
-	dflush(device);
+	blockdev_fflush(device);
 	device->has_read = 0;
 	if (device->block_in_dev >= device->phys->block_count) {
-		return EOD;
+		return EOF;
 	}
 	retval = device->phys->read_block(device->phys, device->block_in_dev, device->buffer);
 	if (!retval) {
@@ -60,81 +102,53 @@ int dgetblock(BD_DESC *device)
 	return retval;
 }
 
-void dflush(BD_DESC *device)
+void blockdev_fflush(BD_FILE *device)
 {
 	if (device->has_read && device->has_written) {
 		if (device->phys->write_block(device->phys, device->block_in_dev, device->buffer)) {
-			kprintf("dflush: kirjoitus laitteeseen %s kohtaan %#010x ei onnistunut.\n", device->phys->name, device->block_in_dev);
+			kprintf("blockdev_fflush: kirjoitus laitteeseen %s kohtaan %#010x ei onnistunut.\n", device->phys->std.name, device->block_in_dev);
 		}
 		device->has_written = 0;
 	}
 }
 
-BD_DESC *dopen(BLOCK_DEVICE *phys)
+/* TODO: Mode */
+BD_FILE *blockdev_fopen(BD_DEVICE *phys, uint_t mode)
 {
-	int i;
-	BD_DESC *retval;
+	BD_FILE *retval;
 
-	if (!phys || phys->dev_type == DEV_TYPE_NONE || phys->dev_type == DEV_TYPE_ERROR) {
+	if (!phys ||
+	(phys->std.dev_class != DEV_CLASS_BLOCK && phys->std.dev_class != DEV_CLASS_OTHER) ||
+	phys->std.dev_type == DEV_TYPE_NONE ||
+	phys->std.dev_type == DEV_TYPE_ERROR) {
 		return 0;
 	}
 
-	for (i = 0; i < DESCIEN_MAARA; ++i) {
-		if (!desc_kaytossa[i]) {
-			retval = descit + i;
-			goto laita_asetukset;
-		}
+	retval = kcalloc(1, sizeof(BD_FILE) + phys->block_size);
+	if (!retval) {
+		return 0;
 	}
-	return 0;
-laita_asetukset:
+	retval->std.func = &blockdev_func;
 	retval->phys = phys;
-	retval->block_in_dev = 0;
-	retval->pos_in_block = 0;
-	retval->has_read = 0;
-	retval->has_written = 0;
-#if ON_MALLOC
-	retval->buffer = malloc(phys->block_size);
-	if (!retval->buffer) {
-		free(retval);
-		return 0;
-	}
-#else
-	retval->buffer = yhteinen_buf;
-	if (!retval->buffer) {
-		return 0;
-	}
-#endif
 
-	desc_kaytossa[i] = 1;
+	retval->buffer = (char*)retval + sizeof(BD_FILE);
 
 	return retval;
 }
 
-void dclose(BD_DESC *device)
+void blockdev_fclose(BD_FILE *device)
 {
-	dflush(device);
-#if ON_MALLOC
-	free(device->buffer);
-	free(device);
-#else
-	int i;
-	device->phys = 0;
-	for (i = 0; i < DESCIEN_MAARA; ++i) {
-		if ((descit + i) == device) {
-			desc_kaytossa[i] = 0;
-			return;
-		}
-	}
-#endif
+	blockdev_fflush(device);
+	kfree(device);
 }
 
-int dread(void *buffer, size_t size, size_t count, BD_DESC *device)
+size_t blockdev_fread(void *buffer, size_t size, size_t count, BD_FILE *device)
 {
-#define POS_MUUTOS (dtell(device) - pos_aluksi)
+#define POS_MUUTOS (blockdev_ftell(device) - pos_aluksi)
 	char *buf = (char*)buffer;
 	size_t tavuja_yhteensa, kokonaisia_paloja, lue;
 	size_t pos_aluksi;
-	pos_aluksi = dtell(device);
+	pos_aluksi = blockdev_ftell(device);
 
 	// Voidaan lukea suoraan laitteelta annettuun bufferiin
 	tavuja_yhteensa = size * count;
@@ -147,7 +161,7 @@ int dread(void *buffer, size_t size, size_t count, BD_DESC *device)
 	if (!kokonaisia_paloja || device->pos_in_block) {
 		// Jos se ei ole vielä muistissa
 		if (!device->has_read) {
-			if (dgetblock(device)) {
+			if (blockdev_getblock(device)) {
 				return 0;
 			}
 		}
@@ -157,7 +171,7 @@ int dread(void *buffer, size_t size, size_t count, BD_DESC *device)
 		if (lue >= tavuja_yhteensa) {
 			if (lue == tavuja_yhteensa) {
 				memcpy(buffer, device->buffer + device->pos_in_block, tavuja_yhteensa);
-				dflush(device);
+				blockdev_fflush(device);
 
 				++device->block_in_dev;
 				device->pos_in_block = 0;
@@ -173,7 +187,7 @@ int dread(void *buffer, size_t size, size_t count, BD_DESC *device)
 		memcpy(buf, device->buffer, lue);
 		buf += lue;
 
-		dflush(device);
+		blockdev_fflush(device);
 
 		++device->block_in_dev;
 		device->pos_in_block = 0;
@@ -182,7 +196,7 @@ int dread(void *buffer, size_t size, size_t count, BD_DESC *device)
 	device->has_read = 0;
 	while (kokonaisia_paloja) {
 		if (device->phys->read_block(device->phys, device->block_in_dev, buf)) {
-			kprintf("dread: luku laittesta %s kohdasta %#010x ei onnistunut.\n", device->phys->name, device->block_in_dev);
+			kprintf("dread: luku laittesta %s kohdasta %#010x ei onnistunut.\n", device->phys->std.name, device->block_in_dev);
 			return POS_MUUTOS / size;
 		}
 		++device->block_in_dev;
@@ -196,8 +210,8 @@ int dread(void *buffer, size_t size, size_t count, BD_DESC *device)
 
 	lue = tavuja_yhteensa - POS_MUUTOS;
 	if (lue) {
-		if (dgetblock(device)) {
-			kprintf("dread: luku laittesta %s kohdasta %#010x ei onnistunut.\n", device->phys->name, device->block_in_dev);
+		if (blockdev_getblock(device)) {
+			kprintf("dread: luku laittesta %s kohdasta %#010x ei onnistunut.\n", device->phys->std.name, device->block_in_dev);
 			return POS_MUUTOS / size;
 		}
 		memcpy(buf, device->buffer, lue);
@@ -207,13 +221,13 @@ int dread(void *buffer, size_t size, size_t count, BD_DESC *device)
 	return POS_MUUTOS / size;
 }
 
-int dwrite(const void *buffer, size_t size, size_t count, BD_DESC *device)
+size_t blockdev_fwrite(const void *buffer, size_t size, size_t count, BD_FILE *device)
 {
 	char *buf = (char*)buffer;
 	size_t tavuja_yhteensa, kokonaisia_paloja, kirjoita;
 
 	size_t pos_aluksi;
-	pos_aluksi = dtell(device);
+	pos_aluksi = blockdev_ftell(device);
 
 	// Voidaan lukea suoraan laitteelta annettuun bufferiin
 	tavuja_yhteensa = size * count;
@@ -230,7 +244,7 @@ int dwrite(const void *buffer, size_t size, size_t count, BD_DESC *device)
 	if (!kokonaisia_paloja || device->pos_in_block) {
 		// Jos se ei ole vielä muistissa
 		if (!device->has_read) {
-			if (dgetblock(device)) {
+			if (blockdev_getblock(device)) {
 				return 0;
 			}
 		}
@@ -242,7 +256,7 @@ int dwrite(const void *buffer, size_t size, size_t count, BD_DESC *device)
 				// Jos sattuu juuri kohdalleen, kirjoitellaan ja valitaan seuraava sektori
 				memcpy(device->buffer + device->pos_in_block, buffer, tavuja_yhteensa);
 				device->has_written = 1;
-				dflush(device);
+				blockdev_fflush(device);
 
 				++device->block_in_dev;
 				device->pos_in_block = 0;
@@ -260,7 +274,7 @@ int dwrite(const void *buffer, size_t size, size_t count, BD_DESC *device)
 		memcpy(device->buffer + device->pos_in_block, buf, kirjoita);
 		buf += kirjoita;
 		device->has_written = 1;
-		dflush(device);
+		blockdev_fflush(device);
 
 		++device->block_in_dev;
 		device->pos_in_block = 0;
@@ -270,7 +284,7 @@ int dwrite(const void *buffer, size_t size, size_t count, BD_DESC *device)
 
 	while (kokonaisia_paloja) {
 		if (device->phys->write_block(device->phys, device->block_in_dev, buf)) {
-			kprintf("dwrite: kirjoitus laitteeseen %s kohtaan %#010x ei onnistunut.\n", device->phys->name, device->block_in_dev);
+			kprintf("dwrite: kirjoitus laitteeseen %s kohtaan %#010x ei onnistunut.\n", device->phys->std.name, device->block_in_dev);
 			return POS_MUUTOS / size;
 		}
 		++device->block_in_dev;
@@ -285,8 +299,8 @@ int dwrite(const void *buffer, size_t size, size_t count, BD_DESC *device)
 	// Jos on jäljellä, lataillaan se seuraava blokki
 	kirjoita = tavuja_yhteensa - POS_MUUTOS;
 	if (kirjoita) {
-		if (dgetblock(device)) {
-			kprintf("dwrite: luku laittesta %s kohdasta %#010x ei onnistunut.\n", device->phys->name, device->block_in_dev);
+		if (blockdev_getblock(device)) {
+			kprintf("dwrite: luku laittesta %s kohdasta %#010x ei onnistunut.\n", device->phys->std.name, device->block_in_dev);
 			return POS_MUUTOS / size;
 		}
 		memcpy(device->buffer, buf, kirjoita);

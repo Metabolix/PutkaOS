@@ -21,6 +21,11 @@ struct tm {
 	int tm_isdst;
 };
 
+struct timeval {
+	time_t sec;
+	time_t usec;
+};
+
 /*
 clock_t clock(void);
 double difftime(time_t time0, time_t time1);

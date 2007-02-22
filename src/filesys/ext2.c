@@ -1,4 +1,4 @@
-#include <ext2.h>
+#include <filesys/ext2.h>
 #include <blockdev.h>
 #include <malloc.h>
 #include <screen.h>
@@ -120,7 +120,7 @@ char * readfile(const char * name) { /* TODO: Clean up when we get a new API */
 					kprintf("Trying to use file as directory!\n");
 					return 0;
 				}
-			} 
+			}
 			block = get_iblock(&inode, cur_block, ext2);
 			if(!block) {
 				return 0;
@@ -142,12 +142,12 @@ char * readfile(const char * name) { /* TODO: Clean up when we get a new API */
 				}
 				dir = (struct ext2_dir_entry_2*)((unsigned int) dir + dir->rec_len);
 			}
-			
+
 			kfree(block);
 		}
 	}
 out:
-	inode = get_ext2_inode(ext2, inode_n); 
+	inode = get_ext2_inode(ext2, inode_n);
 	ret = kmalloc(inode.i_size);
 	block = kmalloc(ext2->block_size);
 	for(cur_block = 0; cur_block < (inode.i_size  + ext2->block_size - 1)/ ext2->block_size; cur_block++) {
@@ -169,7 +169,7 @@ void read_super_block(BD_DESC * dev) { /* TODO: Clean up when we get a new API *
 	ext2->super_block = kmalloc(1024);
 
 	ext2->dev = dev;
-	
+
 	dseek(dev, 1024, SEEK_SET);
 	if(dread(ext2->super_block, 512, 2, dev) < 2) {
 		kprintf("Couldn't read superblock!\n");
