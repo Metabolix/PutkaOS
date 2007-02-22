@@ -26,6 +26,8 @@ enum KEYB_MODS {
 #define KB_BUFFER_SIZE 128
 
 extern char *nappien_nimet_qwerty[256];
+extern unsigned int kb_mods;
+
 enum keys { /* let's put these here if someone needs them... */
 KEY__0x00 = 0x00,
 	KEY_ESC = 0x01,

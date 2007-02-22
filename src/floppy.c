@@ -94,7 +94,7 @@ void reset_floppy(void)
 
 	prepare_wait_irq(FLOPPY_IRQ);
 	outportb((FLOPPY_FIRST + DIGITAL_OUTPUT_REGISTER), 0x00); /*disable controller*/
-	kwait(50);
+	kwait(0, 1000 * 50);
 	outportb((FLOPPY_FIRST + DIGITAL_OUTPUT_REGISTER), 0x0c); /*enable controller*/
 
 	print("FDD: Reseted controller\n");
@@ -196,7 +196,7 @@ void motor_on(unsigned int drive) {
 	fds[drive].motor = 1;
 	motors |= (1 << drive);
 	outportb(FLOPPY_FIRST + DIGITAL_OUTPUT_REGISTER, 0xC + (motors << 4)); /* motor on */
-	kwait(500); /* wait it spins up */
+	kwait(0, 1000 * 500); /* wait it spins up */
 }
 
 void prepare_motor_off(unsigned int drive) {
@@ -254,51 +254,49 @@ void motor_off(unsigned int drive)
 	kprintf("FDD: Motor %u off\n", drive);
 }
 
-int read_sector(unsigned int drive, unsigned char sector, unsigned char head, unsigned char cylinder, unsigned long buffer)
+int rw_sector(unsigned int drive, unsigned char sector, unsigned char head, unsigned char cylinder, unsigned long buffer, int write)
 {
 	int a;
-	/* TODO: Combine read_sector and write_sector */
-
-	if (drive >= MAX_DRIVES) {
+alku:
+	if (drive >= MAX_DRIVES || !fds[drive].type) {
 		return -1;
 	}
 
-	if (!fds[drive].type) {
-		return -1;
-	}
 	if (inportb(FLOPPY_FIRST + DIGITAL_INPUT_REGISTER) & 0x80) {
 		/* disk was changed */
-		void (*motor_off)();
-
 		seek_track(drive, 1);
 		calibrate_drive(drive);
-		motor_off = motor_stop[drive];
-		motor_off();
+		motor_off(drive);
 		if (inportb(FLOPPY_FIRST + DIGITAL_INPUT_REGISTER) & 0x80) {
-			kprintf("FDD: There is not floppy in fd%u", drive);
+			kprintf("FDD: No floppy in fd%u\n", drive);
 			return -2;
 		} else {
-			print("FDD: Floppy changed, trying again\n");
-			return read_sector(drive, sector, head, cylinder, buffer);
+			print("FDD: Floppy changed, trying again...\n");
+			goto alku;
 		}
-
 	}
 
+	if (seek_track(drive, cylinder))
+	if (seek_track(drive, cylinder))
 	if (seek_track(drive, cylinder)) {
-		return -1; /* uhm, should we try to seek few times more? */
+		return -1; /* three seeks? */
 	}
 
-	motor_on(drive); /* seek_track starts motor as well */
+	/* seek_track actually starts motor already, but... */
+	motor_on(drive);
 
-	if(!inportb(FLOPPY_FIRST + MAIN_STATUS_REGISTER) & 0x20)
+	if (!inportb(FLOPPY_FIRST + MAIN_STATUS_REGISTER) & 0x20) {
 		panic("Non-dma floppy transfer?\n");
+	}
 
-	init_dma_floppy(buffer, 512, 0); /* block size */
+	/* block size */
+	init_dma_floppy(buffer, 512, 0);
 
-	kwait(floppy_params.head_settle_time);
+	kwait(0, 1000 * floppy_params.head_settle_time);
 	wait_floppy();
+
 	prepare_wait_irq(FLOPPY_IRQ);
-	send_command(READ_DATA);
+	send_command(write ? WRITE_DATA : READ_DATA);
 	send_command((head << 2) | drive);
 	send_command(cylinder);
 	send_command(head);
@@ -312,7 +310,7 @@ int read_sector(unsigned int drive, unsigned char sector, unsigned char head, un
 
 	wait_irq(FLOPPY_IRQ);
 	//kprintf("We got values ");
-	for(a = 0; a < 7; a++) { /* TODO: Put these values somewhere? */
+	for (a = 0; a < 7; a++) { /* TODO: Put these values somewhere? */
 		wait_floppy_data();
 		inportb(FLOPPY_FIRST + DATA_FIFO);
 		//kprintf("%d ", inportb(FLOPPY_FIRST + DATA_FIFO));
@@ -321,65 +319,6 @@ int read_sector(unsigned int drive, unsigned char sector, unsigned char head, un
 	prepare_motor_off(drive);
 	return 0;
 }
-
-int write_sector(unsigned int drive, unsigned char sector, unsigned char head, unsigned char cylinder, unsigned long buffer)
-{
-	int a;
-
-	if (drive >= MAX_DRIVES || !fds[drive].type) {
-		return -1;
-	}
-
-	if(inportb(FLOPPY_FIRST + DIGITAL_INPUT_REGISTER) & 0x80) { /* disk was changed */
-		void (*motor_off)();
-
-		seek_track(drive, 1);
-		calibrate_drive(drive);
-		motor_off = motor_stop[drive];
-		motor_off();
-		if (inportb(FLOPPY_FIRST + DIGITAL_INPUT_REGISTER) & 0x80) {
-			kprintf("FDD: There is not floppy in fd%u", drive);
-			return -2;
-		} else {
-			print("FDD: Floppy changed, trying again\n");
-			return read_sector(drive, sector, head, cylinder, buffer);
-		}
-
-	}
-
-	if(seek_track(drive, cylinder)) {
-		return -1; /* uhm, should we try to seek few times more? */
-	}
-
-	motor_on(drive);
-
-	init_dma_floppy(buffer, 512, 1); /* block size */
-
-	wait_floppy();
-	kwait(floppy_params.head_settle_time);
-
-	prepare_wait_irq(FLOPPY_IRQ);
-	send_command(WRITE_DATA);
-	send_command((head << 2) | drive);
-	send_command(cylinder);
-	send_command(head);
-	send_command(sector);
-	send_command(floppy_params.bytes_per_sector);  /*sector size = 128*2^size*/
-	send_command(floppy_params.sectors_per_track); /*last sector*/
-	send_command(floppy_params.gap_length);        /*27 default gap3 value*/
-	send_command(floppy_params.data_length);       /*default value for data length*/
-	wait_irq(FLOPPY_IRQ);
-
-	for (a = 0; a < 7; a++) {
-		wait_floppy_data();
-		inportb(FLOPPY_FIRST + DATA_FIFO);
-	}
-	prepare_motor_off(drive);
-
-	return 0;
-}
-
-
 
 int read_block(BLOCK_DEVICE *self, size_t num, void * buf)
 {
@@ -392,12 +331,13 @@ int read_block(BLOCK_DEVICE *self, size_t num, void * buf)
 	cylinder = num / (floppy_params.sectors_per_track * 2);
 	sector = (num % (floppy_params.sectors_per_track)) + 1;
 
-	retval = read_sector(self->index, sector, head, cylinder,(unsigned long) fdbuf);
+	retval = rw_sector(self->index, sector, head, cylinder,(unsigned long) fdbuf, 0);
 	memcpy(buf, fdbuf, self->block_size);
 	return retval;
 }
 
-int write_block(BLOCK_DEVICE *self, size_t num, const void * buf) {
+int write_block(BLOCK_DEVICE *self, size_t num, const void * buf)
+{
 	int sector;
 	int head;
 	int cylinder;
@@ -406,8 +346,7 @@ int write_block(BLOCK_DEVICE *self, size_t num, const void * buf) {
 	cylinder = num / (floppy_params.sectors_per_track * 2);
 	sector = (num % (floppy_params.sectors_per_track)) + 1;
 
-
 	memcpy(fdbuf, buf, self->block_size);
-	return write_sector(self->index, sector, head, cylinder, (unsigned long)fdbuf);
+	return rw_sector(self->index, sector, head, cylinder, (unsigned long)fdbuf, 1);
 }
 

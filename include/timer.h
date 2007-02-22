@@ -28,7 +28,7 @@ extern void get_sys_time(struct tm *sys_time_ptr);
 extern void get_uptime(struct timeval *uptime_ptr);
 
 extern void timer_install();
-extern void kwait(unsigned int ms);
+extern void kwait(time_t sec, time_t usec);
 extern unsigned int kget_ticks(void);
 extern timer_id_t ktimer_start(void (*func)(void), unsigned int msec, int times);
 extern void ktimer_stop(timer_id_t timer);

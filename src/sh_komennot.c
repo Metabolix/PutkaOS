@@ -39,7 +39,7 @@ void sh_key_names(char *buf)
 		if (ch == KEY_ESC) {
 			break;
 		}
-		kprintf("%#04x - '%s' (%s)\n", ch & 255, nappien_nimet_qwerty[ch & 255], (ch & 256) ? "up" : "down");
+		kprintf("(mods: %#06x), %#04x - '%s' (%s)\n", kb_mods, ch & 255, nappien_nimet_qwerty[ch & 255], (ch & 256) ? "up" : "down");
 	}
 }
 

@@ -1,4 +1,5 @@
 BITS 32
+;extern unsigned int set_bit(unsigned int num, int bit, int value);
 global set_bit
 set_bit:
 	mov ecx, [esp+8]
@@ -23,6 +24,7 @@ nollaksi:
 	and eax, edx
 	ret
 
+;extern unsigned int get_bit(unsigned int num, int bit);
 global get_bit
 get_bit:
 	mov ecx, [esp+8]
@@ -37,25 +39,7 @@ get_bit_jatka:
 	and eax, 1
 	ret
 
-global add_rm_bits
-add_rm_bits:
-	mov ecx, [esp+8]
-	mov eax, [esp+12]
-	test eax, eax
-	mov eax, [esp+4]
-	jz add_rm_bits__rm
-add_rm_bits__add:
-	or eax, ecx
-	ret
-add_rm_bits__rm:
-	and ecx, eax
-	xor eax, ecx
-	ret
-
+;extern void taikatemppu();
 global taikatemppu
 taikatemppu:
 	ret
-
-;extern unsigned int set_bit(unsigned int num, int bit, int value);
-;extern unsigned int add_rm_bits(unsigned int num, int bits, int add);
-;extern unsigned int get_bit(unsigned int num, int bit);

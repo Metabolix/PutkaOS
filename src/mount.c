@@ -205,7 +205,6 @@ elsen_yli_2:
 
 /**
  * Liittää laitteen hakemistoon
- * TODO: Moi.
 **/
 int mount_something(const char * device_filename, const char * mountpoint, int flags)
 {

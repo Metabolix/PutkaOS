@@ -222,34 +222,46 @@ const char altgred_keys_to_ascii[256] = {
 	0,0,0,0
 };
 
-int key_to_ascii(int key, int mods)
+int key_to_ascii(int key, int kb_mods)
 {
 	unsigned char ret = keys_to_ascii[key];
 	if (ret >= 'a' && ret <= 'z') {
-		if (mods & KEYB_MOD_UPCASE) {
+		if (kb_mods & KEYB_MOD_UPCASE) {
 			return ret + 'A' - 'a';
 		}
 		return ret;
 	}
-	if (mods & KEYB_MOD_SHIFT) {
+	if (kb_mods & KEYB_MOD_SHIFT) {
 		ret = shifted_keys_to_ascii[key];
-	} else if (mods & KEYB_MOD_LALT) { /* TODO: Alt Gr */
+	} else if (kb_mods & KEYB_MOD_ALTGR || kb_mods & KEYB_MOD_LALT) { /* TODO: Alt pois. :P */
 		ret = altgred_keys_to_ascii[key];
 	}
 	return ret;
 }
 
-int mods = 0;
+unsigned int kb_mods = 0;
 unsigned char kb_buf_full = 0;
 
-int ktoasc(int key) {
-	return key_to_ascii(key & 255, mods);
-}
+unsigned char *x86_modstatus = (unsigned char *)0x0417;
+enum x86_MOD_MASK {
+	x86_MOD_DERSHIFT = 0x01,
+	x86_MOD_DELSHIFT = 0x02,
+	x86_MOD_DECTRL   = 0x04,
+	x86_MOD_DEALT    = 0x08,
+	x86_MOD_SCRL     = 0x10,
+	x86_MOD_NUML     = 0x20,
+	x86_MOD_CAPSL    = 0x40,
+	x86_MOD_INSMODE  = 0x80,
+};
 
+int ktoasc(int key) {
+	return key_to_ascii(key & 255, kb_mods);
+}
 
 void keyboard_handle(void)
 {
-	static unsigned char escape, oli_escape, down;
+	static unsigned char escaped, oli_escaped, down;
+	static unsigned char capsl_key, numl_key, scroll_key;
 	static unsigned int code;
 
 	if (vt[cur_vt].kb_buf_count == KB_BUFFER_SIZE) {
@@ -260,53 +272,69 @@ void keyboard_handle(void)
 		--kb_buf_full;
 	}
 
-	if (escape) {
-		--escape;
+	if (escaped) {
+		--escaped;
 	} else {
-		oli_escape = 0;
+		oli_escaped = 0;
 	}
 	code = inportb(0x60);
 	if (code == 0xe0) {
-		escape = 1;
-		oli_escape = 0x80;
+		escaped = 1;
+		oli_escaped = 0x80;
 	} else if (code == 0xe1) {
-		escape = 2;
-		oli_escape = 0x80;
-	} else if (!escape) {
+		escaped = 2;
+		oli_escaped = 0x80;
+	} else if (!escaped) {
 		down = (code & 0x80) ? 0 : 1;
-		code = (code & 0x7f) | oli_escape;
+		code = (code & 0x7f) | oli_escaped;
 
 		switch (code) {
 			case KEY_LSHIFT:
-				mods = add_rm_bits(mods, KEYB_MOD_LSHIFT, down);
+				kb_mods |= KEYB_MOD_LSHIFT; if (!down) kb_mods ^= KEYB_MOD_LSHIFT;
 				break;
 			case KEY_RSHIFT:
-				mods = add_rm_bits(mods, KEYB_MOD_RSHIFT, down);
+				kb_mods |= KEYB_MOD_RSHIFT; if (!down) kb_mods ^= KEYB_MOD_RSHIFT;
 				break;
 			case KEY_LCTRL:
-				mods = add_rm_bits(mods, KEYB_MOD_LCTRL, down);
+				kb_mods |= KEYB_MOD_LCTRL; if (!down) kb_mods ^= KEYB_MOD_LCTRL;
 				break;
 			case KEY_RCTRL:
-				mods = add_rm_bits(mods, KEYB_MOD_RCTRL, down);
+				kb_mods |= KEYB_MOD_RCTRL; if (!down) kb_mods ^= KEYB_MOD_RCTRL;
 				break;
 			case KEY_LALT:
-				mods = add_rm_bits(mods, KEYB_MOD_LALT, down);
+				kb_mods |= KEYB_MOD_LALT; if (!down) kb_mods ^= KEYB_MOD_LALT;
 				break;
-				/* TODO: Alt Gr */
+			case KEY_ALTGR:
+				kb_mods |= KEYB_MOD_ALTGR; if (!down) kb_mods ^= KEYB_MOD_ALTGR;
+				break;
+			case KEY_SCROLL_LOCK:
+				// Vaihdetaan tila
+				if (down && !scroll_key) {
+					kb_mods ^= KEYB_MOD_SCRL;
+				}
+				scroll_key = down;
+				break;
 			case KEY_CAPSLOCK:
-				mods = add_rm_bits(mods, KEYB_MOD_CAPS, down);
+				if (down) return;
+				if (capsl_key) {
+					capsl_key = 0;
+				} else {
+					down = capsl_key = 1;
+					kb_mods ^= KEYB_MOD_CAPS;
+				}
 				break;
 			case KEY_NUMLOCK:
-				mods = add_rm_bits(mods, KEYB_MOD_NUML, down);
+				if (down) return;
+				if (numl_key) {
+					numl_key = 0;
+				} else {
+					down = numl_key = 1;
+					kb_mods ^= KEYB_MOD_NUML;
+				}
 				break;
-				/* TODO:
-			case KEY_SCROLL_LOCK:
-				mods = add_rm_bit(mods, KEYB_MOD_SCRL, down);
-				break;
-				*/
 			default:
-				if (code >= 0x3b && code <= 0x40) { /* f1-f6 */
-					change_vt(code - 0x3b);
+				if (code >= KEY_F1 && code <= KEY_F6) { /* f1-f6 */
+					change_vt(code - KEY_F1);
 				}
 		}
 
@@ -347,6 +375,8 @@ void keyboard_install(void)
 {
 	install_irq_handler(1, (void *) keyboard_handle);
 	inportb(0x60); /* There might be something in the buffer */
+	*x86_modstatus &= ~(x86_MOD_SCRL | x86_MOD_NUML | x86_MOD_CAPSL);
+	*x86_modstatus |= x86_MOD_INSMODE;
 	print("Keyboard installed\n");
 }
 

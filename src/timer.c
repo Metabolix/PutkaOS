@@ -139,20 +139,21 @@ void sys_next_minute(void)
 		uptime.sec, uptime.usec);*/
 }
 
-// TODO: Parempi Funktio!
+// TODO: Vielä Parempi Funktio!
 time_t ticks_to_microsecs(time_t ticks)
 {
 	const time_t jakaja = TIMER_TICK_RATE, kertoja = 1000000;
 	time_t jaettava, tulos, i;
 
 	tulos = jaettava = 0;
-	for (i = 0x100000; i; i >>= 1) {
-		if (ticks & i) {
-			jaettava += kertoja;
+	// 1. kerralla shiftaus on 24 - 8 == 16
+	for (i = 24; i;) { i -= 8;
+		if ((ticks >> i) & 0xff) {
+			jaettava += ((ticks >> i) & 0xff) * kertoja;
 		}
-		tulos = (tulos << 1) + (jaettava / jakaja);
+		tulos = (tulos << 8) + (jaettava / jakaja);
 		jaettava %= jakaja;
-		jaettava <<= 1;
+		jaettava <<= 8;
 	}
 	return tulos;
 }
@@ -222,11 +223,11 @@ void timer_install(void)
 	install_irq_handler(0, (void *)timer_handler);
 }
 
-void kwait(unsigned int msec)
+void kwait(time_t sec, time_t usec)
 {
 	struct timeval jatkoaika = uptime;
-	jatkoaika.usec += 1000 * (msec % 1000);
-	jatkoaika.sec += msec / 1000;
+	jatkoaika.usec += usec;
+	jatkoaika.sec += sec;
 	jatkoaika.sec += (jatkoaika.usec / 1000000);
 	jatkoaika.usec %= 1000000;
 	extern void taikatemppu();

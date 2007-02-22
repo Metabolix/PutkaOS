@@ -13,11 +13,11 @@ void inst4(char plorp)
 	//ensin enable clock ylhäällä ja sitten alhaalla
 	//päästetään läpi bitit 0001 1111 (RS ja data)
 	outportb(lcd_port, (0x1f&plorp)|0x20);
-	kwait(1);
+	kwait(0, 1000 * 1);
 	outportb(lcd_port, (0x1f&plorp));
 	//kwait(1);
 }
- 
+
 void inst8(char ploo)
 {
 	//ylemmät bitit ja alemmat bitit erikseen
@@ -36,11 +36,11 @@ void init(void)
 {
 	//jotain hassuja inittejä
 	inst4(0x03);
-	kwait(5);
+	kwait(0, 1000 * 5);
 	inst4(0x03);
-	kwait(1);
+	kwait(0, 1000 * 1);
 	inst4(0x03);
-	kwait(1);
+	kwait(0, 1000 * 1);
 	//interface length, vain ylemmät bitit => 0010 0000
 	// 001[0 00]00 = 4 bittinen, 1 rivi, 5x7-merkit
 	inst4(0x02);

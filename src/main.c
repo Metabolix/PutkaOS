@@ -26,21 +26,6 @@ int i;
 
 void testattava_koodi(void)
 {
-	struct timeval uptime;
-	struct timeval uptime2;
-	for (;;) {
-		get_uptime(&uptime);
-		kwait(1);
-		get_uptime(&uptime2);
-		if (uptime2.usec > uptime.usec + 1000) {
-			kprintf("%d -> %d\n", uptime.usec, uptime2.usec);
-		}
-	}
-	lcd_init(0x378);
-	lcd_move(0,0);
-	lcd_putch('m');
-	lcd_putch('o');
-	lcd_putch('i');
 #ifdef TUHOA_KORPUN_SISALTO
 	dev = dopen(&fd_devices[0]);
 
@@ -88,7 +73,7 @@ void kmain(multiboot_info_t* mbt, unsigned int magic)
 
 	//reset_floppy();
 
-	testattava_koodi();
+	//testattava_koodi();
 
 	kprintf("%s %s is up and running _o/\n", systeemi, versio);
 	new_thread(run_sh, 0, 0);
