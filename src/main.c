@@ -53,8 +53,8 @@ void kmain(multiboot_info_t* mbt, unsigned int magic)
 	outportb(0xa1,0x0);
 	asm __volatile__("sti"); /* Allow interrupts */
 
-	//reset_floppy();
-	//mount_init("/dev/fd0");
+	reset_floppy();
+	mount_init("/dev/fd0");
 
 	//testattava_koodi();
 

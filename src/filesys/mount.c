@@ -109,11 +109,9 @@ int mount_init(const char * root_device)
 	root.subtree->fs = &devfs;
 	strcpy(root.subtree->absolute_path, "/dev");
 	strcpy(root.subtree->dev_name, "devman");
-	kprintf("Devmanager mountattu\n");
 
 	/* Sitten / */
 	flags = FILE_MODE_READ | FILE_MODE_WRITE;
-	kprintf("root.dev = devfs.filefunc.fopen(&devfs, root_device, flags);\n");
 	root.dev = devfs.filefunc.fopen(&devfs, root_device, flags);
 	if (!root.dev) {
 		flags = FILE_MODE_READ;
@@ -124,9 +122,7 @@ int mount_init(const char * root_device)
 		/* TODO: Creating ramfs instead...\n */
 		return -1;
 	}
-	kprintf("root.dev = devfs.filefunc.fopen(&devfs, root_device, flags); ... DONE\n");
 
-	kprintf("root.fs = fs_mount(root.dev, flags);\n");
 	root.fs = fs_mount(root.dev, flags);
 	if (!root.fs) {
 		kprintf("Mount: Couldn't mount root device (%s).\n", root_device);
@@ -135,7 +131,6 @@ int mount_init(const char * root_device)
 	if (!root.fs->filefunc.fwrite) {
 		kprintf("Mount: Warning: root device (%s) mounted read-only!\n", root_device);
 	}
-	kprintf("root.fs = fs_mount(root.dev, flags); O_o\n");
 
 	root.dev_name = kmalloc(strlen(root_device) + 1);
 	if (!root.dev_name) {

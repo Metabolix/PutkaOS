@@ -31,7 +31,7 @@ FILE *dev_fopen(struct fs *this, const char * filename, uint_t mode)
 
 	list = &devlist;
 	while (list) {
-		if (!list->dev || !list->dev->name) continue;
+		if (list->dev && list->dev->name)
 		if (strcmp(filename, list->dev->name) == 0) {
 			return list->dev->devopen(list->dev, mode);
 		}

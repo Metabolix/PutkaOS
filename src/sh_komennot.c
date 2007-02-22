@@ -3,6 +3,8 @@
 #include <panic.h>
 #include <timer.h>
 #include <io.h>
+#include <filesys/mount.h>
+#include <floppy.h>
 
 struct sh_komento komentotaulu[] = {
 	{"?", "Apua", sh_help},
@@ -14,8 +16,8 @@ struct sh_komento komentotaulu[] = {
 	{"colour", "Aseta vari", sh_set_colour},
 	{"reset", "Tyhjenna ruutu ja aseta perusvari", sh_reset},
 	{"keynames", "Tulostetaan nappien nimia, kunnes tulee Escape", sh_key_names},
-	{"outp", "outb port byte, laheta tavu porttiin", sh_outportb},
-	{"inp", "inp port byte, hae tavu portista", sh_inportb},
+	{"outp", "outb port byte, laheta tavu porttiin (lukujarjestelmat: dec 123, hex 0x7b, oct 0173)", sh_outportb},
+	{"inp", "inp port, hae tavu portista (lukujarjestelmat: dec 123, hex 0x7b, oct 0173)", sh_inportb},
 	{"history", "Komentohistoria", sh_history},
 	{0, 0, sh_ei_tunnistettu} /* Terminaattori */
 };
