@@ -124,6 +124,7 @@ void run_sh(void)
 		}
 		komento->suoritus(buffer);
 
+		ajettu: {}
 		/* Lets add this line at the beginning of the history list */
 		int i;
 		/* First move every command from the list one step down and drop the lastest one */
@@ -134,6 +135,5 @@ void run_sh(void)
 		history_index = -1;
 		strcpy(history[0], buffer);
 
-		ajettu: {}
 	}
 }
