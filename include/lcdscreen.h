@@ -8,6 +8,7 @@ extern int  lcd_move(unsigned int y, unsigned int x);
 extern void lcd_set_color(unsigned char c);
 extern unsigned char lcd_get_color();
 extern void lcd_init(int port);
+extern void lcd_scrolltext(char *text);
 
 #endif
 

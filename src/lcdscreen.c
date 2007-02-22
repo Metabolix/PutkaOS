@@ -13,11 +13,11 @@ void inst4(char plorp)
 	//ensin enable clock ylhäällä ja sitten alhaalla
 	//päästetään läpi bitit 0001 1111 (RS ja data)
 	outportb(lcd_port, (0x1f&plorp)|0x20);
-	kwait(0, 1000 * 1);
+	kwait(0, 10000);
 	outportb(lcd_port, (0x1f&plorp));
 	//kwait(1);
 }
-
+ 
 void inst8(char ploo)
 {
 	//ylemmät bitit ja alemmat bitit erikseen
@@ -36,11 +36,11 @@ void init(void)
 {
 	//jotain hassuja inittejä
 	inst4(0x03);
-	kwait(0, 1000 * 5);
+	kwait(0, 50000);
 	inst4(0x03);
-	kwait(0, 1000 * 1);
+	kwait(0, 10000);
 	inst4(0x03);
-	kwait(0, 1000 * 1);
+	kwait(0, 10000);
 	//interface length, vain ylemmät bitit => 0010 0000
 	// 001[0 00]00 = 4 bittinen, 1 rivi, 5x7-merkit
 	inst4(0x02);
@@ -67,9 +67,9 @@ void Enable(int bdisplay, int bcursor, int bblink)
 	inst8( 0x08 | (bdisplay<<2) | (bcursor<<1) | (bblink) );
 }
 
-void ShiftMode(int bshiftdisplay, int bdir)
+void Shift(int bshiftdisplay, int bdirright)
 {
-	inst8( 0x10 | (bshiftdisplay<<3) | (bdir<<2) );
+	inst8( 0x10 | (bshiftdisplay<<3) | (bdirright<<2) );
 }
 
 void IfaceLen(int b8bits, int b2rows, int b5x10)
@@ -94,7 +94,7 @@ void MoveToDisplay(char paikka)
 void init2(void)
 {
 	IfaceLen(0, 1, 0);
-	ShiftMode(0, 0);
+	//Shift(0, 0);
 	MoveMode(1, 0);
 	Enable(1, 1, 1);
 }
@@ -122,6 +122,15 @@ int lcd_move(unsigned int y, unsigned int x){
 	p += x;
 	MoveToDisplay(p);
 	return 0;
+}
+
+void lcd_scrolltext(char *text){
+	int i;
+	MoveToDisplay(0x40+15);
+	for(i=0; text[i]!='\0'; i++){
+		lcd_putch(text[i]);
+		Shift(1,0);
+	}
 }
 
 void lcd_set_color(unsigned char c){
