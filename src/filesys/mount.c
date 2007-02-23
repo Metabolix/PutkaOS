@@ -15,8 +15,9 @@ const struct mountpoint *mount_etsi_kohta(const char ** filename_ptr)
 
 #define MAKE_NULL(b, a); {if (a) { b(a); (a) = 0; }}
 
+char tyhja_string[1] = "";
 struct mountpoint root = {
-	"/", 0, 0,
+	tyhja_string, "/", tyhja_string,
 	0, 0,
 	0, 0
 };
@@ -64,7 +65,7 @@ struct mountpoint *etsi_kohta(const char ** filename_ptr)
 silmukka:
 	for (i = 0; i < mnt->subtree_size; ++i) {
 		newfilename = strrmsame(filename, mnt->subtree[i].relative_path);
-		j = filename - newfilename;
+		j = newfilename - filename;
 
 		if (mnt->subtree[i].relative_path[j] == 0) {
 			if (newfilename[0] == 0) {

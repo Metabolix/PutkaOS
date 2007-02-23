@@ -1,10 +1,12 @@
 #include <filesys/pseudofsdriver.h>
+#include <filesys/fat.h>
 #include <filesys/filesystem.h>
 #include <malloc.h>
 
 #define MAX_FS_DRIVERS 16
 
 fs_mount_t list_of_fs_mount[MAX_FS_DRIVERS] = {
+	(fs_mount_t) fat_mount,
 	(fs_mount_t) pfs_mount,
 	0 /* Terminator */
 };

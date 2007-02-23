@@ -45,7 +45,7 @@ int blockdev_fsetpos(BD_FILE *device, const fpos_t *pos)
 	return 0;
 }
 
-int blockdev_fseek(BD_FILE *device, long offset, int origin)
+int blockdev_fseek(BD_FILE *device, long int offset, int origin)
 {
 	size_t block, pos_in;
 	switch (origin) {

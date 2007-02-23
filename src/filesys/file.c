@@ -8,7 +8,13 @@ FILE *fopen(const char * filename, const char * mode)
 	if (!filename || !mode) {
 		return 0;
 	}
+	kprintf("filename == %s\n", filename);
 	mnt = etsi_kohta(&filename);
+	kprintf("mnt->absolute_path == %s\n", mnt->absolute_path);
+
+	if (!mnt || !mnt->fs || !mnt->fs->filefunc.fopen) {
+		return 0;
+	}
 	/* parsitaan mode */
 	for (intmode = 0; *mode; ++mode) {
 		if (*mode == 'r') {
@@ -24,45 +30,67 @@ FILE *fopen(const char * filename, const char * mode)
 	return mnt->fs->filefunc.fopen(mnt->fs, filename, intmode);
 }
 
-int fclose(FILE *file)
+int fclose(FILE *stream)
 {
-	if (!file || !file->func) {
-		return -1;
+	if (stream && stream->func && stream->func->fclose) {
+		return stream->func->fclose(stream);
 	}
-	return file->func->fclose(file);
+	return -1;
 }
 
-size_t fread(void *buf, size_t size, size_t count, FILE *file)
+size_t fread(void *buf, size_t size, size_t count, FILE *stream)
 {
+	if (stream && stream->func && stream->func->fread) {
+		return stream->func->fread(buf, size, count, stream);
+	}
 	return 0;
 }
 
-size_t fwrite(const void *buf, size_t size, size_t count, FILE *file)
+size_t fwrite(const void *buf, size_t size, size_t count, FILE *stream)
 {
+	if (stream && stream->func && stream->func->fwrite) {
+		return stream->func->fwrite(buf, size, count, stream);
+	}
 	return 0;
 }
 
 int fgetpos(FILE *stream, fpos_t *pos)
 {
-	return -1;
+	if (stream && stream->func && stream->func->fgetpos) {
+		return stream->func->fgetpos(stream, pos);
+	}
+	memset(pos, 0, sizeof(fpos_t));
+	return EOF;
 }
 
 int fsetpos(FILE *stream, const fpos_t *pos)
 {
-	return -1;
+	if (stream && stream->func && stream->func->fsetpos) {
+		return stream->func->fsetpos(stream, pos);
+	}
+	return EOF;
 }
 
 int fseek(FILE *stream, long int offset, int origin)
 {
-	return -1;
+	if (stream && stream->func && stream->func->fseek) {
+		return stream->func->fseek(stream, offset, origin);
+	}
+	return EOF;
 }
 
 long ftell(FILE *stream)
 {
+	if (stream && stream->func && stream->func->ftell) {
+		return stream->func->ftell(stream);
+	}
 	return -1L;
 }
 
 int fflush(FILE *stream)
 {
+	if (stream && stream->func && stream->func->fflush) {
+		return stream->func->fflush(stream);
+	}
 	return EOF;
 }

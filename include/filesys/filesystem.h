@@ -20,7 +20,7 @@ typedef int (*fs_umount_t)(struct fs *this);
 typedef FILE *(*fopen_t)(struct fs *this, const char * filename, uint_t mode);
 typedef int (*fclose_t)(FILE *stream);
 typedef size_t (*fread_t)(void *buf, size_t size, size_t count, FILE *stream);
-typedef size_t (*fwrite_t)(void *buf, size_t size, size_t count, FILE *stream);
+typedef size_t (*fwrite_t)(const void *buf, size_t size, size_t count, FILE *stream);
 typedef int (*fseek_t)(FILE *stream, long int offset, int origin);
 typedef long (*ftell_t)(FILE *stream);
 typedef int (*fflush_t)(FILE *stream);

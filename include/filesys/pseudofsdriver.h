@@ -1,7 +1,6 @@
 #ifndef _PFS_H
 #define _PFS_H 1
 #include <filesys/filesystem.h>
-#include <stdint.h>
 
 struct pfs_fs {
 	/* Yleiset */
@@ -14,6 +13,13 @@ struct pfs_fs {
 struct pfs_file {
 	/* Yleisesti tiedosto */
 	FILE std;
+
+	/* Omat jutut; tämä on funktiolle FILE */
+};
+
+struct pfs_dir {
+	/* Yleisesti tiedosto */
+	DIR std;
 
 	/* Omat jutut; tämä on funktiolle FILE */
 };
@@ -36,9 +42,9 @@ int pfs_fseek(FILE *stream, long int offset, int origin);
 int pfs_fgetpos(struct pfs_file *stream, fpos_t *pos);
 int pfs_fsetpos(struct pfs_file *stream, const fpos_t *pos);
 
-int pfs_dmake(struct fs *this, const char * dirname, uint_t owner, uint_t rights);
-DIR *pfs_dopen(struct fs *this, const char * dirname);
-int pfs_dread(DIR *listing);
-int pfs_dclose(DIR *listing);
+int pfs_dmake(struct pfs_fs *this, const char * dirname, uint_t owner, uint_t rights);
+struct pfs_dir *pfs_dopen(struct pfs_fs *this, const char * dirname);
+int pfs_dread(struct pfs_dir *listing);
+int pfs_dclose(struct pfs_dir *listing);
 
 #endif

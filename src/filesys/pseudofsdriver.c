@@ -27,7 +27,7 @@ struct pfs_fs pfs = {
 	0
 };
 
-struct fs *pfs_mount(FILE *device, unsigned int mode)
+struct fs *pfs_mount(FILE *device, uint_t mode)
 {
 	return 0; /* Virhe ;) */
 
@@ -45,7 +45,7 @@ int pfs_umount(struct pfs_fs *this)
 	return 0;
 }
 
-void *pfs_fopen(struct pfs_fs *this, const char * filename, unsigned int mode)
+void *pfs_fopen(struct pfs_fs *this, const char * filename, uint_t mode)
 {
 	return 0; /* Virhe ;) */
 
