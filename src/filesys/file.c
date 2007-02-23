@@ -1,5 +1,6 @@
 #include <filesys/file.h>
 #include <filesys/mount.h>
+#include <string.h>
 
 FILE *fopen(const char * filename, const char * mode)
 {
@@ -8,9 +9,7 @@ FILE *fopen(const char * filename, const char * mode)
 	if (!filename || !mode) {
 		return 0;
 	}
-	kprintf("filename == %s\n", filename);
 	mnt = etsi_kohta(&filename);
-	kprintf("mnt->absolute_path == %s\n", mnt->absolute_path);
 
 	if (!mnt || !mnt->fs || !mnt->fs->filefunc.fopen) {
 		return 0;

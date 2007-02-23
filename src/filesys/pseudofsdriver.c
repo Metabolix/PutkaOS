@@ -93,22 +93,22 @@ int pfs_fsetpos(struct pfs_file *stream, const fpos_t *pos)
 	return EOF;
 }
 
-int pfs_dmake(struct fs *this, const char * dirname, uint_t owner, uint_t rights)
+int pfs_dmake(struct pfs_fs *this, const char * dirname, uint_t owner, uint_t rights)
 {
 	return -1;
 }
 
-DIR *pfs_dopen(struct fs *this, const char * dirname)
+struct pfs_dir *pfs_dopen(struct pfs_fs *this, const char * dirname)
 {
 	return 0;
 }
 
-int pfs_dclose(DIR *listing)
+int pfs_dclose(struct pfs_dir *listing)
 {
 	return -1;
 }
 
-int pfs_dread(DIR *listing)
+int pfs_dread(struct pfs_dir *listing)
 {
 	return -1;
 }
