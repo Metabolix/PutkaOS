@@ -12,6 +12,7 @@ struct fat16_fs {
 	struct fat_header header;
 	unsigned long fat_start;
 	unsigned long rootdir_start;
+	unsigned long data_start;
 	size_t bytes_per_cluster;
 	unsigned short (*get_fat)(struct fat16_fs *fs, int cluster);
 	unsigned short fat12_fat[1];
@@ -52,6 +53,7 @@ unsigned short fat12_get_fat(struct fat16_fs *fs, int cluster);
 
 int fat16_umount(struct fat16_fs *this);
 
+void *fat16_fopen_all(struct fat16_fs *this, const char * filename, uint_t mode, int accept_dir);
 void *fat16_fopen(struct fat16_fs *this, const char * filename, uint_t mode);
 int fat16_fclose(struct fat16_file *stream);
 
