@@ -1,15 +1,14 @@
 #include <lcdscreen.h>
 #include <io.h>
 #include <timer.h>
-#include <screen.h>
-#include <keyboard.h>
+//#include <screen.h>
 
 /* 0123 data ylemm� bitit
    4    _Instruction/Register Select
    5    E Clock */
 
-int lcd_count, lcd_port;
-char buffer[LCD_ROWS][LCD_COLS*3];
+int started = 0, lcd_count, lcd_mode, lcd_port;
+char buffer[LCD_ROWS*3][LCD_COLS*3];
 int cy, cx, cid;
 int lcdh, lcdw;
 int moving_needed;
@@ -18,21 +17,21 @@ int lcdlock = 0;
 void inst4(char plorp, int id)
 {
 	char orraus;
+	if(!started) return;
 	if(id==0) orraus = 0x20;
 	else if(id==1) orraus = 0x40;
 	else if(id==2) orraus = 0x80;
 	else if(id==-1) orraus = 0x20+0x40+0x80; //kaikki
 	else{
-		kprintf("lcdscreen: inst4: invalid screen id %i\n", id);
-		//DEBUGDEBUGDEBUGDEBUG kb_get();
+		//kprintf("lcdscreen: inst4: invalid screen id %i\n", id);
 		return;
 	}
 	//ensin enable clock ylhäällä ja sitten alhaalla
 	//päästetään läpi bitit 0001 1111 (RS ja data)
 	outportb(lcd_port, (0x1f&plorp)|orraus);
-	kwait(0, 2000);
+	kwait(0, 1);
 	outportb(lcd_port, (0x1f&plorp));
-	//kwait(1);
+	kwait(0, 1);
 }
  
 void inst8(char ploo, int id)
@@ -129,7 +128,8 @@ void locklcd()
 
 /////////////////////////////
 
-int Move(unsigned int y, unsigned int x, int id){
+int Move(unsigned int y, unsigned int x, int id)
+{
 	char p;
 	if(y >= lcdh || x >= lcdw){
 		return -1;
@@ -143,45 +143,52 @@ int Move(unsigned int y, unsigned int x, int id){
 	return 0;
 }
 
-void ChangedScreen(int id){
+/////////////////////////////
+
+void HideCursor()
+{
 	Enable(1, 0, 0, -1);
-	Enable(1, 1, 1, id);
 }
 
-/////////////////////////////
+void UpdateCursor()
+{
+	Enable(1, 0, 0, -1);
+	Enable(1, 1, 1, cid);
+}
 
 int FullMove(unsigned int y, unsigned int x)
 {
-	int id;
-	id = x / LCD_COLS;
-	x -= id * LCD_COLS;
-	cid = id;
+	if(lcd_mode==0){
+		cid = x / LCD_COLS;
+		x -= cid * LCD_COLS;
+		cy = y;
+		cx = cid * LCD_COLS + x;
+	}
+	else if(lcd_mode==1){
+		cid = y / LCD_ROWS;
+		y -= cid * LCD_ROWS;
+		cx = x;
+		cy = cid * LCD_ROWS + y;
+	}
+	if(Move(y, x, cid) == -1) return -1;
+	UpdateCursor();
 	moving_needed = 0;
-	//kprintf("FullMove(%i, %i) -> Move(%i, %i, %i)\n", y, x, y, x, id);
-	cy = y;
-	cx = x;
-	ChangedScreen(cid);
-	return Move(y, x, id);
+	return 0;
 }
 
 void FullPutchar(char c){
-	//kprintf("FullPutchar(%i), cy = %i, cx = %i\n", c, cy, cx);
-	if(moving_needed){
-		//kprintf("moving needed to %i,%i\n", cy, cx);
-		FullMove(cy, cx);;
+	if(lcd_mode==0){
+		if(cx >= (cid + 1) * LCD_COLS || moving_needed){
+			FullMove(cy, cx);
+		}
 	}
-	
-	if(cx >= (cid + 1) * LCD_COLS){
-		//kprintf("%i >= (%i + 1) * %i -> cid=%i->%i \n", cx, cid, LCD_COLS, cid,
-		//		cid+1);
-		cid++;
-		Move(cy, 0, cid);
-		ChangedScreen(cid);
-	}
-	
 	reg8(c, cid);
 	buffer[cy][cx] = c;
 	cx++;
+	if(lcd_mode==0){
+		//jos oltiin rivin lopussa, ja vielä on jäljellä näyttöjä, kursori näkyviin
+		if(cx == (cid+1) * LCD_COLS) FullMove(cy, cx);
+	}
 }
 
 void FullClear(){
@@ -205,16 +212,45 @@ void FullClearAll(){
 	FullMove(0,0);
 }
 
-void FullRedrawBuffer()
+void FullDrawBufferLine(int y)
 {
-	int y, x;
-	for(y = 0; y < lcdh; y++){
-		FullMove(y, 0);
-		for(x = 0; x < lcdw; x++){
-			FullPutchar(buffer[y][x]);
-		}
+	int x;
+	FullMove(y, 0);
+	for(x = 0; x < lcdw; x++){
+		FullPutchar(buffer[y][x]);
 	}
 	moving_needed = 1;
+}
+
+void FullDrawBuffer()
+{
+	int y;
+	for(y = lcdh-1; y >= 0; y--){ // väärin päin, niin tulee nätimpi
+		FullDrawBufferLine(y);
+	}
+	moving_needed = 1;
+}
+
+void FullScrollBufferUpAndDraw(){
+	int y, x;
+	HideCursor();
+	//bufferin rivit ylöspäin
+	for(y = 0; y < lcdh - 1; y++){
+		for(x = 0; x < lcdw; x++){
+			buffer[y][x] = buffer[y+1][x];
+		}
+	}
+	//viimeinen rivi tyhjäksi
+	for(x=0; x < lcdw; x++){
+		buffer[lcdh-1][x] = ' ';
+	}
+	//tyhjätään näyttö ja piirretään kaikki paitsi viimeinen rivi
+	//(nopeampaa kuin koko bufferin uudelleenpiirtäminen)
+	FullClear();
+	for(y=0; y < lcdh-1; y++){
+		FullDrawBufferLine(y);
+	}
+	UpdateCursor();
 }
 
 /////////////////////////////
@@ -239,22 +275,17 @@ int lcd_move(unsigned int y, unsigned int x){
 }
 
 void lcd_putch(int c){
-	int y, x;
 	locklcd();
-	if( c== '\b'){
-		if(cx > 0){
-			cx--;
-		}
-		else{
-			cy--;
-			cx = LCD_COLS-1;
-		}
+	if(c == '\b'){
+		cx--;
 		moving_needed = 1;
 	}
 	else if(c == '\n'){
-		cy++;
-		cx = 0;
-		moving_needed = 1;
+		if(cx > 0){ // ettei tuhlata kallisarvoisia rivejä
+			cy++;
+			cx = 0;
+			moving_needed = 1;
+		}
 	}
 	else if(c == '\t'){
 		cx = (cx + 8) & ~7;
@@ -279,22 +310,16 @@ void lcd_putch(int c){
 			cy--;
 			cx = lcdw-1;
 		}
+		else cx = 0;
+		moving_needed = 1;
 	}
 	
 	if(cy >= lcdh){
-		for(y = 0; y < lcdh - 1; y++){
-			for(x = 0; x < lcdw; x++){
-				//kprintf("%i,%i = %i,%i == %c\n", y, x, y+1, x, buffer[y+1][x]);
-				buffer[y][x] = buffer[y+1][x];
-			}
-		}
-		for(x=0; x < lcdw; x++){
-			buffer[lcdh-1][x] = ' ';
-			//kprintf("%i,%i = ' '\n", lcdh-1, x);
-		}
-		FullRedrawBuffer();
+		FullScrollBufferUpAndDraw();
 		FullMove(lcdh - 1, 0);
 	}
+	
+	if(moving_needed) FullMove(cy, cx);
 	
 	unlocklcd();
 }
@@ -306,14 +331,25 @@ unsigned char lcd_get_color(){
 	return 0;
 }
 
-void lcd_init(int port, int count)
+void lcd_init(int port, int count, int mode)
 {
+	if(count==0) return;
+	
 	locklcd();
+	
+	started = 1;
 	
 	lcd_port = port;
 	lcd_count = count;
-	lcdh = LCD_ROWS;
-	lcdw = count*LCD_COLS;
+	lcd_mode = mode;
+	if(lcd_mode==0){
+		lcdh = LCD_ROWS;
+		lcdw = count * LCD_COLS;
+	}
+	else if(lcd_mode==1){
+		lcdh = count * LCD_ROWS;
+		lcdw = LCD_COLS;
+	}
 	
 	init(-1);
 	init2(-1);
