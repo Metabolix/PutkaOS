@@ -108,6 +108,5 @@ extern struct fs *fat_mount(FILE *device, uint_t mode);
 
 // Huom, yksikään ei ole extern
 void *fat32_mount(FILE *device, uint_t mode, const struct fat_header *fat_header);
-void *fat16_mount(FILE *device, uint_t mode, const struct fat_header *fat_header);
 
 #endif

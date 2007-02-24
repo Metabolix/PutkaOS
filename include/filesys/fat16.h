@@ -1,7 +1,15 @@
-#ifndef _FAT12_H
-#define _FAT12_H 1
+#ifndef _FAT16_H
+#define _FAT16_H 1
 
 #include <filesys/fat.h>
+
+typedef unsigned short fat16_fat_t;
+
+struct fat12_fat_duo {
+	unsigned
+		e1 : 12,
+		e2 : 12;
+};
 
 struct fat16_fs {
 	/* Yleiset */
@@ -10,12 +18,16 @@ struct fat16_fs {
 	/* Omat jutut */
 	FILE *device;
 	struct fat_header header;
-	unsigned long fat_start;
-	unsigned long rootdir_start;
-	unsigned long data_start;
+	size_t fat_start;
+	size_t rootdir_start;
+	size_t data_start;
+	size_t data_end;
+	size_t cluster_count;
 	size_t bytes_per_cluster;
-	unsigned short (*get_fat)(struct fat16_fs *fs, int cluster);
-	unsigned short fat12_fat[1];
+	fat16_fat_t (*get_fat)(struct fat16_fs *fs, fat16_fat_t cluster);
+	fat16_fat_t (*set_next_cluster)(struct fat16_fs *fs, fat16_fat_t cluster);
+	int (*write_fat)(struct fat16_fs *fs);
+	fat16_fat_t fat12_fat[0];
 };
 
 struct fat16_dir {
@@ -39,17 +51,21 @@ struct fat16_file {
 	size_t file_size;
 };
 
-#define FAT16_CLUSTER_FREE(fat) (!(fat))
-#define FAT16_CLUSTER_RESERVED(fat) ((fat) == 1)
-#define FAT16_CLUSTER_USED(fat) (((fat) > 1) && ((fat) < 0xfff0))
-#define FAT16_CLUSTER_BAD(fat) ((fat) == 0xFFF7)
-#define FAT16_CLUSTER_END(fat) ((fat) == 1)
+#define FAT16_CLUSTER_FREE(fat) ((fat16_fat_t)(fat) == 0)
+#define FAT16_CLUSTER_RESERVED(fat) ((fat16_fat_t)(fat) == 1)
+#define FAT16_CLUSTER_USED(fat) (((fat16_fat_t)(fat) > 1) && ((fat16_fat_t)(fat) < 0xfff0))
+#define FAT16_CLUSTER_BAD(fat) ((fat16_fat_t)(fat) == 0xFFF7)
+#define FAT16_CLUSTER_EOF(fat) ((fat16_fat_t)(fat) > 0xFFF7)
 
-extern struct fat16_fs *fat12_mount(FILE *device, uint_t mode, const struct fat_header *fat_header);
+extern struct fat16_fs *fat16_mount(FILE *device, uint_t mode, const struct fat_header *fat_header, int fat12);
 //extern struct fat16_fs *fat16_mount(FILE *device, uint_t mode, const struct fat_header *fat_header);
 
-unsigned short fat16_get_fat(struct fat16_fs *fs, int cluster);
-unsigned short fat12_get_fat(struct fat16_fs *fs, int cluster);
+fat16_fat_t fat16_get_fat(struct fat16_fs *fs, fat16_fat_t cluster);
+fat16_fat_t fat16_set_next_cluster(struct fat16_fs *fs, fat16_fat_t cluster);
+fat16_fat_t fat12_get_fat(struct fat16_fs *fs, fat16_fat_t cluster);
+fat16_fat_t fat12_set_next_cluster(struct fat16_fs *fs, fat16_fat_t cluster);
+int fat12_read_fat(struct fat16_fs *fs);
+int fat12_write_fat(struct fat16_fs *fs);
 
 int fat16_umount(struct fat16_fs *this);
 
