@@ -1,7 +1,8 @@
 #include <lcdscreen.h>
 #include <io.h>
 #include <timer.h>
-//#include <screen.h>
+#include <screen.h>
+#include <keyboard.h>
 
 /* 0123 data ylemm� bitit
    4    _Instruction/Register Select
@@ -13,64 +14,84 @@ int cy, cx, cid;
 int lcdh, lcdw;
 int moving_needed;
 int lcdlock = 0;
+char color = 0x7;
 
-void inst4(char plorp, int id)
-{
-	char orraus;
-	if(!started) return;
-	if(id==0) orraus = 0x20;
-	else if(id==1) orraus = 0x40;
-	else if(id==2) orraus = 0x80;
-	else if(id==-1) orraus = 0x20+0x40+0x80; //kaikki
-	else{
-		//kprintf("lcdscreen: inst4: invalid screen id %i\n", id);
-		return;
+/*
+void printbinary(char c, int j){
+	int i;
+	for(i=7; i>=0; i--){
+		if(((c>>i)&0x01)==1) putch('1');
+		else putch('0');
+		if(i==4) putch(' ');
 	}
-	//ensin enable clock ylhäällä ja sitten alhaalla
-	//päästetään läpi bitit 0001 1111 (RS ja data)
-	outportb(lcd_port, (0x1f&plorp)|orraus);
-	kwait(0, 1);
-	outportb(lcd_port, (0x1f&plorp));
-	kwait(0, 1);
+	if(j==1) putch('\n');
+	else if(j==2){
+		putch(' ');
+		putch(' ');
+		putch(' ');
+	}
 }
- 
+*/
+void send8(char data, int breg, int id)
+{
+	char control_normal = 0x00 + 0x01 /*+ 0x02*/;
+	char control_enable;
+	
+	if(!started) return;
+	
+	if(!breg) control_normal += 0x08; //_instruction/register bit on
+	control_enable = control_normal;
+	
+	if(id == 0){
+		control_enable -= 0x01;
+	}
+	else if(id == 1){
+		control_enable += 0x04; //-= 0x04;
+	}
+	/*else if(id == 2){
+		control_enable += 0x04;
+	}*/
+	else if(id == -1){
+		control_enable += -0x01 /*-0x02*/ +0x04;
+	}
+	else return;
+	/*
+	kprintf("sending %#x to %i: en=%#x no=%#x \t",
+			data, id, control_enable, control_normal);
+	
+	printbinary(data, 2);
+	printbinary(control_enable, 2);
+	printbinary(control_normal, 1);
+	*/
+	outportb(lcd_port, data);
+	
+	outportb(lcd_port + 2, control_enable);
+	kwait(0, 500);
+	
+	outportb(lcd_port + 2, control_normal);
+	//kwait(0, 500);
+}
+
 void inst8(char ploo, int id)
 {
-	//ylemmät bitit ja alemmat bitit erikseen
-	inst4(0x0f & (ploo>>4), id);
-	inst4(0x0f & (ploo   ), id);
+	send8(ploo, 0, id);
 }
 
 void reg8(char ploo, int id)
 {
-	//ylemmät bitit ja alemmat bitit erikseen, registeribitti ylhäällä
-	inst4((0x0f & (ploo>>4)) | 0x10, id);
-	inst4((0x0f & (ploo   )) | 0x10, id);
-}
-
-void init(int id)
-{
-	//jotain hassuja inittejä
-	inst4(0x03, id);
-	kwait(0, 5000);
-	inst4(0x03, id);
-	kwait(0, 1000);
-	inst4(0x03, id);
-	kwait(0, 1000);
-	//interface length, vain ylemmät bitit => 0010 0000
-	// 001[0 00]00 = 4 bittinen, 1 rivi, 5x7-merkit
-	inst4(0x02, id);
-	//tästä lähtien joka käsky kahdessa osassa (inst8 palastelee käskyn)
+	send8(ploo, 1, id);
 }
 
 void Clear(int id)
 {
 	inst8(0x01, id);
+	kwait(0, 5000);
 }
 
 void ReturnToHome(int id)
 {
 	inst8(0x02, id);
+	kwait(0, 5000);
 }
 
 void MoveMode(int bautomove, int bshiftdisplay, int id)
@@ -107,11 +128,21 @@ void MoveToDisplay(char paikka, int id)
 	inst8( 0x80 | (0x7f & paikka), id);
 }
 
-void init2(int id)
+void init(int id)
 {
-	IfaceLen(0, 1, 0, id);
+	//jotain hassuja inittejä
+	inst8(0x30, id);
+	kwait(0, 5000);
+	inst8(0x30, id);
+	kwait(0, 160);
+	inst8(0x30, id);
+	kwait(0, 160);
+	
+	IfaceLen(1, 1, 0, id);
+	Shift(0, 0, id); // :o?
+	Clear(id);
 	MoveMode(1, 0, id);
-	Enable(1, 1, 1, id);
+	Enable(1, 0, 0, id);
 }
 
 /////////////////////////////
@@ -153,7 +184,7 @@ void HideCursor()
 void UpdateCursor()
 {
 	Enable(1, 0, 0, -1);
-	Enable(1, 1, 1, cid);
+	Enable(1, 1, 0, cid);
 }
 
 int FullMove(unsigned int y, unsigned int x)
@@ -275,6 +306,7 @@ int lcd_move(unsigned int y, unsigned int x){
 }
 
 void lcd_putch(int c){
+	if(!started) return;
 	locklcd();
 	if(c == '\b'){
 		cx--;
@@ -325,15 +357,16 @@ void lcd_putch(int c){
 }
 
 void lcd_set_color(unsigned char c){
+	color = c;
 }
 
 unsigned char lcd_get_color(){
-	return 0;
+	return color;
 }
 
 void lcd_init(int port, int count, int mode)
 {
-	if(count==0) return;
+	if(count <= 0 || count > 2) return;
 	
 	locklcd();
 	
@@ -352,7 +385,6 @@ void lcd_init(int port, int count, int mode)
 	}
 	
 	init(-1);
-	init2(-1);
 	
 	FullClearAll();
 	
