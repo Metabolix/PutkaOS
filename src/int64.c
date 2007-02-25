@@ -58,6 +58,9 @@ uint64_t __uint64_div_rem(uni_uint64_t a, uni_uint64_t b, uint64_t *rem)
 			result <<= 1;
 			ala <<= 1;
 			ala += kikkare;
+			if (ala == b.u64) {
+				RETURN(result + 1, 0);
+			}
 			RETURN(result, ala);
 		} else {
 			a.u64 >>= 1;
