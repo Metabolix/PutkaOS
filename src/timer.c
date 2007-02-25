@@ -6,6 +6,9 @@
 #include <floppy.h>
 #include <mem.h>
 
+#include <int64.h>
+#define TICKS_TO_MICROSECS(ticks) (((uint64_t)1000000) * ticks / ((uint64_t)TIMER_TICK_RATE))
+
 #define nop_func()
 
 volatile struct tm sys_time = {0};
@@ -139,39 +142,20 @@ void sys_next_minute(void)
 		uptime.sec, uptime.usec);*/
 }
 
-// TODO: Vielä Parempi Funktio!
-time_t ticks_to_microsecs(time_t ticks)
-{
-	const time_t jakaja = TIMER_TICK_RATE, kertoja = 1000000;
-	time_t jaettava, tulos, i;
-
-	tulos = jaettava = 0;
-	// 1. kerralla shiftaus on 24 - 8 == 16
-	for (i = 24; i;) { i -= 8;
-		if ((ticks >> i) & 0xff) {
-			jaettava += ((ticks >> i) & 0xff) * kertoja;
-		}
-		tulos = (tulos << 8) + (jaettava / jakaja);
-		jaettava %= jakaja;
-		jaettava <<= 8;
-	}
-	return tulos;
-}
-
 void timer_handler(void)
 {
 	static unsigned long ticks;
 	ticks += TIMER_TICKS_PER_CYCLE;
 	if (ticks > TIMER_TICK_RATE) {
 		ticks -= TIMER_TICK_RATE;
-		sys_time.tm_usec = uptime.usec = ticks_to_microsecs(ticks);
+		sys_time.tm_usec = uptime.usec = TICKS_TO_MICROSECS(ticks);
 		++uptime.sec;
 		if (++sys_time.tm_sec > 59) {
 			sys_time.tm_sec -= 60;
 			sys_next_minute();
 		}
 	} else {
-		sys_time.tm_usec = uptime.usec = ticks_to_microsecs(ticks);
+		sys_time.tm_usec = uptime.usec = TICKS_TO_MICROSECS(ticks);
 	}
 	execute_jobs();
 }
