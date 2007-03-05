@@ -1,12 +1,8 @@
 BITS 32
 global start_idle_thread
-extern active_thread_ptr
-
-extern debug_point
-extern debug_print_int
 
 start_idle_thread:
-	mov ebx, [active_thread_ptr]
+	mov ebx, [esp+4]
 	mov eax, [ebx+4]     ; ss
 	mov ecx, [ebx]     ; stack
 	mov esp, ecx
@@ -20,3 +16,4 @@ start_idle_thread:
 	add esp, 8
 	sti
 	iret
+

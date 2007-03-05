@@ -8,7 +8,7 @@ struct fs devfs = {
 	{
 		(fopen_t) dev_fopen,
 		(fclose_t) dev_fclose,
-		0,0,0,0,0,0,0
+		0,0,0,0,0
 	},
 	{
 		0,

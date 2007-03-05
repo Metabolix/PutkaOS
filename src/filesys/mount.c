@@ -57,6 +57,7 @@ struct mountpoint *etsi_kohta(const char ** filename_ptr)
 	if (filename[0] == '/') {
 		++filename;
 		if (filename[0] == 0) {
+			*filename_ptr = filename;
 			return mnt;
 		}
 	} else {
@@ -113,10 +114,10 @@ int mount_init(const char * root_device)
 
 	/* Sitten / */
 	flags = FILE_MODE_READ | FILE_MODE_WRITE;
-	root.dev = devfs.filefunc.fopen(&devfs, root_device, flags);
+	root.dev = fopen(root_device, "r+");
 	if (!root.dev) {
 		flags = FILE_MODE_READ;
-		root.dev = devfs.filefunc.fopen(&devfs, root_device, flags);
+		root.dev = fopen(root_device, "r");
 	}
 	if (!root.dev) {
 		kprintf("Mount: Couldn't open root device (%s).\n", root_device);

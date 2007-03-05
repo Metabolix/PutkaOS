@@ -54,9 +54,6 @@ extern thread_id_t active_thread;
 extern struct process_t * active_process_ptr;
 extern struct thread_t * active_thread_ptr;
 
-extern thread_id_t kernel_idle_process;
-extern thread_id_t kernel_idle_thread;
-
 extern size_t num_processes;
 extern size_t num_threads;
 

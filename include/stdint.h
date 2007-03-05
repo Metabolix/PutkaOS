@@ -25,7 +25,7 @@ typedef unsigned short uint_least16_t;
 typedef unsigned long uint_least32_t;
 typedef unsigned long long uint_least64_t;
 
-/* Minimum-width types... TODO: test & check */
+/* Fastest types... TODO: test & check */
 typedef signed char int_fast8_t;
 typedef signed short int_fast16_t;
 typedef signed long int_fast32_t;
@@ -45,5 +45,8 @@ typedef int64_t intmax_t;
 typedef uint64_t uintmax_t;
 
 /* Sizes (TODO)*/
+#define UINT32_MAX (0xffffffffUL)
+#define INT32_MAX (0x7fffffffL)
+#define INT32_MIN (-0x7fffffffL-1L)
 
 #endif

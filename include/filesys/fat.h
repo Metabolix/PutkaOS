@@ -3,7 +3,7 @@
 
 #include <filesys/filesystem.h>
 
-struct fat12_ext_header {
+struct fat16_ext_header {
 	unsigned char phys_drive_number;
 	unsigned char reserved__current_head;
 	unsigned char signature;
@@ -12,7 +12,7 @@ struct fat12_ext_header {
 	char fs_type[8];
 } __attribute__((packed));
 
-#define fat16_ext_header fat12_ext_header
+#define fat12_ext_header fat16_ext_header
 
 struct fat32_ext_header {
 	unsigned long sectors_per_fat;

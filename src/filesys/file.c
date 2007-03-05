@@ -1,6 +1,7 @@
 #include <filesys/file.h>
 #include <filesys/mount.h>
 #include <string.h>
+#include <stdint.h>
 
 FILE *fopen(const char * filename, const char * mode)
 {
@@ -72,18 +73,33 @@ int fsetpos(FILE *stream, const fpos_t *pos)
 
 int fseek(FILE *stream, long int offset, int origin)
 {
-	if (stream && stream->func && stream->func->fseek) {
-		return stream->func->fseek(stream, offset, origin);
+	fpos_t pos;
+	switch (origin) {
+		case SEEK_SET:
+			pos = offset;
+			break;
+		case SEEK_END:
+			pos = stream->size - offset;
+			break;
+		case SEEK_CUR:
+			if (fgetpos(stream, &pos)) {
+				return EOF;
+			}
+			pos += offset;
+			break;
+		default:
+			return EOF;
 	}
-	return EOF;
+	return (fsetpos(stream, &pos) ? EOF : 0);
 }
 
 long ftell(FILE *stream)
 {
-	if (stream && stream->func && stream->func->ftell) {
-		return stream->func->ftell(stream);
+	fpos_t pos;
+	if (fgetpos(stream, &pos)) {
+		return -1L;
 	}
-	return -1L;
+	return (long)(pos & INT32_MAX);
 }
 
 int fflush(FILE *stream)

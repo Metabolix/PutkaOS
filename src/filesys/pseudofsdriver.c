@@ -12,8 +12,6 @@ struct pfs_fs pfs = {
 			(fread_t)     pfs_fread,
 			(fwrite_t)    pfs_fwrite,
 			(fflush_t)    pfs_fflush,
-			(ftell_t)     pfs_ftell,
-			(fseek_t)     pfs_fseek,
 			(fgetpos_t)   pfs_fgetpos,
 			(fsetpos_t)   pfs_fsetpos
 		},
@@ -75,17 +73,9 @@ int pfs_fflush(FILE *stream)
 {
 	return EOF;
 }
-long pfs_ftell(FILE *stream)
-{
-	return 0;
-}
-int pfs_fseek(FILE *stream, long int offset, int origin)
-{
-	return -1;
-}
 int pfs_fgetpos(struct pfs_file *stream, fpos_t *pos)
 {
-	pos->lo_dword = pos->hi_dword = 0;
+	*pos = 0;
 	return 0;
 }
 int pfs_fsetpos(struct pfs_file *stream, const fpos_t *pos)

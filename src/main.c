@@ -18,6 +18,7 @@
 #include <lcdscreen.h>
 #include <thread.h>
 #include <devmanager.h>
+#include <string.h>
 #include <filesys/mount.h>
 
 const char systeemi[] = "PutkaOS";
@@ -25,6 +26,27 @@ const char versio[] = "v0.001";
 
 void testattava_koodi(void)
 {
+	return;
+	FILE *f;
+	char buf[512];
+	memset(buf, 0, sizeof(buf));
+	int i,j;
+	f = fopen("/dev/fd1", "r");
+	if (!f) panic("fd0 ei aukea!");
+	kprintf("Luettiin %d laitteelta fd0\n", fread(buf, 1, 512, f));
+	for (i = 0; i < 256; i += j) {
+		for (j = 0; j < 24; ++j) {
+			kprintf("%02x ", (int)(unsigned char)buf[i+j]);
+		}
+		kprintf("\n");
+	}
+	for (i = 0; i < 256; i += j) {
+		for (j = 0; j < 64; ++j) {
+			putch((int)(unsigned char)buf[i+j]);
+		}
+		kprintf("\n");
+	}
+	fclose(f);
 }
 
 void kmain(multiboot_info_t* mbt, unsigned int magic)
@@ -54,13 +76,11 @@ void kmain(multiboot_info_t* mbt, unsigned int magic)
 	asm __volatile__("sti"); /* Allow interrupts */
 
 	reset_floppy();
-	mount_init("/dev/fd0");
-
-	//testattava_koodi();
+	mount_init("/dev/fd1");
+	testattava_koodi();
 
 	kprintf("%s %s is up and running _o/\n", systeemi, versio);
 	new_thread(run_sh, 0, 0);
 	start_threading();
 	//for (;;);
 }
-void __stack_chk_fail(void) {}

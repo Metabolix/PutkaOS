@@ -14,6 +14,8 @@ extern char history[SH_HISTORY_SIZE][128];
 extern int sh_colour;
 extern void run_sh(void);
 
+void sh_cat(char *buf);
+void sh_ls(char *buf);
 void sh_help(char *buf);
 void sh_uptime(char *buf);
 void sh_exit(char *buf);

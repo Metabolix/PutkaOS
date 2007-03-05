@@ -47,7 +47,7 @@ struct fat16_file {
 	struct fat16_fs *fs;
 	size_t pos_in, cluster;
 	size_t last_pos_in, last_cluster;
-	size_t first_cluster_num, cluster_num;
+	size_t real_first_cluster, real_cluster;
 	size_t file_size;
 };
 
@@ -76,9 +76,10 @@ int fat16_fclose(struct fat16_file *stream);
 size_t fat16_fread(void *buf, size_t size, size_t count, struct fat16_file *stream);
 size_t fat16_fwrite(void *buf, size_t size, size_t count, struct fat16_file *stream);
 
+size_t fat16_fread_rootdir(void *buf, size_t size, size_t count, struct fat16_file *stream);
+size_t fat16_fwrite_rootdir(void *buf, size_t size, size_t count, struct fat16_file *stream);
+
 int fat16_fflush(struct fat16_file *stream);
-long fat16_ftell(struct fat16_file *stream);
-int fat16_fseek(struct fat16_file *stream, long int offset, int origin);
 
 int fat16_fgetpos(struct fat16_file *stream, fpos_t *pos);
 int fat16_fsetpos(struct fat16_file *stream, const fpos_t *pos);

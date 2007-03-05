@@ -36,8 +36,6 @@ size_t pfs_fread(void *buf, size_t size, size_t count, struct pfs_file *stream);
 size_t pfs_fwrite(void *buf, size_t size, size_t count, struct pfs_file *stream);
 
 int pfs_fflush(FILE *stream);
-long pfs_ftell(FILE *stream);
-int pfs_fseek(FILE *stream, long int offset, int origin);
 
 int pfs_fgetpos(struct pfs_file *stream, fpos_t *pos);
 int pfs_fsetpos(struct pfs_file *stream, const fpos_t *pos);

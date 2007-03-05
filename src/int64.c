@@ -4,10 +4,40 @@ int64_t __divdi3(const int64_t a, const int64_t b);
 uint64_t __udivdi3(const uint64_t a, const uint64_t b);
 int64_t __moddi3(const int64_t a, const int64_t b);
 uint64_t __umoddi3(const uint64_t a, const uint64_t b);
-uint64_t __uint64_div_rem(uni_uint64_t a, uni_uint64_t b, uint64_t *rem);
+//uint64_t __uint64_div_rem(uni_uint64_t a, uni_uint64_t b, uint64_t *rem);
 
 uint64_t uint64_div_rem(uint64_t a, uint64_t b, uint64_t *rem);
-__asm__("uint64_div_rem:\n    jmp __uint64_div_rem\n");
+//__asm__("uint64_div_rem:\n    jmp __uint64_div_rem\n");
+uint64_t uint64_div_rem(uint64_t a, uint64_t b, uint64_t *rem)
+{
+	#define RETURN(res_i, rem_i); {if(rem){*rem=(rem_i);}return(res_i);}
+	uint64_t result, sum;
+	int shift;
+	if (!b) {
+		volatile int one = 1, zero = 0;
+		RETURN(one / zero, a);
+	}
+	if (a < b) {
+		RETURN(0, a);
+	}
+	if (a == b) {
+		RETURN(1, 0);
+	}
+	for (shift = 0; a > b && !(b >> 63); ++shift, b <<= 1);
+	if (a == b) {
+		RETURN(((uint64_t)1) << shift, 0);
+	}
+	++shift;
+	for (sum = result = 0; shift--; b >>= 1) {
+		if (sum + b > a) continue;
+		if (sum + b < sum) continue;
+		sum += b;
+		result += ((uint64_t)1) << shift;
+		if (sum == a) break;
+	}
+	RETURN(result, a - sum);
+	#undef RETURN
+}
 
 int64_t __divdi3(const int64_t a, const int64_t b)
 {
@@ -40,7 +70,7 @@ uint64_t __umoddi3(const uint64_t a, const uint64_t b)
 	uint64_div_rem(a, b, &retval);
 	return retval;
 }
-
+/*
 uint64_t __uint64_div_rem(uni_uint64_t a, uni_uint64_t b, uint64_t *rem)
 {
 	#define RETURN(res_i, rem_i); {if(rem){*rem=(rem_i);}return(res_i);}
@@ -104,3 +134,4 @@ uint64_t __uint64_div_rem(uni_uint64_t a, uni_uint64_t b, uint64_t *rem)
 	}
 	#undef RETURN
 }
+*/

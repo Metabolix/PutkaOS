@@ -4,18 +4,15 @@
 #include <panic.h>
 #include <screen.h>
 
-struct process_t processes[K_MAX_PROCESSES] = {{0}};
-struct thread_t threads[K_MAX_THREADS] = {{0}};
+struct process_t processes[K_MAX_PROCESSES];
+struct thread_t threads[K_MAX_THREADS];
 
 process_id_t active_process = NO_PROCESS;
 thread_id_t active_thread = NO_THREAD;
 
 struct process_t * active_process_ptr = 0;
 struct thread_t * active_thread_ptr = 0;
-
-thread_id_t kernel_idle_process = NO_PROCESS;
-thread_id_t kernel_idle_thread = NO_THREAD;
-
+int threading_started = 0;
 size_t num_processes = 0;
 size_t num_threads = 0;
 
@@ -30,17 +27,11 @@ const struct regs_t initial_regs = {
  * function kernel_idle_loop - hlt & jmp
 **/
 
-const char *started_idle_loop = "Started idle loop!\n";
-void kernel_idle_loop(void);
+extern void kernel_idle_loop(void);
 __asm__(
 "kernel_idle_loop:\n"
-"    movl started_idle_loop, %eax\n"
-"    pushl %eax\n"
-"    call print\n"
-"    addl $4, %esp\n"
-"kernel_idle_loop_loop:\n"
 "    hlt\n"
-"    jmp kernel_idle_loop_loop\n"
+"    jmp kernel_idle_loop\n"
 );
 
 /**
@@ -49,8 +40,9 @@ __asm__(
 void thread_ending(void)
 {
 	extern void process_ending(void);
-	kprintf("active_thread %i, kernel_idle_thread %i\n", active_thread, kernel_idle_thread);
-	if (active_thread == kernel_idle_thread) {
+	kprintf("active_thread %i\n", active_thread);
+	if (active_thread == 0) {
+		/* Idle thread... */
 		// TODO: Tunge sille sen oikea entrypointti takaisin. :P
 		panic("Thread 0 (kernel idle thread) is ending!");
 	}
@@ -113,6 +105,7 @@ thread_id_t new_thread(t_entry entry, void * initial_stack, size_t initial_stack
 		return NO_THREAD;
 	}
 	threads[thread].stack = (uint_t) kmalloc(K_THREAD_STACK_SIZE);
+	kprintf("stacki = %p, + %x = %p\n", threads[thread].stack, K_THREAD_STACK_SIZE, threads[thread].stack + K_THREAD_STACK_SIZE);
 	if (threads[thread].stack == 0) {
 		return NO_THREAD;
 	}
@@ -120,6 +113,7 @@ thread_id_t new_thread(t_entry entry, void * initial_stack, size_t initial_stack
 
 	esp -= initial_stack_size;
 	memcpy(esp, initial_stack, initial_stack_size);
+	if (initial_stack) kprintf("initial_stack = %p\n", *(void**)initial_stack);
 
 	esp -= sizeof(t_entry);
 	*(t_entry*)esp = thread_ending;
@@ -145,33 +139,33 @@ void kill_thread(thread_id_t thread)
 
 void threading_init(void)
 {
-	kernel_idle_process = new_process(kernel_idle_loop, 0, 0);
-	kernel_idle_thread = processes[kernel_idle_process].main_thread;
-	if (kernel_idle_process || kernel_idle_thread) {
-		kprintf("kernel_idle_thread = %d\nkernel_idle_process = %d\n", kernel_idle_thread, kernel_idle_process);
-		panic("Threading has a problem!\n");
+	memset(processes, 0, sizeof(processes));
+	memset(threads, 0, sizeof(threads));
+	if ((active_process = new_process(kernel_idle_loop, 0, 0))
+	|| (active_thread = processes[active_process].main_thread)) {
+		kprintf("threading_init: active_thread = %d, active_process = %d\n",
+			active_thread, active_process);
+		panic("threading_init: Threading has a problem!\n");
 	}
-	processes[kernel_idle_process].vt_num = VT_KERN_LOG;
+	processes[active_process].vt_num = VT_KERN_LOG;
 }
 
 void start_threading(void)
 {
-	static int started; if (started) return; started = 1;
-
+	if (active_thread_ptr) {
+		panic("start_threading: already started!\n");
+	}
 	asm("cli");
-	active_process = kernel_idle_process;
-	active_thread = kernel_idle_thread;
-
 	active_process_ptr = processes + active_process;
 	active_thread_ptr = threads + active_thread;
 
-	extern void start_idle_thread();
-	start_idle_thread();
+	extern void start_idle_thread(void *thread_ptr);
+	start_idle_thread(active_thread_ptr);
 }
 
 void next_thread(void)
 {
-	if (active_thread == NO_THREAD || num_threads < 2) {
+	if (!active_process_ptr || num_threads < 2) {
 		return;
 	}
 	active_thread = find_running_thread();

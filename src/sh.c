@@ -117,6 +117,7 @@ void run_sh(void)
 			}
 			bufptr = strrmsame(buffer, komento->komento);
 			if (!*bufptr || bufptr[0] == ' ') {
+				for (; *bufptr == ' '; ++bufptr);
 				komento->suoritus(bufptr);
 				goto ajettu;
 			}

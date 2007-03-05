@@ -19,9 +19,40 @@ struct sh_komento komentotaulu[] = {
 	{"outp", "outb port byte, laheta tavu porttiin (lukujarjestelmat: dec 123, hex 0x7b, oct 0173)", sh_outportb},
 	{"inp", "inp port, hae tavu portista (lukujarjestelmat: dec 123, hex 0x7b, oct 0173)", sh_inportb},
 	{"history", "Komentohistoria", sh_history},
+	{"ls", "ls polku; listaa hakemisto", sh_ls},
+	{"cat", "cat polku; tulosta tiedoston sisalto", sh_cat},
 	{0, 0, sh_ei_tunnistettu} /* Terminaattori */
 };
 struct sh_komento *komennot = komentotaulu;
+
+void sh_ls(char *name)
+{
+	DIR *d;
+	d = dopen(name);
+	if (!d) {
+		kprintf("Hakemistoa '%s' ei ole tai ei saada auki.\n", name);
+		return;
+	}
+	while (dread(d) == 0) {
+		kprintf("%s\n", d->entry.name);
+	}
+	dclose(d);
+}
+
+void sh_cat(char *name)
+{
+	FILE *f;
+	char buf[256];
+	f = fopen(name, "r");
+	if (!f) {
+		kprintf("Tiedostoa '%s' ei ole tai ei saada auki.\n", name);
+		return;
+	}
+	while (fread(buf, 256, 1, f)) print(buf);
+	if (fread(buf, 1, 256, f)) print(buf);
+	putch('\n');
+	fclose(f);
+}
 
 void sh_history(char *buf)
 {

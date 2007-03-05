@@ -3,10 +3,6 @@
 
 #include <stdint.h>
 
-typedef union {
-	uint64_t u64;
-	struct {uint32_t lo, hi;} u32;
-	struct {uint16_t low, mlow, mhiw, hiw;} u16;
-} uni_uint64_t;
+extern uint64_t uint64_div_rem(uint64_t a, uint64_t b, uint64_t *rem);
 
 #endif
