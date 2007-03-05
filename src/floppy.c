@@ -10,6 +10,7 @@
 
 floppy_parameters floppy_params;
 int cylinder, status_0;
+//#define wait_irq(a) kwait(0, 20*1000)
 
 BD_DEVICE fd_devices[2] = {
 	{
@@ -22,8 +23,9 @@ BD_DEVICE fd_devices[2] = {
 			(devrm_t) 0, // TODO: safely remove... :P
 		},
 
-		0, // size_t block_size;
-		0, // size_t block_count;
+		0, // uint64_t block_size; Filled in install_floppy
+		0, // uint64_t block_count; Filled in install_floppy
+		0, // uint64_t first_block_num;
 
 		(read_block_t) read_block,
 		(write_block_t) write_block
@@ -38,8 +40,9 @@ BD_DEVICE fd_devices[2] = {
 			(devrm_t) 0, // TODO: safely remove... :P
 		},
 
-		0, // size_t block_size;
-		0, // size_t block_count;
+		0, // uint64_t block_size; Filled in install_floppy
+		0, // uint64_t block_count; Filled in install_floppy
+		0, // uint64_t first_block_num;
 
 		(read_block_t) read_block,
 		(write_block_t) write_block
