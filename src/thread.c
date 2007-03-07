@@ -42,9 +42,8 @@ void thread_ending(void)
 	extern void process_ending(void);
 	kprintf("active_thread %i\n", active_thread);
 	if (active_thread == 0) {
-		/* Idle thread... */
-		// TODO: Tunge sille sen oikea entrypointti takaisin. :P
-		panic("Thread 0 (kernel idle thread) is ending!");
+		/* Idle thread... Jatketaan vain. xD */
+		kernel_idle_loop();
 	}
 	kprintf("Thread %i ending...\n", active_thread);
 	kprintf("num_threads = %d, --\n", num_threads);
@@ -61,7 +60,7 @@ void thread_ending(void)
 	kfree((void*)threads[active_thread].stack);
 	threads[active_thread].stack = 0;
 	threads[active_thread].running = 0;
-	// TODO: Siirry seuraavaan säikeeseen
+	// TODO: Lista loppuneista säikeistä, että voidaan vapauttaa niiden pinot aina välillä... Eli ei vapauteta täällä.
 	panic("Thread ended - What do we do now?");
 }
 

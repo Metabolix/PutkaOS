@@ -14,7 +14,7 @@ C_SOURCES_MULTITASK=thread.c process.c
 C_SOURCES_FS_1=mount.c filesystem.c pseudofsdriver.c file.c dir.c fat.c fat16.c
 C_SOURCES_FS=$(addprefix filesys/,$(C_SOURCES_FS_1))
 C_SOURCES_OTHER=gdt.c isr.c main.c panic.c floppy.c idt.c irq.c keyboard.c screen.c regs.c devmanager.c spinlock.c lcdscreen.c
-C_SOURCES_OTHER_OPT=int64.c blockdev.c timer.c kprintf.c sh.c sh_komennot.c
+C_SOURCES_OTHER_OPT=int64.c blockdev.c timer.c kprintf.c sh.c sh_komennot.c time.c
 
 C_SOURCES=$(C_SOURCES_MEM) $(C_SOURCES_MULTITASK) $(C_SOURCES_OTHER)
 C_SOURCES_OPTIMIZE=$(C_SOURCES_OTHER_OPT) $(C_SOURCES_STDROUTINES) $(C_SOURCES_FS)

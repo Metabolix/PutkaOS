@@ -34,7 +34,7 @@ void sh_ls(char *name)
 		return;
 	}
 	while (dread(d) == 0) {
-		kprintf("%s\n", d->entry.name);
+		kprintf("%12s (created) %d (modified) %d\n", d->entry.name, d->entry.created, d->entry.modified);
 	}
 	dclose(d);
 }

@@ -57,6 +57,9 @@ struct fat16_file {
 #define FAT16_CLUSTER_BAD(fat) ((fat16_fat_t)(fat) == 0xFFF7)
 #define FAT16_CLUSTER_EOF(fat) ((fat16_fat_t)(fat) > 0xFFF7)
 
+typedef int (*fat16_next_cluster_t)(struct fat16_file *stream);
+typedef fread_t fat16_freadwrite_t;
+
 extern struct fat16_fs *fat16_mount(FILE *device, uint_t mode, const struct fat_header *fat_header, int fat12);
 //extern struct fat16_fs *fat16_mount(FILE *device, uint_t mode, const struct fat_header *fat_header);
 
@@ -73,8 +76,11 @@ void *fat16_fopen_all(struct fat16_fs *this, const char * filename, uint_t mode,
 void *fat16_fopen(struct fat16_fs *this, const char * filename, uint_t mode);
 int fat16_fclose(struct fat16_file *stream);
 
+int fat16_fread_next_cluster(struct fat16_file *stream);
+int fat16_fwrite_next_cluster(struct fat16_file *stream);
 size_t fat16_fread(void *buf, size_t size, size_t count, struct fat16_file *stream);
-size_t fat16_fwrite(void *buf, size_t size, size_t count, struct fat16_file *stream);
+size_t fat16_fwrite(const void *buf, size_t size, size_t count, struct fat16_file *stream);
+size_t fat16_freadwrite(char *buf, const size_t size, const size_t count, struct fat16_file *stream, const fat16_freadwrite_t freadwrite, const fat16_next_cluster_t fat16_next_cluster);
 
 size_t fat16_fread_rootdir(void *buf, size_t size, size_t count, struct fat16_file *stream);
 size_t fat16_fwrite_rootdir(void *buf, size_t size, size_t count, struct fat16_file *stream);
@@ -88,5 +94,7 @@ int fat16_dmake(struct fat16_fs *this, const char * dirname, uint_t owner, uint_
 struct fat16_dir *fat16_dopen(struct fat16_fs *this, const char * dirname);
 int fat16_dread(struct fat16_dir *listing);
 int fat16_dclose(struct fat16_dir *listing);
+
+int fat16_rename(const char *old, const char *new);
 
 #endif

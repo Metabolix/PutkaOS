@@ -26,6 +26,7 @@ struct timeval {
 	time_t usec;
 };
 
+extern time_t mktime(struct tm *timeptr);
 /*
 clock_t clock(void);
 double difftime(time_t time0, time_t time1);

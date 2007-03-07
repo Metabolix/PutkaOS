@@ -82,7 +82,9 @@ timer_id_t ktimer_start(void (*func)(void), unsigned int msec, int times)
 	return timers[i].id;
 }
 
-int days_in_month(int month, int year) { return (month != 1) ? (30 ^ (((month + 1) & 8) >> 3) ^ ((month + 1) & 1)) : ((((year + 1900) % 4 == 0) && (((year + 1900) % 100 != 0) || ((year + 1900) % 400 == 0))) ? 29 : 28); }
+//int days_in_month(int month, int year) { return (month != 1) ? (30 ^ (((month + 1) & 8) >> 3) ^ ((month + 1) & 1)) : ((((year + 1900) % 4 == 0) && (((year + 1900) % 100 != 0) || ((year + 1900) % 400 == 0))) ? 29 : 28); }
+int karkausvuosi(int year) { return (((year + 1900) % 4 == 0) && (((year + 1900) % 100 != 0) || ((year + 1900) % 400 == 0))); }
+int days_in_month(int month, int year) { year += month / 12; month %= 12; if (month < 0) { month += 12; year -= 1; } return (month != 1) ? (30 ^ (((month + 1) & 8) >> 3) ^ ((month + 1) & 1)) : ((((year + 1900) % 4 == 0) && (((year + 1900) % 100 != 0) || ((year + 1900) % 400 == 0))) ? 29 : 28); }
 
 void sys_next_year(void)
 {

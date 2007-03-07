@@ -1,5 +1,6 @@
 #include <filesys/fat.h>
 #include <filesys/fat16.h>
+#include <time.h>
 #include <string.h>
 #include <malloc.h>
 #include <screen.h>
@@ -185,7 +186,6 @@ int fat16_invalid_char(char merkki)
 	if (merkki >= 'A' && merkki <= 'Z') return 0;
 	if (merkki >= '0' && merkki <= '9') return 0;
 	if (merkki == ' ') return 0;
-	if (merkki < 0) return 0;
 	if (merkki < 0) return 0;
 	const char *lista = "!#$%&'()-@^_`{}~";
 	while (*lista) {
@@ -410,97 +410,83 @@ size_t fat16_fwrite_rootdir(void *buf, size_t size, size_t count, struct fat16_f
 	return count;
 }
 
-size_t fat16_fread(void *buf, size_t size, size_t count, struct fat16_file *stream)
+int fat16_fwrite_next_cluster(struct fat16_file *stream)
 {
-	char *buffer = buf;
-	size_t try_read, bytes_read, size_rem, count_rem = count;
-	if (!count || !size) {
-		return 0;
-	}
-
-	int first_time = 1;
-	for (count_rem = count; count_rem; --count_rem) {
-		size_rem = size;
-		while (size_rem) {
-			if (stream->pos_in >= stream->fs->bytes_per_cluster) {
-				stream->pos_in = 0;
-				stream->cluster++;
-				if (stream->cluster > stream->last_cluster) {
-					stream->std.eof = EOF;
-					return count - count_rem;
-				}
-				if (stream->cluster == stream->last_cluster)
-				if (stream->pos_in >= stream->last_pos_in) {
-					stream->std.eof = EOF;
-					return count - count_rem;
-				}
-				stream->real_cluster = stream->fs->get_fat(stream->fs, stream->real_cluster);
-			first_time_juttu:
-				if (!FAT16_CLUSTER_USED(stream->real_cluster) || fat16_devseek(stream)) {
-					return count - count_rem;
-				}
-			} else if (first_time) {
-				first_time = 0;
-				goto first_time_juttu;
-			}
-			if ((try_read = size_rem) > stream->fs->bytes_per_cluster - stream->pos_in) {
-				try_read = stream->fs->bytes_per_cluster - stream->pos_in;
-			}
-			bytes_read = fread(buffer, 1, try_read, stream->fs->device);
-			stream->std.pos += bytes_read;
-			if (try_read != bytes_read) {
-				return count - count_rem;
-			}
-			buffer += bytes_read;
-			size_rem -= bytes_read;
-			stream->pos_in += bytes_read;
+	size_t new_cluster = stream->fs->get_fat(stream->fs, stream->real_cluster);
+	if (FAT16_CLUSTER_EOF(new_cluster)) {
+		new_cluster = stream->fs->set_next_cluster(stream->fs, stream->real_cluster);
+		if (FAT16_CLUSTER_EOF(new_cluster)) {
+			stream->std.eof = EOF;
+			return -1;
 		}
 	}
-	return count;
+	stream->real_cluster = new_cluster;
+	return 0;
 }
 
-size_t fat16_fwrite(void *buf, size_t size, size_t count, struct fat16_file *stream)
+int fat16_fread_next_cluster(struct fat16_file *stream)
 {
-	// Copied from read, so variables are read ;)
-	fat16_devseek(stream);
-	char *buffer = buf;
-	size_t try_read, bytes_read, size_rem, count_rem = count, new_cluster;
+	if (stream->cluster > stream->last_cluster) {
+		stream->std.eof = EOF;
+		return -1;
+	}
+	if (stream->cluster == stream->last_cluster)
+	if (stream->pos_in >= stream->last_pos_in) {
+		stream->std.eof = EOF;
+		return -1;
+	}
+	stream->real_cluster = stream->fs->get_fat(stream->fs, stream->real_cluster);
+	return 0;
+}
+
+size_t fat16_fread(void *buf, size_t size, size_t count, struct fat16_file *stream)
+{
+	return fat16_freadwrite((char*)buf, size, count, stream, (fat16_freadwrite_t) fread, fat16_fread_next_cluster);
+}
+
+size_t fat16_fwrite(const void *buf, size_t size, size_t count, struct fat16_file *stream)
+{
+	size_t retval = fat16_freadwrite((char*)buf, size, count, stream, (fat16_freadwrite_t) fwrite, fat16_fwrite_next_cluster);
+	if (stream->std.pos > stream->file_size) {
+		stream->file_size = (size_t) stream->std.pos;
+		// TODO: file_size to FAT
+	}
+	return retval;
+}
+
+size_t fat16_freadwrite(char *buf, const size_t size, const size_t count, struct fat16_file *stream, const fat16_freadwrite_t freadwrite, const fat16_next_cluster_t fat16_next_cluster)
+{
+	size_t try_read, bytes_read, size_rem, count_rem;
 	if (!count || !size) {
 		return 0;
 	}
-	int first_time = 1;
+
+	if (!FAT16_CLUSTER_USED(stream->real_cluster) || fat16_devseek(stream)) {
+		return 0;
+	}
 	for (count_rem = count; count_rem; --count_rem) {
 		size_rem = size;
 		while (size_rem) {
 			if (stream->pos_in >= stream->fs->bytes_per_cluster) {
 				stream->pos_in = 0;
 				stream->cluster++;
-				new_cluster = stream->fs->get_fat(stream->fs, stream->real_cluster);
-				if (FAT16_CLUSTER_EOF(new_cluster)) {
-					new_cluster = stream->fs->set_next_cluster(stream->fs, stream->real_cluster);
-					if (FAT16_CLUSTER_EOF(new_cluster)) {
-						stream->std.eof = EOF;
-						return count - count_rem;
-					}
+				if (fat16_next_cluster(stream)) {
+					return count - count_rem;
 				}
-				stream->real_cluster = new_cluster;
-			first_time_juttu:
+
 				if (!FAT16_CLUSTER_USED(stream->real_cluster) || fat16_devseek(stream)) {
 					return count - count_rem;
 				}
-			} else if (first_time) {
-				first_time = 0;
-				goto first_time_juttu;
 			}
 			if ((try_read = size_rem) > stream->fs->bytes_per_cluster - stream->pos_in) {
 				try_read = stream->fs->bytes_per_cluster - stream->pos_in;
 			}
-			bytes_read = fwrite(buffer, 1, try_read, stream->fs->device);
+			bytes_read = freadwrite(buf, 1, try_read, stream->fs->device);
 			stream->std.pos += bytes_read;
 			if (try_read != bytes_read) {
 				return count - count_rem;
 			}
-			buffer += bytes_read;
+			buf += bytes_read;
 			size_rem -= bytes_read;
 			stream->pos_in += bytes_read;
 		}
@@ -596,8 +582,16 @@ int fat16_dclose(struct fat16_dir *listing)
 int fat16_dread(struct fat16_dir *listing)
 {
 fat16_dread_alku:
-	if (listing->file->std.func->fread(&listing->direntry, sizeof(struct fat_direntry), 1, listing->file) != 1) {
+	if (listing->file->std.func->fread(&listing->direntry, sizeof(struct fat_direntry), 1, (FILE*)listing->file) != 1) {
 		return -1;
+	}
+	switch (listing->direntry.basename[0]) {
+		case 0:
+			return -1;
+		case (char)0xe5:
+			goto fat16_dread_alku;
+		case 0x05:
+			listing->direntry.basename[0] = 0xe5;
 	}
 	int i, j;
 	for (i = 8; i;) { --i;
@@ -626,8 +620,47 @@ fat16_dread_alku:
 	if (strlen(listing->name) == 0) {
 		goto fat16_dread_alku;
 	}
+/*
+struct fat_direntry {
+	char basename[8];
+	char extension[3];
+	unsigned char attributes;
+	unsigned char reserved;
+	unsigned char create_time_10ms;
+	unsigned short create_time;
+	unsigned short create_date;
+	unsigned short access_date;
+	union {
+		unsigned short ea_index;
+		unsigned short first_cluster_hiword;
+	};
+	unsigned short modify_time;
+	unsigned short modify_date;
+	unsigned short first_cluster;
+	unsigned long file_size;
+} __attribute__((packed));
+
+typedef struct _DIRENTRY {
+	char *name;
+	fpos_t size;
+	uint_t owner;
+	uint_t rights;
+	time_t created, accessed, modified;
+	uint_t references;
+} DIRENTRY;
+*/
 	listing->std.entry.size = listing->direntry.file_size;
-	// TODO: created, modified, accessed
+	struct tm tm;
+	tm.tm_usec = 0;
+	MK_STRUCT_TM(listing->direntry.create_date, listing->direntry.create_time, tm);
+	tm.tm_sec += (listing->direntry.create_time_10ms + 50) / 100;
+	listing->std.entry.created = mktime(&tm);
+	MK_STRUCT_TM(listing->direntry.modify_date, listing->direntry.modify_time, tm);
+	listing->std.entry.modified = mktime(&tm);
+	MK_STRUCT_TM(listing->direntry.access_date, listing->direntry.modify_time, tm);
+	tm.tm_sec = tm.tm_min = 0; tm.tm_hour = 12;
+	listing->std.entry.accessed = mktime(&tm);
+	// TODO: owner, rights, references
 	return 0;
 }
 

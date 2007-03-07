@@ -23,7 +23,7 @@ struct mountpoint root = {
 };
 
 /**
- * Etsii kohdan, johon laite on liiitetty
+ * Etsii kohdan, johon laite on liitetty
 **/
 struct mountpoint *etsi_laite_rek(const char * device_name, struct mountpoint *mnt)
 {
