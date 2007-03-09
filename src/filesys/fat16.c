@@ -568,7 +568,7 @@ struct fat16_dir *fat16_dopen(struct fat16_fs *this, const char * dirname)
 		return 0;
 	}
 	retval->std.func = &fat16_fs.dirfunc;
-	retval->std.entry.name = retval->name;
+	retval->std.name = retval->name;
 	return retval;
 }
 
@@ -640,26 +640,26 @@ struct fat_direntry {
 	unsigned long file_size;
 } __attribute__((packed));
 
-typedef struct _DIRENTRY {
+typedef struct _DIR {
 	char *name;
 	fpos_t size;
 	uint_t owner;
 	uint_t rights;
 	time_t created, accessed, modified;
 	uint_t references;
-} DIRENTRY;
+} DIR;
 */
-	listing->std.entry.size = listing->direntry.file_size;
+	listing->std.size = listing->direntry.file_size;
 	struct tm tm;
 	tm.tm_usec = 0;
 	MK_STRUCT_TM(listing->direntry.create_date, listing->direntry.create_time, tm);
 	tm.tm_sec += (listing->direntry.create_time_10ms + 50) / 100;
-	listing->std.entry.created = mktime(&tm);
+	listing->std.created = mktime(&tm);
 	MK_STRUCT_TM(listing->direntry.modify_date, listing->direntry.modify_time, tm);
-	listing->std.entry.modified = mktime(&tm);
+	listing->std.modified = mktime(&tm);
 	MK_STRUCT_TM(listing->direntry.access_date, listing->direntry.modify_time, tm);
 	tm.tm_sec = tm.tm_min = 0; tm.tm_hour = 12;
-	listing->std.entry.accessed = mktime(&tm);
+	listing->std.accessed = mktime(&tm);
 	// TODO: owner, rights, references
 	return 0;
 }

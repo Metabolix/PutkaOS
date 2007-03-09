@@ -6,17 +6,14 @@
 #include <time.h>
 #include <filesys/file.h>
 
-typedef struct _DIRENTRY {
+typedef struct _DIR {
 	char *name;
 	fpos_t size;
 	uint_t owner;
 	uint_t rights;
 	time_t created, accessed, modified;
 	uint_t references;
-} DIRENTRY;
 
-typedef struct _DIR {
-	struct _DIRENTRY entry;
 	struct dirfunc *func;
 } DIR;
 

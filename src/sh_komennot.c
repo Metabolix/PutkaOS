@@ -16,8 +16,8 @@ struct sh_komento komentotaulu[] = {
 	{"colour", "Aseta vari", sh_set_colour},
 	{"reset", "Tyhjenna ruutu ja aseta perusvari", sh_reset},
 	{"keynames", "Tulostetaan nappien nimia, kunnes tulee Escape", sh_key_names},
-	{"outp", "outb port byte, laheta tavu porttiin (lukujarjestelmat: dec 123, hex 0x7b, oct 0173)", sh_outportb},
-	{"inp", "inp port, hae tavu portista (lukujarjestelmat: dec 123, hex 0x7b, oct 0173)", sh_inportb},
+	{"outp", "outb port byte, laheta tavu porttiin (dec: 123, hex: 0x7b, oct: 0173)", sh_outportb},
+	{"inp", "inp port, hae tavu portista (dec: 123, hex: 0x7b, oct: 0173)", sh_inportb},
 	{"history", "Komentohistoria", sh_history},
 	{"ls", "ls polku; listaa hakemisto", sh_ls},
 	{"cat", "cat polku; tulosta tiedoston sisalto", sh_cat},
@@ -34,7 +34,7 @@ void sh_ls(char *name)
 		return;
 	}
 	while (dread(d) == 0) {
-		kprintf("%12s (created) %d (modified) %d\n", d->entry.name, d->entry.created, d->entry.modified);
+		kprintf("%12s (created) %d (modified) %d\n", d->name, d->created, d->modified);
 	}
 	dclose(d);
 }
@@ -43,6 +43,7 @@ void sh_cat(char *name)
 {
 	FILE *f;
 	char buf[256];
+	kprintf("cat '%s'\n", name);
 	f = fopen(name, "r");
 	if (!f) {
 		kprintf("Tiedostoa '%s' ei ole tai ei saada auki.\n", name);

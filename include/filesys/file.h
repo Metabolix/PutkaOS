@@ -11,6 +11,7 @@ typedef struct _FILE {
 	fpos_t pos;
 	fpos_t size;
 	short errno, eof;
+
 	struct filefunc *func;
 } FILE;
 

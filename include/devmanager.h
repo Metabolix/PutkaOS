@@ -29,12 +29,12 @@ enum DEV_INSERT_ERROR {
 	DEV_ERR_FREE_ERRORCODE = -0x10000
 };
 
-struct DEVICE_ENTRY;
+typedef struct device DEVICE;
 
-typedef FILE *(*devopen_t)(struct DEVICE_ENTRY *device, uint_t mode);
-typedef int (*devrm_t)(struct DEVICE_ENTRY *device);
+typedef FILE *(*devopen_t)(DEVICE *device, uint_t mode);
+typedef int (*devrm_t)(DEVICE *device);
 
-struct DEVICE_ENTRY {
+struct device {
 	const char *name;
 	dev_class_t dev_class;
 	dev_type_t dev_type;
@@ -42,22 +42,29 @@ struct DEVICE_ENTRY {
 	devopen_t devopen;
 	devrm_t remove;
 };
-typedef struct DEVICE_ENTRY DEVICE;
+
+struct device_list {
+	DEVICE *dev;
+	struct device_list *next;
+};
+
+struct devfs_dir {
+	DIR std;
+	struct device_list *devlist;
+};
 
 extern struct fs devfs;
 extern int devmanager_init(void);
-extern int device_insert(struct DEVICE_ENTRY *device);
+extern int device_insert(struct device *device);
 extern int devmanager_uninit(void);
 
 /*
  * Internals
  */
 FILE *dev_fopen(struct fs *this, const char * filename, uint_t mode);
-int dev_fclose(FILE *stream);
 
-int dev_dmake(struct fs *this, const char * dirname, uint_t owner, uint_t rights);
-DIR *dev_dopen(struct fs *this, const char * dirname);
-int dev_dread(DIR *listing);
-int dev_dclose(DIR *listing);
+struct devfs_dir *dev_dopen(struct fs *this, const char * dirname);
+int dev_dread(struct devfs_dir *listing);
+int dev_dclose(struct devfs_dir *listing);
 
 #endif
