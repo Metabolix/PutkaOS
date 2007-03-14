@@ -365,8 +365,8 @@ int kb_get(void)
 	}
 
 	ret = vt[curr_vt].kb_buf[vt[curr_vt].kb_buf_start];
-	--vt[cur_vt].kb_buf_count;
-	++vt[cur_vt].kb_buf_start;
+	--vt[curr_vt].kb_buf_count;
+	++vt[curr_vt].kb_buf_start;
 	vt[curr_vt].kb_buf_start %= KB_BUFFER_SIZE;
 
 	if (kb_buf_full) {
