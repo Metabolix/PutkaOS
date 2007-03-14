@@ -345,20 +345,29 @@ void keyboard_handle(void)
 	}
 }
 
-unsigned int kb_get(void)
+int kb_peek(void)
 {
-	unsigned int ret;
+	unsigned int curr_vt = cur_vt;
+	if (!vt[curr_vt].kb_buf_count) {
+		return -1;
+	}
+	return vt[curr_vt].kb_buf[vt[curr_vt].kb_buf_start];
+}
+
+int kb_get(void)
+{
+	int ret;
 	unsigned int curr_vt = cur_vt;
 	extern void taikatemppu();
 
-	while (!vt[cur_vt].kb_buf_count) {
-		taikatemppu(&vt[cur_vt].kb_buf_count);
+	while (!vt[curr_vt].kb_buf_count) {
+		taikatemppu(&vt[curr_vt].kb_buf_count);
 	}
 
-	--vt[cur_vt].kb_buf_count;
 	ret = vt[curr_vt].kb_buf[vt[curr_vt].kb_buf_start];
+	--vt[cur_vt].kb_buf_count;
 	++vt[cur_vt].kb_buf_start;
-	vt[cur_vt].kb_buf_start %= KB_BUFFER_SIZE;
+	vt[curr_vt].kb_buf_start %= KB_BUFFER_SIZE;
 
 	if (kb_buf_full) {
 		cli();

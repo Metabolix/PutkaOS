@@ -2,7 +2,8 @@
 #define _KEYBOARD_H
 
 void keyboard_install(void);
-unsigned int kb_get(void);
+int kb_get(void);
+int kb_peek(void);
 
 int key_to_ascii(int key, int mods);
 int ktoasc(int key);
