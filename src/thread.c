@@ -167,6 +167,6 @@ void next_thread(void)
 	if (!active_process_ptr || num_threads < 2) {
 		return;
 	}
-	active_thread = find_running_thread();
+	do { active_thread = find_running_thread(); } while (active_thread == 0);
 	active_thread_ptr = threads + active_thread;
 }
