@@ -8,7 +8,7 @@
 
 #define io_wait() asm("nop")
 
-void (*irq_handlers[16])(struct regs_t*) = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+irq_handler_t irq_handlers[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 volatile char irq_wait[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 unsigned char irq_handling = 0;
 
@@ -19,23 +19,16 @@ void irq_remap(unsigned char offset1, unsigned char offset2)
 	a1=inportb(0x21); */  /* save masks */
 	/*a2=inportb(0xA1);*/
 
-	outportb(0x20, 0x11);  /* starts the initialization sequence */
-	io_wait();
-	outportb(0xA0, 0x11);
-	io_wait();
-	outportb(0x21, offset1);
-	io_wait();
-	outportb(0xA1, offset2);
-	io_wait();
-	outportb(0x21, 4);
-	io_wait();
-	outportb(0xA1, 2);
-	io_wait();
+	/* starts the initialization sequence */
+	outportb(0x20, 0x11); io_wait();
+	outportb(0x21, offset1); io_wait();
+	outportb(0x21, 4); io_wait();
+	outportb(0x21, 0x01); io_wait();
 
-	outportb(0x21, 0x01);
-	io_wait();
-	outportb(0xA1, 0x01);
-	io_wait();
+	outportb(0xA0, 0x11); io_wait();
+	outportb(0xA1, offset2); io_wait();
+	outportb(0xA1, 2); io_wait();
+	outportb(0xA1, 0x01); io_wait();
 
 	/*outportb(0x21, a1);*/   /* restore saved masks */
 	/*outportb(0xA1, a2);*/
@@ -117,10 +110,10 @@ void irq_install(void)
 	idt_set_gate(0x2F, (unsigned)irq15, 0x08, 0x8E);
 }
 
-void install_irq_handler(unsigned int irq, void (*irqhandler)())
+void install_irq_handler(unsigned int irq, irq_handler_t handler)
 {
 	if (irq < 16) {
-		irq_handlers[irq] = irqhandler;
+		irq_handlers[irq] = handler;
 	} else {
 		kprintf("Trying to install irq handler on irq %i, which doesn't exist!\n", irq);
 	}

@@ -2,7 +2,7 @@
 extern int days_in_month(int month, int year);
 extern int karkausvuosi(int year);
 
-int put_in_range(int *value, int *borrow, int max)
+static int put_in_range(int *value, int *borrow, int max)
 {
 	if (*value >= max) {
 		*borrow += *value / max;

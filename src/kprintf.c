@@ -4,7 +4,7 @@
 #include <putkaos.h>
 
 #define BUF_KOKO 32
-char sprintf_buf[BUF_KOKO+1]={0};
+static char sprintf_buf[BUF_KOKO+1]={0};
 
 struct printf_format_tag {
 	int left_align, always_sign, sharp;
@@ -12,15 +12,7 @@ struct printf_format_tag {
 	int modifier;
 } tag;
 
-int abs_int(int x)
-{
-	if (x < 0) {
-		return -x;
-	}
-	return x;
-}
-
-int sprintf_uint(unsigned int num)
+static int sprintf_uint(unsigned int num)
 {
 	int i = BUF_KOKO;
 	if (!num) {
@@ -37,7 +29,7 @@ int sprintf_uint(unsigned int num)
 	return BUF_KOKO - i;
 }
 
-int sprintf_uoct(unsigned int num)
+static int sprintf_uoct(unsigned int num)
 {
 	int i = BUF_KOKO;
 	do {
@@ -57,7 +49,7 @@ int sprintf_uoct(unsigned int num)
 	}
 }
 
-int sprintf_hex(unsigned int num)
+static int sprintf_hex(unsigned int num)
 {
 	int i = BUF_KOKO;
 	do {
@@ -70,7 +62,7 @@ int sprintf_hex(unsigned int num)
 	return BUF_KOKO - i;
 }
 
-int sprintf_heX(unsigned int num)
+static int sprintf_heX(unsigned int num)
 {
 	int i = BUF_KOKO;
 	do {
@@ -353,15 +345,18 @@ int kprintf(const char *fmt, ...)
 					*types.ip = numbytes;
 					break;
 				case '%':
+					--retval;
 					putch('%');
 					++numbytes;
 					break;
 				default:
+					--retval;
 					print("[%");
 					putch(*fmt);
 					print(" O_o]");
 					numbytes += 8;
 			}
+			++retval;
 			++fmt;
 			break;
 		default:

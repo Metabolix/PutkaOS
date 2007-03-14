@@ -3,7 +3,7 @@
 #include <time.h>
 #include <string.h>
 #include <malloc.h>
-#include <screen.h>
+#include <debugprint.h>
 
 struct fs fat16_fs = {
 	(fs_mount_t)  fat_mount,
@@ -233,11 +233,11 @@ void *fat16_fopen_all(struct fat16_fs *this, const char * filename, uint_t mode,
 	}
 	/*
 	if (!(mode & FILE_MODE_READ)) {
-		kprintf("No write support in FAT12, file not opened...\n");
+		DEBUGF("No write support in FAT12, file not opened...\n");
 		return 0;
 	}
 	if (mode != FILE_MODE_READ) {
-		kprintf("Attention! No write support in FAT12\n");
+		DEBUGF("Attention! No write support in FAT12\n");
 	}
 	*/
 
@@ -315,15 +315,15 @@ void *fat16_fopen_all(struct fat16_fs *this, const char * filename, uint_t mode,
 			kfree(buffer);
 			return 0;
 		}
-		//kprintf("real_cluster %x = %x\n", (long)real_cluster, (long) this->get_fat(this, real_cluster));
+		//DEBUGF("real_cluster %x = %x\n", (long)real_cluster, (long) this->get_fat(this, real_cluster));
 		real_cluster = this->get_fat(this, real_cluster);
 		if (!FAT16_CLUSTER_USED(real_cluster)) {
-			kprintf("1 !FAT16_CLUSTER_USED(%04x)\n", real_cluster);
+			DEBUGF("fat16_fopen: (1) !FAT16_CLUSTER_USED(%04x)\n", real_cluster);
 			kfree(buffer);
 			return 0;
 		}
 		if (fseek(this->device, this->data_start + (real_cluster - 2) * this->bytes_per_cluster, SEEK_SET)) {
-			kprintf("FAT16 (FAT12): fat16_fopen: fseek failed\n", real_cluster);
+			DEBUGF("fat16_fopen: fseek failed\n", real_cluster);
 			kfree(buffer);
 			return 0;
 		}
@@ -336,12 +336,12 @@ void *fat16_fopen_all(struct fat16_fs *this, const char * filename, uint_t mode,
 		}
 		real_cluster = direntry.first_cluster;
 		if (!FAT16_CLUSTER_USED(real_cluster)) {
-			kprintf("2 !FAT16_CLUSTER_USED(%04x)\n", real_cluster);
+			DEBUGF("fat16_fopen: (2) !FAT16_CLUSTER_USED(%04x)\n", real_cluster);
 			kfree(buffer);
 			return 0;
 		}
 		if (fseek(this->device, this->data_start + (real_cluster - 2) * this->bytes_per_cluster, SEEK_SET)) {
-			kprintf("FAT16 (FAT12): fat16_fopen: fseek failed\n", real_cluster);
+			DEBUGF("fat16_fopen: fseek failed\n", real_cluster);
 			kfree(buffer);
 			return 0;
 		}
@@ -349,7 +349,7 @@ void *fat16_fopen_all(struct fat16_fs *this, const char * filename, uint_t mode,
 	}
 	kfree(buffer);
 	if (buf < buffer + len) {
-		kprintf("FAT16 (FAT12): '%s' not found\n", filename);
+		DEBUGF("fat16_fopen: '%s' not found\n", filename);
 		return 0;
 	}
 	if (direntry.attributes & FAT_ATTR_SUBDIR)
@@ -359,12 +359,12 @@ void *fat16_fopen_all(struct fat16_fs *this, const char * filename, uint_t mode,
 
 	real_cluster = direntry.first_cluster;
 	if (!FAT16_CLUSTER_USED(real_cluster)) {
-		kprintf("!FAT16_CLUSTER_USED(real_cluster) O_o\n");
+		DEBUGF("fat16_fopen: (3) !FAT16_CLUSTER_USED(real_cluster) O_o\n");
 		return 0;
 	}
 
 	if ((direntry.attributes & FAT_ATTR_READONLY) && (mode & FILE_MODE_WRITE)) {
-		kprintf("FAT16 (FAT12): '%s' is read-only\n", filename);
+		DEBUGF("fat16_fopen: '%s' is read-only\n", filename);
 		return 0;
 	}
 	retval = kcalloc(1, sizeof(struct fat16_file));
