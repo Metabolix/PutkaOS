@@ -34,7 +34,7 @@ void sh_ls(char *name)
 		return;
 	}
 	while (dread(d) == 0) {
-		kprintf("%12s (created) %d (modified) %d\n", d->name, d->created, d->modified);
+		kprintf("%12s size='%d' created='%d' modified='%d'\n", d->name, d->size, d->created, d->modified);
 	}
 	dclose(d);
 }
@@ -42,15 +42,28 @@ void sh_ls(char *name)
 void sh_cat(char *name)
 {
 	FILE *f;
-	char buf[256];
+	char buf[257];
+	int i;
+	fpos_t pos;
 	kprintf("cat '%s'\n", name);
 	f = fopen(name, "r");
 	if (!f) {
 		kprintf("Tiedostoa '%s' ei ole tai ei saada auki.\n", name);
 		return;
 	}
-	while (fread(buf, 256, 1, f)) print(buf);
-	if (fread(buf, 1, 256, f)) print(buf);
+	buf[256] = 0;
+	while (1) {
+		if (fgetpos(f, &pos)) kprintf("fgetpos!\n");
+		if (fread(buf, 256, 1, f)) {
+			print(buf);
+		} else {
+			if (fsetpos(f, &pos)) kprintf("fsetpos!\n");
+			if (fsetpos(f, &pos)) kprintf("fread: %d\n", fread(buf, 1, 256, f));
+			buf[fread(buf, 1, 256, f)] = 0;
+			print(buf);
+			break;
+		}
+	}
 	putch('\n');
 	fclose(f);
 }

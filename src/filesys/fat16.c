@@ -352,9 +352,17 @@ void *fat16_fopen_all(struct fat16_fs *this, const char * filename, uint_t mode,
 		DEBUGF("fat16_fopen: '%s' not found\n", filename);
 		return 0;
 	}
-	if (direntry.attributes & FAT_ATTR_SUBDIR)
-	if (!accept_dir) {
-		return 0;
+	if (direntry.attributes & FAT_ATTR_SUBDIR) {
+		if (direntry.file_size == 0) {
+			real_cluster = direntry.first_cluster;
+			while (FAT16_CLUSTER_USED(real_cluster)) {
+				direntry.file_size += this->bytes_per_cluster;
+				real_cluster = this->get_fat(this, real_cluster);
+			}
+		}
+		if (!accept_dir) {
+			return 0;
+		}
 	}
 
 	real_cluster = direntry.first_cluster;
@@ -439,22 +447,50 @@ int fat16_fread_next_cluster(struct fat16_file *stream)
 	return 0;
 }
 
-size_t fat16_fread(void *buf, size_t size, size_t count, struct fat16_file *stream)
+size_t fat16_fread(
+	void *buf,
+	size_t size,
+	size_t count,
+	struct fat16_file *stream)
 {
-	return fat16_freadwrite((char*)buf, size, count, stream, (fat16_freadwrite_t) fread, fat16_fread_next_cluster);
-}
-
-size_t fat16_fwrite(const void *buf, size_t size, size_t count, struct fat16_file *stream)
-{
-	size_t retval = fat16_freadwrite((char*)buf, size, count, stream, (fat16_freadwrite_t) fwrite, fat16_fwrite_next_cluster);
 	if (stream->std.pos > stream->file_size) {
-		stream->file_size = (size_t) stream->std.pos;
-		// TODO: file_size to FAT
+		return 0;
+	}
+	if (count > (stream->file_size - stream->std.pos + size - 1) / size) {
+		count = (stream->file_size - stream->std.pos + size - 1) / size;
+	}
+	size_t retval = fat16_freadwrite(
+		(char*)buf, size, count, stream,
+		(fat16_freadwrite_t) fread,
+		fat16_fread_next_cluster);
+	if (stream->std.pos > stream->file_size) {
+		--count;
+		stream->std.pos = stream->file_size;
 	}
 	return retval;
 }
 
-size_t fat16_freadwrite(char *buf, const size_t size, const size_t count, struct fat16_file *stream, const fat16_freadwrite_t freadwrite, const fat16_next_cluster_t fat16_next_cluster)
+size_t fat16_fwrite(
+	const void *buf,
+	size_t size,
+	size_t count,
+	struct fat16_file *stream)
+{
+	size_t retval = fat16_freadwrite(
+		(char*)buf, size, count, stream,
+		(fat16_freadwrite_t) fwrite,
+		fat16_fwrite_next_cluster);
+	if (stream->std.pos > stream->file_size) {
+		stream->file_size = (size_t) stream->std.pos;
+		DEBUGF("TODO: file_size to direntry...\n");
+	}
+	return retval;
+}
+
+size_t fat16_freadwrite(
+	char *buf, const size_t size, const size_t count, struct fat16_file *stream,
+	const fat16_freadwrite_t freadwrite,
+	const fat16_next_cluster_t fat16_next_cluster)
 {
 	size_t try_read, bytes_read, size_rem, count_rem;
 	if (!count || !size) {
@@ -511,7 +547,6 @@ int fat16_fsetpos(struct fat16_file *stream, const fpos_t *pos)
 	size_t pos_in, cluster, clus, real_cluster;
 	cluster = uint64_div_rem(*pos, stream->fs->bytes_per_cluster, &pos_in_64);
 	pos_in = pos_in_64;
-
 	if (cluster > stream->last_cluster) {
 		return EOF;
 	}
