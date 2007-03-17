@@ -25,6 +25,14 @@ struct timeval {
 	time_t sec;
 	time_t usec;
 };
+#define TIMEVAL_SUBST(end, start) { \
+	(end).sec -= (start).sec; \
+	(end).usec -= (start).usec; \
+	if ((end).usec < 0) { \
+		--(end).sec; \
+		(end).usec += 1000000; \
+	} \
+}
 
 extern time_t mktime(struct tm *timeptr);
 /*
