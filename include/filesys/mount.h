@@ -28,7 +28,7 @@ enum MOUNT_ERR {
 	MOUNT_ERR_FREE_ERRORCODE = -0x10000 // ;)
 };
 
-extern int mount_init(const char * root_device);
+extern int mount_init(unsigned long mboot_device, const char *mboot_cmdline);
 extern void mount_uninit(void);
 extern int mount_something(const char * device_filename, const char * mountpoint, int flags);
 extern int umount_something(const char * device_or_point);

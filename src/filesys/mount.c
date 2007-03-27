@@ -89,17 +89,63 @@ oikea_paikka:
 	return mnt;
 }
 
+const char *parse_mboot_cmdline_root(const char *str)
+{
+	const char *pos, *end1, *end2;
+	char *result;
+	if (!str) {
+		return 0;
+	}
+	pos = strstr(str, "root=");
+	if (!pos || (pos != str && pos[-1] != ' ' && pos[-1] != '\t')) {
+		kprintf("No root= given!!! ('%s')\n", str);
+		return 0;
+	}
+	pos += 5;
+	end1 = strchr(pos, ' ');
+	end2 = strchr(pos, '\t');
+	if (end2 && (end2 < end1)) {
+		end1 = end2;
+	}
+	if (!end1) {
+		for (end1 = pos; *end1; ++end1);
+		if (end1 == pos) {
+			return 0;
+		}
+	}
+	result = kmalloc((end1 - pos) + 1);
+	if (!result) {
+		return 0;
+	}
+	memcpy(result, pos, (end1 - pos));
+	result[(end1 - pos)] = 0;
+	return result;
+}
+const char *parse_mboot_device_root(unsigned long mboot_device)
+{
+	/* TODO */
+	return 0;
+}
 /**
  * Käynnistää mount-systeemin
 **/
-int mount_init(const char * root_device)
+int mount_init(unsigned long mboot_device, const char *mboot_cmdline)
 {
 	uint_t flags;
+	const char *root_device;
+	static const char rootdev_default[] = "/dev/fd0";
+	if (!(root_device = parse_mboot_cmdline_root(mboot_cmdline))) {
+		if (!(root_device = parse_mboot_device_root(mboot_device))) {
+			kprintf("mount: defaulting root to '%s'\n", rootdev_default);
+			root_device = rootdev_default;
+		}
+	}
+
 	/* Ensin /dev */
 	root.subtree_size = 1;
 	root.subtree = kcalloc(1, sizeof(struct mountpoint));
 	if (!root.subtree) {
-		panic("Mount: Out of kernel memory!\n");
+		panic("mount: Out of kernel memory!\n");
 	}
 
 	root.subtree->dev_name = kmalloc(7);
@@ -120,25 +166,26 @@ int mount_init(const char * root_device)
 		root.dev = fopen(root_device, "r");
 	}
 	if (!root.dev) {
-		kprintf("Mount: Couldn't open root device (%s).\n", root_device);
+		kprintf("mount: Couldn't open root device (%s).\n", root_device);
 		/* TODO: Creating ramfs instead...\n */
 		return -1;
 	}
 
 	root.fs = fs_mount(root.dev, flags);
 	if (!root.fs) {
-		kprintf("Mount: Couldn't mount root device (%s).\n", root_device);
+		kprintf("mount: Couldn't mount root device (%s).\n", root_device);
 		return -1;
 	}
 	if (!root.fs->filefunc.fwrite) {
-		kprintf("Mount: Warning: root device (%s) mounted read-only!\n", root_device);
+		kprintf("mount: Warning: root device (%s) mounted read-only!\n", root_device);
 	}
 
-	root.dev_name = kmalloc(strlen(root_device) + 1);
-	if (!root.dev_name) {
-		panic("Mount: Out of kernel memory!\n");
+	if (root_device != rootdev_default) {
+		root.dev_name = kmalloc(strlen(root_device) + 1);
+		memcpy(root.dev_name, root_device, strlen(root_device) + 1);
+	} else {
+		root.dev_name = (char*) root_device;
 	}
-	memcpy(root.dev_name, root_device, strlen(root_device) + 1);
 
 	return 0;
 }
@@ -176,7 +223,7 @@ void mount_uninit(void)
 	if ((i = umount_array(root.subtree, root.subtree_size)))
 	if ((i = umount_array(root.subtree, root.subtree_size)))
 	if ((i = umount_array(root.subtree, root.subtree_size))) {
-		kprintf("Mount: Uninit: warning: not everything was umounted.\n");
+		kprintf("mount: Uninit: warning: not everything was umounted.\n");
 		goto elsen_yli_1;
 	}
 	root.subtree_size = 0;
@@ -186,13 +233,13 @@ elsen_yli_1:
 	if ((i = root.fs->fs_umount(root.fs)))
 	if ((i = root.fs->fs_umount(root.fs)))
 	if ((i = root.fs->fs_umount(root.fs))) {
-		kprintf("Mount: Uninit (%s) => (%s): umount failed.\n", root.dev, root.absolute_path);
+		kprintf("mount: Uninit (%s) => (%s): umount failed.\n", root.dev, root.absolute_path);
 		goto elsen_yli_2;
 	}
 	root.fs = 0;
 elsen_yli_2:
 	if ((i = fclose(root.dev))) {
-		kprintf("Mount: Uninit (%s) == (%s): fclose failed. (WTF? :D)\n", root.dev, root.absolute_path);
+		kprintf("mount: Uninit (%s) == (%s): fclose failed. (WTF? :D)\n", root.dev, root.absolute_path);
 	} else {
 		root.dev = 0;
 	}
@@ -213,17 +260,17 @@ int mount_something(const char * device_filename, const char * mountpoint, int f
 
 	uusi.parent = etsi_kohta(&relative);
 	if (!uusi.parent) {
-		kprintf("Mount: (%s) => (%s): Point not found!\n", device_filename, mountpoint);
+		kprintf("mount: (%s) => (%s): Point not found!\n", device_filename, mountpoint);
 	}
 	i = strlen(relative);
 	if (!i || (i == 1 && relative[0] == '/')) {
-		kprintf("Mount: (%s) => (%s): Point in use!\n", device_filename, mountpoint);
+		kprintf("mount: (%s) => (%s): Point in use!\n", device_filename, mountpoint);
 		return MOUNT_ERR_ALREADY_MOUNTED;
 	}
 
 	if (!(uusi.dev = devfs.filefunc.fopen(&devfs, device_filename, flags)))
 	if (!(uusi.dev = devfs.filefunc.fopen(&devfs, device_filename, flags))) {
-		kprintf("Mount: (%s) => (%s): Couldn't open device.\n", device_filename, mountpoint);
+		kprintf("mount: (%s) => (%s): Couldn't open device.\n", device_filename, mountpoint);
 		return MOUNT_ERR_DEVICE_ERROR;
 	}
 	if (!(flags & FILE_MODE_WRITE)) {
@@ -233,12 +280,12 @@ int mount_something(const char * device_filename, const char * mountpoint, int f
 
 	uusi.fs = fs_mount(uusi.dev, flags);
 	if (!uusi.fs) {
-		kprintf("Mount: (%s) => (%s): Couldn't mount device.\n", device_filename, mountpoint);
+		kprintf("mount: (%s) => (%s): Couldn't mount device.\n", device_filename, mountpoint);
 		fclose(uusi.dev);
 		return MOUNT_ERR_FILESYS_ERROR;
 	}
 	if (!uusi.fs->filefunc.fwrite && (flags & FILE_MODE_WRITE)) {
-		kprintf("Mount: (%s) => (%s): Warning: mounted read-only!\n", device_filename, mountpoint);
+		kprintf("mount: (%s) => (%s): Warning: mounted read-only!\n", device_filename, mountpoint);
 	}
 
 	if (relative[i-1] == '/') {
@@ -291,15 +338,15 @@ int umount_point(struct mountpoint *mnt)
 			}
 			return 0;
 		default:
-			kprintf("Mount: Umounting '%s' (%s) failed!\n", mnt->absolute_path, mnt->dev_name);
-			kprintf("Mount: ... Just told us %d, F*cking fs driver!\n", i);
+			kprintf("mount: Umounting '%s' (%s) failed!\n", mnt->absolute_path, mnt->dev_name);
+			kprintf("mount: ... Just told us %d, F*cking fs driver!\n", i);
 			return MOUNT_ERR_TOTAL_FAILURE;
 	}
 	switch (i = fclose(mnt->dev)) {
 		case 0:
 			return 0;
 		default:
-			kprintf("Mount: Umount: fclose failed (WTF? :D) at device '%s' (%s)\n", mnt->dev_name, mnt->absolute_path);
+			kprintf("mount: Umount: fclose failed (WTF? :D) at device '%s' (%s)\n", mnt->dev_name, mnt->absolute_path);
 			return i;
 	}
 	return MOUNT_ERR_TOTAL_FAILURE;
@@ -323,6 +370,6 @@ int umount_something(const char * device_or_point)
 	if (mnt && filename[0] == 0) {
 		return umount_point(mnt);
 	}
-	kprintf("Mount: Umount: %s isn't a point or a device\n", device_or_point);
+	kprintf("mount: Umount: %s isn't a point or a device\n", device_or_point);
 	return MOUNT_ERR_TOTAL_FAILURE;
 }

@@ -43,7 +43,6 @@ void sh_cat(char *name)
 {
 	FILE *f;
 	char buf[257];
-	int i;
 	fpos_t pos;
 	kprintf("cat '%s'\n", name);
 	f = fopen(name, "r");

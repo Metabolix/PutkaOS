@@ -128,6 +128,24 @@ char *strncpy(char *dest, const char *src, size_t n)
 	}
 	return retval;
 }
+
+char *strstr(const char *str, const char *seek)
+{
+	size_t i, j;
+	while (*str) {
+		for (i = 0; seek[i]; ++i) {
+			if (seek[i] != str[i]) {
+				break;
+			}
+		}
+		if (!seek[i]) {
+			return (char*)str;
+		}
+		++str;
+	}
+	return 0;
+}
+
 /*
 char    *strpbrk(const char *, const char *);
 char    *strrchr(const char *, int);
