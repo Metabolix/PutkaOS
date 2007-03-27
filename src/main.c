@@ -19,7 +19,7 @@
 #include <thread.h>
 #include <devmanager.h>
 #include <string.h>
-#include <mouse.h>
+//#include <mouse.h>
 #include <filesys/mount.h>
 
 void testattava_koodi();
@@ -54,7 +54,7 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 	timer_install();
 	malloc_init();
 	keyboard_install();
-	mouse_install();
+	//mouse_install();
 
 	devmanager_init();
 	install_floppy();
@@ -80,18 +80,6 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 void testattava_koodi()
 {
 #if 0
-	int i, j = 0, k = 0;
-	struct timeval u1, u2;
-	get_uptime(&u1);
-	for (i = 0; i < 1000000; ++i) {
-		while (inportb(0x3DA) & 8) ++j;
-		while (!(inportb(0x3DA) & 8)) ++k;
-	}
-	get_uptime(&u2);
-	TIMEVAL_SUBST(u2, u1);
-	kprintf("%d,%d ; j = %d, k = %d\n", u2.sec, u2.usec, j, k);
-	for(;;);
-#elif 0
 	int x = 0, y = 0;
 	struct mouse_state state;
 	for (;;) {
@@ -101,27 +89,6 @@ void testattava_koodi()
 		y += state.dy;
 		kprintf("(%d, %d)\n", x, y);
 	}
-#elif 0
-	FILE *f;
-	char buf[512];
-	memset(buf, 0, sizeof(buf));
-	int i,j;
-	f = fopen("/dev/fd1", "r");
-	if (!f) panic("fd0 ei aukea!");
-	kprintf("Luettiin %d laitteelta fd0\n", fread(buf, 1, 512, f));
-	for (i = 0; i < 256; i += j) {
-		for (j = 0; j < 24; ++j) {
-			kprintf("%02x ", (int)(unsigned char)buf[i+j]);
-		}
-		kprintf("\n");
-	}
-	for (i = 0; i < 256; i += j) {
-		for (j = 0; j < 64; ++j) {
-			putch((int)(unsigned char)buf[i+j]);
-		}
-		kprintf("\n");
-	}
-	fclose(f);
 #endif
 }
 

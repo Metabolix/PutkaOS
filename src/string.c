@@ -131,7 +131,7 @@ char *strncpy(char *dest, const char *src, size_t n)
 
 char *strstr(const char *str, const char *seek)
 {
-	size_t i, j;
+	size_t i;
 	while (*str) {
 		for (i = 0; seek[i]; ++i) {
 			if (seek[i] != str[i]) {
