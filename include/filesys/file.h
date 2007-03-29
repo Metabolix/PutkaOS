@@ -33,6 +33,7 @@ typedef struct _FILE {
 //#define stdout stdout
 //#define stderr stderr
 
+extern FILE *fopen_intflags(const char * filename, uint_t flags);
 extern FILE *fopen(const char * filename, const char * mode);
 extern int fclose(FILE *stream);
 extern size_t fread(void *buf, size_t size, size_t count, FILE *file);

@@ -10,7 +10,7 @@
 
 floppy_parameters floppy_params;
 int cylinder, status_0;
-//#define wait_irq(a) kwait(0, 20*1000)
+#define wait_irq(a) kwait(0, 20*1000)
 
 BD_DEVICE fd_devices[2] = {
 	{

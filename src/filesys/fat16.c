@@ -25,7 +25,9 @@ struct fs fat16_fs = {
 	}
 };
 
-#define fat16_intceil(num, bound) (((num + bound - 1) / bound) * bound)
+static int fat16_intceil(int num, int bound) {
+	return (((num + bound - 1) / bound) * bound);
+}
 
 struct fat16_fs *fat16_mount(FILE *device, uint_t mode, const struct fat_header *fat_header, int fat12)
 {
@@ -46,6 +48,10 @@ struct fat16_fs *fat16_mount(FILE *device, uint_t mode, const struct fat_header 
 	ret.data_end = ret.header.total_sectors * (size_t)ret.header.bytes_per_sector;
 	ret.cluster_count = 2 + (ret.data_end - ret.data_start) / ret.bytes_per_cluster;
 
+	if (!(mode & FILE_MODE_WRITE)) {
+		ret.std.filefunc.fwrite = 0;
+	}
+
 	ret.std = fat16_fs;
 	ret.device = device;
 	struct fat16_fs *retval;
@@ -60,7 +66,7 @@ struct fat16_fs *fat16_mount(FILE *device, uint_t mode, const struct fat_header 
 	ret.get_fat = fat12_get_fat;
 	ret.set_next_cluster = fat12_set_next_cluster;
 	ret.write_fat = fat12_write_fat;
-	retval = kmalloc(sizeof(struct fat16_fs) + ret.cluster_count * sizeof(short));
+	retval = kcalloc(1, sizeof(struct fat16_fs) + ret.cluster_count * sizeof(short));
 	if (!retval) return 0;
 	*retval = ret;
 
@@ -173,10 +179,12 @@ int fat16_umount(struct fat16_fs *this)
 	if (!this) {
 		return -1;
 	}
-	if (this->write_fat) {
-		this->write_fat(this);
+	if (this->std.filefunc.fwrite) {
+		if (this->write_fat) {
+			this->write_fat(this);
+		}
+		fflush(this->device);
 	}
-	fflush(this->device);
 	kfree(this);
 	return 0;
 }
@@ -242,6 +250,7 @@ void *fat16_fopen_all(struct fat16_fs *this, const char * filename, uint_t mode,
 	*/
 
 	struct fat16_file *retval;
+	fpos_t pos;
 	int i;
 	int len = strlen(filename);
 	char *buffer = kmalloc(len + 1);
@@ -311,19 +320,23 @@ void *fat16_fopen_all(struct fat16_fs *this, const char * filename, uint_t mode,
 				goto loytyi;
 			}
 		}
+
 		if (rootdir_menossa) {
 			kfree(buffer);
 			return 0;
 		}
-		//DEBUGF("real_cluster %x = %x\n", (long)real_cluster, (long) this->get_fat(this, real_cluster));
+
 		real_cluster = this->get_fat(this, real_cluster);
+
+		// Loppuiko hakemisto kokonaan?
 		if (!FAT16_CLUSTER_USED(real_cluster)) {
-			DEBUGF("fat16_fopen: (1) !FAT16_CLUSTER_USED(%04x)\n", real_cluster);
 			kfree(buffer);
 			return 0;
 		}
-		if (fseek(this->device, this->data_start + (real_cluster - 2) * this->bytes_per_cluster, SEEK_SET)) {
-			DEBUGF("fat16_fopen: fseek failed\n", real_cluster);
+
+		// Etsitään uusi kohta laitteesta...
+		pos = this->data_start + (real_cluster - 2) * this->bytes_per_cluster;
+		if (fsetpos(this->device, &pos)) {
 			kfree(buffer);
 			return 0;
 		}
@@ -331,27 +344,29 @@ void *fat16_fopen_all(struct fat16_fs *this, const char * filename, uint_t mode,
 	loytyi:
 		rootdir_menossa = 0;
 		if ((direntry.attributes & FAT_ATTR_SUBDIR) == 0) {
+			if (!accept_dir) {
+				return 0;
+			}
 			for(;*buf++;);
 			break;
 		}
+
+		// Onko uusi klusteri kunnossa FATin mukaan?
 		real_cluster = direntry.first_cluster;
 		if (!FAT16_CLUSTER_USED(real_cluster)) {
-			DEBUGF("fat16_fopen: (2) !FAT16_CLUSTER_USED(%04x)\n", real_cluster);
 			kfree(buffer);
 			return 0;
 		}
-		if (fseek(this->device, this->data_start + (real_cluster - 2) * this->bytes_per_cluster, SEEK_SET)) {
-			DEBUGF("fat16_fopen: fseek failed\n", real_cluster);
+
+		// Etsitään uusi kohta laitteesta
+		pos = this->data_start + (real_cluster - 2) * this->bytes_per_cluster;
+		if (fsetpos(this->device, &pos)) {
 			kfree(buffer);
 			return 0;
 		}
 		for(;*buf++;);
 	}
 	kfree(buffer);
-	if (buf < buffer + len) {
-		DEBUGF("fat16_fopen: '%s' not found\n", filename);
-		return 0;
-	}
 	if (direntry.attributes & FAT_ATTR_SUBDIR) {
 		if (direntry.file_size == 0) {
 			real_cluster = direntry.first_cluster;
@@ -360,17 +375,17 @@ void *fat16_fopen_all(struct fat16_fs *this, const char * filename, uint_t mode,
 				real_cluster = this->get_fat(this, real_cluster);
 			}
 		}
-		if (!accept_dir) {
-			return 0;
-		}
 	}
 
+	// Oikea klusteri talteen
 	real_cluster = direntry.first_cluster;
+
+	// Onhan se olemassa? Ettei ole haamutiedosto...
 	if (!FAT16_CLUSTER_USED(real_cluster)) {
-		DEBUGF("fat16_fopen: (3) !FAT16_CLUSTER_USED(real_cluster) O_o\n");
 		return 0;
 	}
 
+	// Avataan RO-tiedostot kiltisti
 	if ((direntry.attributes & FAT_ATTR_READONLY) && (mode & FILE_MODE_WRITE)) {
 		DEBUGF("fat16_fopen: '%s' is read-only\n", filename);
 		return 0;

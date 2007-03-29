@@ -5,6 +5,14 @@
 #include <int64.h>
 
 int blockdev_getblock(BD_FILE *device);
+void blockdev_update_pos(BD_FILE *device);
+int blockdev_fgetpos(BD_FILE *device, fpos_t *pos);
+int blockdev_fsetpos(BD_FILE *device, const fpos_t *pos);
+void blockdev_fflush(BD_FILE *device);
+BD_FILE *blockdev_fopen(BD_DEVICE *phys, uint_t mode);
+void blockdev_fclose(BD_FILE *device);
+size_t blockdev_fread(void *buffer, size_t size, size_t count, BD_FILE *device);
+size_t blockdev_fwrite(const void *buffer, size_t size, size_t count, BD_FILE *device);
 
 struct filefunc blockdev_func = {
 	(fopen_t)   blockdev_fopen,
@@ -114,7 +122,8 @@ size_t blockdev_fread(void *buffer, size_t size, size_t count, BD_FILE *device)
 #define POS_MUUTOS (device->std.pos - pos_aluksi)
 #define RETURN blockdev_update_pos(device); return
 	char *buf = (char*)buffer;
-	size_t tavuja_yhteensa, kokonaisia_paloja, lue;
+	uint64_t tavuja_yhteensa, kokonaisia_paloja;
+	size_t lue;
 	fpos_t pos_aluksi = device->std.pos;
 
 	// Voidaan lukea suoraan laitteelta annettuun bufferiin
@@ -191,7 +200,8 @@ size_t blockdev_fread(void *buffer, size_t size, size_t count, BD_FILE *device)
 size_t blockdev_fwrite(const void *buffer, size_t size, size_t count, BD_FILE *device)
 {
 	char *buf = (char*)buffer;
-	size_t tavuja_yhteensa, kokonaisia_paloja, kirjoita;
+	uint64_t tavuja_yhteensa, kokonaisia_paloja;
+	size_t kirjoita;
 	fpos_t pos_aluksi = device->std.pos;
 
 	// Voidaan lukea suoraan laitteelta annettuun bufferiin

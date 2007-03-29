@@ -3,6 +3,16 @@
 #include <string.h>
 #include <stdint.h>
 
+FILE *fopen_intflags(const char * filename, uint_t intmode)
+{
+	struct mountpoint *mnt;
+
+	if (!filename || !(mnt = etsi_kohta(&filename)) || !mnt->fs || !mnt->fs->filefunc.fopen) {
+		return 0;
+	}
+	return mnt->fs->filefunc.fopen(mnt->fs, filename, intmode);
+}
+
 FILE *fopen(const char * filename, const char * mode)
 {
 	struct mountpoint *mnt;

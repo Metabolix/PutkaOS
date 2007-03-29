@@ -23,14 +23,14 @@ enum MOUNT_ERR {
 	MOUNT_ERR_BUSY = -3,
 	MOUNT_ERR_ALREADY_MOUNTED = -4,
 	MOUNT_ERR_DEVICE_ERROR = -5,
-	MOUNT_ERR_FILESYS_ERROR = -5,
+	MOUNT_ERR_FILESYS_ERROR = -6,
 
 	MOUNT_ERR_FREE_ERRORCODE = -0x10000 // ;)
 };
 
 extern int mount_init(unsigned long mboot_device, const char *mboot_cmdline);
 extern void mount_uninit(void);
-extern int mount_something(const char * device_filename, const char * mountpoint, int flags);
+extern int mount_something(const char * device_filename, const char * mountpoint, uint_t flags);
 extern int umount_something(const char * device_or_point);
 
 extern const struct mountpoint *mount_etsi_kohta(const char ** filename_ptr);

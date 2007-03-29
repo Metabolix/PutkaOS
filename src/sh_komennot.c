@@ -5,6 +5,9 @@
 #include <io.h>
 #include <filesys/mount.h>
 #include <floppy.h>
+#include <string.h>
+
+#include <sh_komennot.h>
 
 struct sh_komento komentotaulu[] = {
 	{"?", "Apua", sh_help},
@@ -21,16 +24,68 @@ struct sh_komento komentotaulu[] = {
 	{"history", "Komentohistoria", sh_history},
 	{"ls", "ls polku; listaa hakemisto", sh_ls},
 	{"cat", "cat polku; tulosta tiedoston sisalto", sh_cat},
+	{"mount", "mount laite liitospiste; liita laite pisteeseen (vain luku)", sh_mount},
+	{"mountrw", "mount laite liitospiste; liita laite pisteeseen (luku ja kirjoitus)", sh_mountrw},
+	{"umount", "umount {laite | polku}; poista laite tai liitoskohta", sh_umount},
 	{0, 0, sh_ei_tunnistettu} /* Terminaattori */
 };
 struct sh_komento *komennot = komentotaulu;
+
+void sh_mountrw(char *dev_point)
+{
+	sh_mount_real(dev_point, FILE_MODE_READ | FILE_MODE_WRITE);
+}
+
+void sh_mount(char *dev_point)
+{
+	sh_mount_real(dev_point, FILE_MODE_READ);
+}
+
+void sh_mount_real(char *dev_point, uint_t mode)
+{
+	char *dev = dev_point, *point = strchr(dev_point, ' ');
+	if (!point) {
+		return;
+	}
+	*point = 0;
+	++point;
+	switch (mount_something(dev, point, mode)) {
+		case MOUNT_ERR_TOTAL_FAILURE:
+			kprintf("sh: mount: Jokin virhe.\n");
+			break;
+		case MOUNT_ERR_ALREADY_MOUNTED:
+			kprintf("sh: mount: Piste on jo liitetty.\n");
+			break;
+		case MOUNT_ERR_DEVICE_ERROR:
+			kprintf("sh: mount: Laitetta ei saada auki.\n");
+			break;
+		case MOUNT_ERR_FILESYS_ERROR:
+			kprintf("sh: mount: Tunnistamaton tiedostojarjestelma.\n");
+			break;
+	}
+}
+
+void sh_umount(char *dev_point)
+{
+	switch (umount_something(dev_point)) {
+		case MOUNT_ERR_TOTAL_FAILURE:
+			kprintf("sh: mount: Jokin virhe.\n");
+			break;
+		case MOUNT_ERR_MOUNTED_SUBPOINTS:
+			kprintf("sh: mount: Alempia liitospisteita on yha olemassa.\n");
+			break;
+		case MOUNT_ERR_BUSY:
+			kprintf("sh: mount: Piste on kiireinen.\n");
+			break;
+	}
+}
 
 void sh_ls(char *name)
 {
 	DIR *d;
 	d = dopen(name);
 	if (!d) {
-		kprintf("Hakemistoa '%s' ei ole tai ei saada auki.\n", name);
+		kprintf("sh: ls: Hakemistoa '%s' ei ole tai ei saada auki.\n", name);
 		return;
 	}
 	while (dread(d) == 0) {
@@ -47,17 +102,22 @@ void sh_cat(char *name)
 	kprintf("cat '%s'\n", name);
 	f = fopen(name, "r");
 	if (!f) {
-		kprintf("Tiedostoa '%s' ei ole tai ei saada auki.\n", name);
+		kprintf("sh: ls: Tiedostoa '%s' ei ole tai ei saada auki.\n", name);
 		return;
 	}
 	buf[256] = 0;
 	while (1) {
-		if (fgetpos(f, &pos)) kprintf("fgetpos!\n");
+		if (fgetpos(f, &pos)) {
+			kprintf("sh: ls: fgetpos!\n");
+			break;
+		}
 		if (fread(buf, 256, 1, f)) {
 			print(buf);
 		} else {
-			if (fsetpos(f, &pos)) kprintf("fsetpos!\n");
-			if (fsetpos(f, &pos)) kprintf("fread: %d\n", fread(buf, 1, 256, f));
+			if (fsetpos(f, &pos)) {
+				kprintf("sh: ls: fsetpos!\n");
+				break;
+			}
 			buf[fread(buf, 1, 256, f)] = 0;
 			print(buf);
 			break;
