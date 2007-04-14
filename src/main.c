@@ -21,6 +21,7 @@
 #include <string.h>
 //#include <mouse.h>
 #include <filesys/mount.h>
+#include <ide.h>
 
 void testattava_koodi();
 
@@ -60,6 +61,8 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 	install_floppy();
 	vts_init();
 	threading_init();
+
+	ide_init();
 
 	kprintf("Going to unmask irqs\n");
 	outportb(0x21,0x0); /* Don't mask any IRQ */

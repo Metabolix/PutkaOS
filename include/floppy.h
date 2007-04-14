@@ -55,7 +55,8 @@ typedef struct {
 
 #define DISK_PARAMETER_ADDRESS 0x000fefc7
 
-void install_floppy(void);
+extern void install_floppy(void);
+
 void reset_floppy(void);
 void wait_floppy_data(void);
 void configure_drive(void);
@@ -68,8 +69,8 @@ void reset_flipflop_dma(void);
 void init_dma_floppy(unsigned long buffer, size_t len, int write);
 int read_sector(unsigned int drive, unsigned char sector, unsigned char head, unsigned char cylinder, unsigned long buffer);
 int write_sector(unsigned int drive, unsigned char sector, unsigned char head, unsigned char cylinder, unsigned long buffer);
-int read_block(BD_DEVICE *self, size_t num, void * buf);
-int write_block(BD_DEVICE *self, size_t num, const void * buf);
+int read_one_block(BD_DEVICE *self, uint64_t num, void * buf);
+int write_one_block(BD_DEVICE *self, uint64_t num, const void * buf);
 void motor_off(unsigned int drive);
 
 #endif

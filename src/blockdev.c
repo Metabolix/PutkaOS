@@ -14,6 +14,11 @@ void blockdev_fclose(BD_FILE *device);
 size_t blockdev_fread(void *buffer, size_t size, size_t count, BD_FILE *device);
 size_t blockdev_fwrite(const void *buffer, size_t size, size_t count, BD_FILE *device);
 
+int blockdev_dummy_read_one_block(BD_DEVICE *self, uint64_t num, void * buf);
+int blockdev_dummy_write_one_block(BD_DEVICE *self, uint64_t num, const void * buf);
+size_t blockdev_dummy_read_blocks(BD_DEVICE *self, uint64_t num, size_t count, void * buf);
+size_t blockdev_dummy_write_blocks(BD_DEVICE *self, uint64_t num, size_t count, const void * buf);
+
 struct filefunc blockdev_func = {
 	(fopen_t)   blockdev_fopen,
 	(fclose_t)  blockdev_fclose,
@@ -69,7 +74,7 @@ int blockdev_getblock(BD_FILE *device)
 	if (device->block_in_dev >= device->phys->block_count) {
 		return EOF;
 	}
-	retval = device->phys->read_block(device->phys, device->phys->first_block_num + device->block_in_dev, device->buffer);
+	retval = device->phys->read_one_block(device->phys, device->phys->first_block_num + device->block_in_dev, device->buffer);
 	if (!retval) {
 		device->has_read = 1;
 	}
@@ -79,7 +84,7 @@ int blockdev_getblock(BD_FILE *device)
 void blockdev_fflush(BD_FILE *device)
 {
 	if (device->has_read && device->has_written) {
-		if (device->phys->write_block(device->phys, device->phys->first_block_num + device->block_in_dev, device->buffer)) {
+		if (device->phys->write_one_block(device->phys, device->phys->first_block_num + device->block_in_dev, device->buffer)) {
 			kprintf("blockdev_fflush: kirjoitus laitteeseen %s kohtaan %#010x ei onnistunut.\n", device->phys->std.name, device->block_in_dev);
 		}
 		device->has_written = 0;
@@ -96,6 +101,33 @@ BD_FILE *blockdev_fopen(BD_DEVICE *phys, uint_t mode)
 	phys->std.dev_type == DEV_TYPE_NONE ||
 	phys->std.dev_type == DEV_TYPE_ERROR) {
 		return 0;
+	}
+
+	if (!phys->write_one_block) {
+		if (!phys->write_blocks) {
+			if (mode & FILE_MODE_WRITE) {
+				return 0;
+			}
+		} else {
+			phys->write_one_block = blockdev_dummy_write_one_block;
+		}
+	} else {
+		if (!phys->write_blocks) {
+			phys->write_blocks = blockdev_dummy_write_blocks;
+		}
+	}
+	if (!phys->read_one_block) {
+		if (!phys->read_blocks) {
+			if (mode & FILE_MODE_READ) {
+				return 0;
+			}
+		} else {
+			phys->read_one_block = blockdev_dummy_read_one_block;
+		}
+	} else {
+		if (!phys->read_blocks) {
+			phys->read_blocks = blockdev_dummy_read_blocks;
+		}
 	}
 
 	retval = kcalloc(1, sizeof(BD_FILE) + phys->block_size);
@@ -171,7 +203,7 @@ size_t blockdev_fread(void *buffer, size_t size, size_t count, BD_FILE *device)
 
 	device->has_read = 0;
 	while (kokonaisia_paloja) {
-		if (device->phys->read_block(device->phys, device->block_in_dev, buf)) {
+		if (device->phys->read_one_block(device->phys, device->block_in_dev, buf)) {
 			kprintf("dread: luku laittesta %s kohdasta %#010x ei onnistunut.\n", device->phys->std.name, device->block_in_dev);
 			RETURN POS_MUUTOS / size;
 		}
@@ -258,7 +290,7 @@ size_t blockdev_fwrite(const void *buffer, size_t size, size_t count, BD_FILE *d
 	device->has_read = 0;
 
 	while (kokonaisia_paloja) {
-		if (device->phys->write_block(device->phys, device->block_in_dev, buf)) {
+		if (device->phys->write_one_block(device->phys, device->block_in_dev, buf)) {
 			kprintf("dwrite: kirjoitus laitteeseen %s kohtaan %#010x ei onnistunut.\n", device->phys->std.name, device->block_in_dev);
 			RETURN POS_MUUTOS / size;
 		}
@@ -285,3 +317,36 @@ size_t blockdev_fwrite(const void *buffer, size_t size, size_t count, BD_FILE *d
 
 	RETURN POS_MUUTOS / size;
 }
+
+int blockdev_dummy_read_one_block(BD_DEVICE *self, uint64_t num, void * buf)
+{
+	return self->read_blocks(self, num, 1, buf) ? 0 : -1;
+}
+
+int blockdev_dummy_write_one_block(BD_DEVICE *self, uint64_t num, const void * buf)
+{
+	return self->write_blocks(self, num, 1, buf) ? 0 : -1;
+}
+
+size_t blockdev_dummy_read_blocks(BD_DEVICE *self, uint64_t num, size_t count, void * buf)
+{
+	size_t i;
+	for (i = 0; count; ++i, --count, ++num, buf = (char*)buf + self->block_size) {
+		if (self->read_one_block(self, num, buf)) {
+			return i;
+		}
+	}
+	return i;
+}
+
+size_t blockdev_dummy_write_blocks(BD_DEVICE *self, uint64_t num, size_t count, const void * buf)
+{
+	size_t i;
+	for (i = 0; count; ++i, --count, ++num, buf = (const char*)buf + self->block_size) {
+		if (self->write_one_block(self, num, buf)) {
+			return i;
+		}
+	}
+	return i;
+}
+

@@ -25,6 +25,24 @@ struct timeval {
 	time_t sec;
 	time_t usec;
 };
+#define TIMEVAL_VALIDATE(tv) { \
+	while ((tv).usec >= 1000000) { \
+		++(tv).sec; \
+		(tv).usec -= 1000000; \
+	} \
+	while ((tv).usec < 0) { \
+		--(tv).sec; \
+		(tv).usec += 1000000; \
+	} \
+}
+#define TIMEVAL_ADD(dest, add) { \
+	(dest).sec += (add).sec; \
+	(dest).usec += (add).usec; \
+	while ((add).usec >= 1000000) { \
+		++(dest).sec; \
+		(add).usec -= 1000000; \
+	} \
+}
 #define TIMEVAL_SUBST(end, start) { \
 	(end).sec -= (start).sec; \
 	(end).usec -= (start).usec; \
@@ -33,6 +51,10 @@ struct timeval {
 		(end).usec += 1000000; \
 	} \
 }
+#define TIMEVAL_CMP(first, second) ( \
+	((first).sec - (second).sec) ? ((first).sec - (second).sec) : ( \
+	((first).usec - (second).usec) ? ((first).usec - (second).usec) : 0) \
+)
 
 extern time_t mktime(struct tm *timeptr);
 /*

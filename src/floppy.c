@@ -27,8 +27,10 @@ BD_DEVICE fd_devices[2] = {
 		0, // uint64_t block_count; Filled in install_floppy
 		0, // uint64_t first_block_num;
 
-		(read_block_t) read_block,
-		(write_block_t) write_block
+		(read_one_block_t) read_one_block,
+		(write_one_block_t) write_one_block,
+		(read_blocks_t) 0,
+		(write_blocks_t) 0
 	},
 	{
 		{
@@ -44,8 +46,10 @@ BD_DEVICE fd_devices[2] = {
 		0, // uint64_t block_count; Filled in install_floppy
 		0, // uint64_t first_block_num;
 
-		(read_block_t) read_block,
-		(write_block_t) write_block
+		(read_one_block_t) read_one_block,
+		(write_one_block_t) write_one_block,
+		(read_blocks_t) 0,
+		(write_blocks_t) 0
 	}
 };
 
@@ -354,27 +358,31 @@ alku:
 	return 0;
 }
 
-int read_block(BD_DEVICE *self, size_t num, void * buf)
+int read_one_block(BD_DEVICE *self, uint64_t num64, void * buf)
 {
 	int sector;
 	int head;
 	int cylinder;
 	int retval;
+	size_t num = num64;
 
 	head = (num / floppy_params.sectors_per_track) & 1;
 	cylinder = num / (floppy_params.sectors_per_track * 2);
 	sector = (num % (floppy_params.sectors_per_track)) + 1;
 
 	retval = rw_sector(self->std.name[2] - '0', sector, head, cylinder,(unsigned long) fdbuf, 0);
-	memcpy(buf, fdbuf, self->block_size);
+	if (retval == 0) {
+		memcpy(buf, fdbuf, self->block_size);
+	}
 	return retval;
 }
 
-int write_block(BD_DEVICE *self, size_t num, const void * buf)
+int write_one_block(BD_DEVICE *self, uint64_t num64, const void * buf)
 {
 	int sector;
 	int head;
 	int cylinder;
+	size_t num = num64;
 
 	head = (num / floppy_params.sectors_per_track) & 1;
 	cylinder = num / (floppy_params.sectors_per_track * 2);

@@ -10,8 +10,10 @@ struct _BD_FILE;
 typedef struct _BD_DEVICE BD_DEVICE;
 typedef struct _BD_FILE BD_FILE;
 
-typedef int (*read_block_t)(BD_DEVICE *self, size_t num, void * buf);
-typedef int (*write_block_t)(BD_DEVICE *self, size_t num, const void * buf);
+typedef int (*read_one_block_t)(BD_DEVICE *self, uint64_t num, void * buf);
+typedef int (*write_one_block_t)(BD_DEVICE *self, uint64_t num, const void * buf);
+typedef size_t (*read_blocks_t)(BD_DEVICE *self, uint64_t num, size_t count, void * buf);
+typedef size_t (*write_blocks_t)(BD_DEVICE *self, uint64_t num, size_t count, const void * buf);
 
 struct _BD_DEVICE {
 	DEVICE std;
@@ -20,8 +22,10 @@ struct _BD_DEVICE {
 	uint64_t block_count;
 	uint64_t first_block_num;
 
-	read_block_t read_block;
-	write_block_t write_block;
+	read_one_block_t read_one_block;
+	write_one_block_t write_one_block;
+	read_blocks_t read_blocks;
+	write_blocks_t write_blocks;
 };
 
 struct _BD_FILE {

@@ -16,6 +16,9 @@ typedef enum {
 	DEV_TYPE_NONE = 0,
 	DEV_TYPE_OTHER = 1,
 	DEV_TYPE_FLOPPY = 2,
+	DEV_TYPE_HARDDISK = 3,
+	DEV_TYPE_CDROM = 4,
+	DEV_TYPE_HARDDISK_REMOVABLE = 5,
 	DEV_TYPE_ERROR = 0xffffffff
 } dev_type_t;
 
@@ -38,7 +41,7 @@ struct device {
 	const char *name;
 	dev_class_t dev_class;
 	dev_type_t dev_type;
-	size_t index;
+	size_t index; // device_insert sets this.
 	devopen_t devopen;
 	devrm_t remove;
 };
