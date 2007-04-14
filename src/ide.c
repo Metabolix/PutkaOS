@@ -7,11 +7,12 @@
 #include <string.h>
 
 // tuetaan ide-kontrolleri 0:aa ja 1:stä
-static ide_controller_t ide_ports[2] = {
+static ide_controller_t ide_ports[IDE_NUM_CONTROLLERS] = {
 	{ 0x01F0, 0x01F1, 0x01F2, 0x01F3, 0x01F4, 0x01F5, 0x01F6, 0x01F7, 0x03F6 },
 	{ 0x0170, 0x0171, 0x0172, 0x0173, 0x0174, 0x0175, 0x0176, 0x0177, 0x0376 }
 };
 
+ide_device_t ide_devices[IDE_NUM_DEVICES];
 
 const BD_DEVICE ide_blockdev = {
 	{
@@ -30,8 +31,6 @@ const BD_DEVICE ide_blockdev = {
 	(read_blocks_t)  ata_read,
 	(write_blocks_t) ata_write
 };
-
-ide_device_t ide_devices[NUM_DEVICES];
 
 // kääntää kirjaimet oikein päin, BADC => ABCD
 int ide_ascii_rotate(char * str)
@@ -62,8 +61,8 @@ void ide_probe(void)
 {
 	int controller, dev_loop;
 
-	for (controller = 0; controller < NUM_CONTROLLERS; controller++) {
-		for (dev_loop = 0; dev_loop < DEVICES_PER_CONTROLLER; dev_loop++) {
+	for (controller = 0; controller < IDE_NUM_CONTROLLERS; controller++) {
+		for (dev_loop = 0; dev_loop < IDE_DEVICES_PER_CONTROLLER; dev_loop++) {
 			int d = dev_loop + (controller * 2);
 			ide_identify_device(controller, d);
 		}
@@ -74,8 +73,8 @@ int ide_select_device(uint_t device)
 {
 	unsigned char data;
 
-	if (device >= NUM_DEVICES) {
-		return ATA_ERROR_INVALID_PARAMETER;
+	if (device >= IDE_NUM_DEVICES) {
+		return IDE_ERROR_INVALID_PARAMETER;
 	}
 
 	//	      device 0 vai 1
@@ -88,8 +87,8 @@ int ide_select_device(uint_t device)
 
 int ide_reset(uint_t controller)
 {
-	if (controller >= NUM_CONTROLLERS) {
-		return ATA_ERROR_INVALID_PARAMETER;
+	if (controller >= IDE_NUM_CONTROLLERS) {
+		return IDE_ERROR_INVALID_PARAMETER;
 	}
 
 	outportb(ide_ports[controller].altComStat, 0x04);
@@ -161,7 +160,7 @@ void ide_identify_device(uint_t controller, uint_t device)
 	if (cl == 0x3c && ch == 0xc3)
 		ide_devices[device].type = SATA;
 
-	if (ide_devices[device].type & ATA_DEV_UNKNOWN) {
+	if (ide_devices[device].type & IDE_DEV_UNKNOWN) {
 		return;
 	}
 #endif
@@ -174,23 +173,23 @@ void ide_identify_device(uint_t controller, uint_t device)
 	ide_devices[device].blockdev.std.dev_class = DEV_CLASS_BLOCK;
 	switch (cyl) {
 		case 0x9669:
-			ide_devices[device].ide_type |= ATA_DEV_SERIAL;
+			ide_devices[device].ide_type |= IDE_DEV_SERIAL;
 		case 0xeb14:
-			ide_devices[device].ide_type |= ATA_DEV_ATAPI;
-			ide_devices[device].ide_type |= ATA_DEV_KNOWN;
+			ide_devices[device].ide_type |= IDE_DEV_ATAPI;
+			ide_devices[device].ide_type |= IDE_DEV_KNOWN;
 			break;
 
 		case 0xc33c:
-			ide_devices[device].ide_type |= ATA_DEV_SERIAL;
+			ide_devices[device].ide_type |= IDE_DEV_SERIAL;
 		case 0:
-			ide_devices[device].ide_type |= ATA_DEV_KNOWN;
+			ide_devices[device].ide_type |= IDE_DEV_KNOWN;
 			break;
 		default:
 			ide_devices[device].blockdev.std.dev_type = DEV_TYPE_ERROR;
 			return; // Ei tunneta, pois.
 	}
 
-	if (ide_devices[device].ide_type & ATA_DEV_ATAPI) {
+	if (ide_devices[device].ide_type & IDE_DEV_ATAPI) {
 		// on ATAPI
 		atapi_identify(device, buffer);
 		// tyyppi CD-ROM
@@ -235,8 +234,8 @@ int ide_wait (uint_t device)
 	struct timeval alkuaika, nytaika;
 
 	get_uptime(&alkuaika);
-	alkuaika.sec += TIMEOUT / 1000000;
-	alkuaika.usec += TIMEOUT % 1000000;
+	alkuaika.sec += IDE_TIMEOUT / 1000000;
+	alkuaika.usec += IDE_TIMEOUT % 1000000;
 	TIMEVAL_VALIDATE(alkuaika);
 
 	for (;;) {
@@ -246,7 +245,7 @@ int ide_wait (uint_t device)
 
 		get_uptime(&nytaika);
 		if (TIMEVAL_CMP(alkuaika, nytaika) <= 0) {
-			return ATA_ERROR_TIMED_OUT;
+			return IDE_ERROR_TIMED_OUT;
 		}
 	}
 	return 0;
