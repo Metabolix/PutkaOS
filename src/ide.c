@@ -14,6 +14,8 @@ static ide_controller_t ide_ports[IDE_NUM_CONTROLLERS] = {
 
 ide_device_t ide_devices[IDE_NUM_DEVICES];
 
+uint_t used_controllers;
+
 const BD_DEVICE ide_blockdev = {
 	{
 		0,
@@ -45,6 +47,18 @@ int ide_ascii_rotate(char * str)
 	return 0;
 }
 
+int ide_controller_exists(uint_t controller)
+{
+	outportb(ide_ports[controller].sectorNumber, 0x88);
+	kwait(0, 1000);
+
+	if (inportb(ide_ports[controller].sectorNumber) != 0x88) {
+		return IDE_ERROR_DOESNT_EXIST;
+	}
+
+	return 0;
+}
+
 int ide_init(void)
 {
 /*
@@ -53,6 +67,19 @@ int ide_init(void)
 		memset(&ide_devices[i], 0, sizeof(ide_device_t));
 	}
 */
+
+	// katsotaan monta controlleria on käytössä
+
+	uint_t controller;
+
+	used_controllers = 0;
+
+	for (controller = 0; controller < IDE_NUM_CONTROLLERS; controller++) {
+		if (ide_controller_exists(controller) == 0) {
+			used_controllers |= (0x01 << controller);
+		}
+	}
+
 	ide_probe();
 	return 0;
 }
@@ -63,8 +90,10 @@ void ide_probe(void)
 
 	for (controller = 0; controller < IDE_NUM_CONTROLLERS; controller++) {
 		for (dev_loop = 0; dev_loop < IDE_DEVICES_PER_CONTROLLER; dev_loop++) {
-			int d = dev_loop + (controller * 2);
-			ide_identify_device(controller, d);
+			if (used_controllers & (0x01 << controller)) {
+				int d = dev_loop + (controller * 2);
+				ide_identify_device(controller, d);
+			}
 		}
 	}
 }
@@ -87,7 +116,7 @@ int ide_select_device(uint_t device)
 
 int ide_reset(uint_t controller)
 {
-	if (controller >= IDE_NUM_CONTROLLERS) {
+	if (controller >= used_controllers) {
 		return IDE_ERROR_INVALID_PARAMETER;
 	}
 
