@@ -4,7 +4,6 @@
 #include <timer.h>
 #include <io.h>
 #include <filesys/mount.h>
-#include <floppy.h>
 #include <string.h>
 
 #include <sh_komennot.h>
@@ -30,6 +29,39 @@ struct sh_komento komentotaulu[] = {
 	{0, 0, sh_ei_tunnistettu} /* Terminaattori */
 };
 struct sh_komento *komennot = komentotaulu;
+
+int sh_read_int(char **bufptr)
+{
+	char *buf = *bufptr;
+	int retval = 0;
+	if (buf[0] == '0') {
+		if (buf[1] == 'x') {
+			++buf;
+			while (++buf) if (*buf <= '9' && *buf >= '0') {
+				retval = 16 * retval + *buf - '0';
+			} else if (*buf <= 'f' && *buf >= 'a') {
+				retval = 16 * retval + 10 + *buf - 'a';
+			} else if (*buf <= 'F' && *buf >= 'A') {
+				retval = 16 * retval + 10 + *buf - 'A';
+			} else {
+				break;
+			}
+		} else {
+			while (++buf) if (*buf <= '7' && *buf >= '0') {
+				retval = 8 * retval + *buf - '0';
+			} else {
+				break;
+			}
+		}
+	} else {
+		while (*buf && (*buf <= '9' && *buf >= '0')) {
+			retval = 10 * retval + *buf - '0';
+			++buf;
+		}
+	}
+	*bufptr = buf;
+	return retval;
+}
 
 void sh_mountrw(char *dev_point)
 {
@@ -147,39 +179,6 @@ void sh_key_names(char *buf)
 		}
 		kprintf("(mods: %#06x), %#04x - '%s' (%s)\n", kb_mods, ch & 255, nappien_nimet_qwerty[ch & 255], (ch & 256) ? "up" : "down");
 	}
-}
-
-int sh_read_int(char **bufptr)
-{
-	char *buf = *bufptr;
-	int retval = 0;
-	if (buf[0] == '0') {
-		if (buf[1] == 'x') {
-			++buf;
-			while (++buf) if (*buf <= '9' && *buf >= '0') {
-				retval = 16 * retval + *buf - '0';
-			} else if (*buf <= 'f' && *buf >= 'a') {
-				retval = 16 * retval + 10 + *buf - 'a';
-			} else if (*buf <= 'F' && *buf >= 'A') {
-				retval = 16 * retval + 10 + *buf - 'A';
-			} else {
-				break;
-			}
-		} else {
-			while (++buf) if (*buf <= '7' && *buf >= '0') {
-				retval = 8 * retval + *buf - '0';
-			} else {
-				break;
-			}
-		}
-	} else {
-		while (*buf && (*buf <= '9' && *buf >= '0')) {
-			retval = 10 * retval + *buf - '0';
-			++buf;
-		}
-	}
-	*bufptr = buf;
-	return retval;
 }
 
 void sh_help(char *buf)

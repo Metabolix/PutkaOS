@@ -1,10 +1,10 @@
-#include <ide.h>
+#include <storage/ide.h>
 #include <io.h>
-#include <screen.h>
 #include <timer.h>
 #include <time.h>
-#include <mem.h>
 #include <string.h>
+
+#include <screen.h>
 
 // tuetaan ide-kontrolleri 0:aa ja 1:stä
 static ide_controller_t ide_ports[IDE_NUM_CONTROLLERS] = {
@@ -258,6 +258,21 @@ void ide_identify_device(uint_t controller, uint_t device)
 	device_insert((DEVICE*) &ide_devices[device]);
 }
 
+int ide_wait_condition(uint_t device)
+{
+	if (device < IDE_NUM_DEVICES) {
+		if (inportb(ide_ports[device / 2].comStat) & 0x08) {
+			return 0;
+		}
+	}
+	return -1;
+}
+
+int ide_wait(uint_t device)
+{
+	return kwait_until_0(0, IDE_TIMEOUT, (waitfunc_t) ide_wait_condition, (waitparam_t) device) ? IDE_ERROR_TIMED_OUT : 0;
+}
+/*
 int ide_wait (uint_t device)
 {
 	struct timeval alkuaika, nytaika;
@@ -279,6 +294,7 @@ int ide_wait (uint_t device)
 	}
 	return 0;
 }
+*/
 
 int ata_read_next_sector (uint_t device, uint16_t * buf)
 {

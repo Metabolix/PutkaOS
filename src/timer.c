@@ -3,7 +3,6 @@
 #include <idt.h>
 #include <timer.h>
 #include <io.h>
-#include <floppy.h>
 #include <mem.h>
 
 #include <int64.h>
@@ -183,7 +182,7 @@ __asm__(
 "    ret\n"
 );
 
-unsigned char xD(unsigned char a)
+unsigned char xD(unsigned char a) // 0x64 => 64 xD
 {
 	return ((10*(a>>4))+(a&0x0f));
 }
@@ -219,4 +218,20 @@ void kwait(time_t sec, time_t usec)
 	extern void taikatemppu();
 	while (jatkoaika.sec > uptime.sec) taikatemppu();
 	while ((jatkoaika.sec == uptime.sec) && (jatkoaika.usec > uptime.usec)) taikatemppu();
+}
+
+int kwait_until_0(time_t sec, time_t usec, waitfunc_t until_0, waitparam_t param)
+{
+	struct timeval j = uptime;
+	j.usec += usec;
+	j.sec += sec;
+	j.sec += (j.usec / 1000000);
+	j.usec %= 1000000;
+	while (j.sec > uptime.sec) {
+		if (until_0(param) == 0) return 0;
+	}
+	while ((j.sec == uptime.sec) && (j.usec > uptime.usec)) {
+		if (until_0(param) == 0) return 0;
+	}
+	return -1;
 }

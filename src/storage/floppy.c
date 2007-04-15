@@ -1,4 +1,5 @@
-#include <floppy.h>
+#include <storage/floppy.h>
+#include <storage/blockdev.h>
 #include <mem.h>
 #include <io.h>
 #include <irq.h>
@@ -6,7 +7,6 @@
 #include <bit.h>
 #include <timer.h>
 #include <panic.h>
-#include <blockdev.h>
 
 floppy_parameters floppy_params;
 int cylinder, status_0;

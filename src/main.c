@@ -11,7 +11,6 @@
 #include <panic.h>
 #include <malloc.h>
 #include <timer.h>
-#include <floppy.h>
 #include <multiboot.h>
 #include <regs.h>
 #include <sh.h>
@@ -21,7 +20,8 @@
 #include <string.h>
 //#include <mouse.h>
 #include <filesys/mount.h>
-#include <ide.h>
+#include <storage/ide.h>
+#include <storage/floppy.h>
 
 void testattava_koodi();
 

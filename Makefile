@@ -9,14 +9,24 @@ ASMFLAGS=-f elf
 ASM_SOURCES=start.s gdt_asm.s irq_asm.s isrs.s bit.s thread_asm.s io.s
 
 C_SOURCES_STDROUTINES=string.c mem.c
+
 C_SOURCES_MEM=memory.c malloc.c
+
 C_SOURCES_MULTITASK=thread.c process.c
+
+# Storage
+C_SOURCES_STORAGE_1=blockdev.c floppy.c ide.c
+C_SOURCES_STORAGE=$(addprefix storage/,$(C_SOURCES_STORAGE_1))
+
+# File system
 C_SOURCES_FS_1=mount.c filesystem.c pseudofsdriver.c file.c dir.c fat.c fat16.c
 C_SOURCES_FS=$(addprefix filesys/,$(C_SOURCES_FS_1))
-C_SOURCES_OTHER=gdt.c isr.c main.c panic.c floppy.c idt.c irq.c keyboard.c screen.c regs.c devmanager.c spinlock.c lcdscreen.c ide.c
-C_SOURCES_OTHER_OPT=int64.c blockdev.c timer.c kprintf.c sh.c sh_komennot.c time.c
 
-C_SOURCES=$(C_SOURCES_MEM) $(C_SOURCES_MULTITASK) $(C_SOURCES_OTHER)
+# Misc
+C_SOURCES_OTHER=gdt.c isr.c main.c panic.c idt.c irq.c keyboard.c screen.c regs.c devmanager.c spinlock.c lcdscreen.c
+C_SOURCES_OTHER_OPT=int64.c timer.c kprintf.c sh.c sh_komennot.c time.c
+
+C_SOURCES=$(C_SOURCES_MEM) $(C_SOURCES_MULTITASK) $(C_SOURCES_STORAGE) $(C_SOURCES_OTHER)
 C_SOURCES_OPTIMIZE=$(C_SOURCES_OTHER_OPT) $(C_SOURCES_STDROUTINES) $(C_SOURCES_FS)
 
 ASM_SRC=$(addprefix src/,$(ASM_SOURCES))
