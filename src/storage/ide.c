@@ -3,6 +3,7 @@
 #include <timer.h>
 #include <time.h>
 #include <string.h>
+#include <endian.h>
 
 #include <screen.h>
 
@@ -34,17 +35,19 @@ const BD_DEVICE ide_blockdev = {
 	(write_blocks_t) ata_write
 };
 
-// kääntää kirjaimet oikein päin, BADC => ABCD
-int ide_ascii_rotate(char * str)
+int ide_wait_condition(uint_t device)
 {
-	char temp;
-	int i;
-	for (i = 0; i < strlen(str); i += 2) {
-		temp = str[i];
-		str[i] = str[i+1];
-		str[i+1] = temp;
+	if (device < IDE_NUM_DEVICES) {
+		if (inportb(ide_ports[device >> 1].comStat) & 0x08) {
+			return 0;
+		}
 	}
-	return 0;
+	return -1;
+}
+
+int ide_wait(uint_t device)
+{
+	return kwait_until_0(0, IDE_TIMEOUT, (waitfunc_t) ide_wait_condition, (waitparam_t) device) ? IDE_ERROR_TIMED_OUT : 0;
 }
 
 int ide_controller_exists(uint_t controller)
@@ -61,16 +64,8 @@ int ide_controller_exists(uint_t controller)
 
 int ide_init(void)
 {
-/*
-	int i;
-	for (i = 0; i < NUM_DEVICES; i++) {
-		memset(&ide_devices[i], 0, sizeof(ide_device_t));
-	}
-*/
-
-	// katsotaan monta controlleria on käytössä
-
-	uint_t controller;
+	// Lasketaan kontrollerit
+	int controller;
 
 	used_controllers = 0;
 
@@ -109,7 +104,7 @@ int ide_select_device(uint_t device)
 	//	      device 0 vai 1
 	data = ((device & 0x01) << 4) | 0xA0;
 
-	outportb(ide_ports[device / 2].driveHead, data);
+	outportb(ide_ports[device >> 1].driveHead, data);
 
 	return 0;
 }
@@ -139,14 +134,16 @@ int ide_reset(uint_t controller)
 
 int ata_identify (uint_t device, void * buf)
 {
-	outportb(ide_ports[device / 2].data,            0x00);
-	outportb(ide_ports[device / 2].sectorCount,     0x00);
-	outportb(ide_ports[device / 2].sectorNumber,    0x00);
-	outportb(ide_ports[device / 2].cylinderLow,     0x00);
-	outportb(ide_ports[device / 2].cylinderHigh,    0x00);
+	outportb(ide_ports[device >> 1].data,            0x00);
+	outportb(ide_ports[device >> 1].sectorCount,     0x00);
+	outportb(ide_ports[device >> 1].sectorNumber,    0x00);
+	outportb(ide_ports[device >> 1].cylinderLow,     0x00);
+	outportb(ide_ports[device >> 1].cylinderHigh,    0x00);
 	ide_select_device(device);
-	outportb(ide_ports[device / 2].comStat,         0xEC);
-	ide_wait(device);
+	outportb(ide_ports[device >> 1].comStat,         0xEC);
+	if (ide_wait(device)) {
+		return IDE_ERROR_TIMED_OUT;
+	}
 	ata_read_next_sector(device, (uint16_t*)buf);
 	return 0;
 }
@@ -154,8 +151,10 @@ int ata_identify (uint_t device, void * buf)
 int atapi_identify (uint_t device, void * buf)
 {
 	ide_select_device(device);
-	outportb(ide_ports[device / 2].comStat, 0xA1);
-	ide_wait(device);
+	outportb(ide_ports[device >> 1].comStat, 0xA1);
+	if (ide_wait(device)) {
+		return IDE_ERROR_TIMED_OUT;
+	}
 	ata_read_next_sector(device, (uint16_t*)buf);
 	return 0;
 }
@@ -173,33 +172,12 @@ void ide_identify_device(uint_t controller, uint_t device)
 	if (inportb(ide_ports[controller].sectorCount) != 1 || inportb(ide_ports[controller].sectorNumber) != 1) {
 		return;
 	}
-#if 0
-	unsigned cl = inportb(ide_ports[controller].cylinderLow);
-	unsigned ch = inportb(ide_ports[controller].cylinderHigh);
-
-	if (cl == 0x14 && ch == 0xEB)
-		ide_devices[device].type = PATAPI;
-
-	if (cl == 0x69 && ch == 0x96)
-		ide_devices[device].type = SATAPI;
-
-	if (cl == 0 && ch == 0)
-		ide_devices[device].type = PATA;
-
-	if (cl == 0x3c && ch == 0xc3)
-		ide_devices[device].type = SATA;
-
-	if (ide_devices[device].type & IDE_DEV_UNKNOWN) {
-		return;
-	}
-#endif
 
 	inportb(ide_ports[controller].comStat); // tarpeellinen?
 	unsigned short cyl =
 		+ (inportb(ide_ports[controller].cylinderLow))
 		+ (inportb(ide_ports[controller].cylinderHigh) << 8);
 
-	ide_devices[device].blockdev.std.dev_class = DEV_CLASS_BLOCK;
 	switch (cyl) {
 		case 0x9669:
 			ide_devices[device].ide_type |= IDE_DEV_SERIAL;
@@ -234,12 +212,9 @@ void ide_identify_device(uint_t controller, uint_t device)
 		ide_devices[device].blockdev.std.dev_type = DEV_TYPE_HARDDISK;
 	}
 
-	memcpy(ide_devices[device].serial_number, buffer + 10, 20);
-	memcpy(ide_devices[device].firmware, buffer + 23, 8);
-	memcpy(ide_devices[device].model, buffer + 27, 40);
-	ide_ascii_rotate(ide_devices[device].serial_number);
-	ide_ascii_rotate(ide_devices[device].firmware);
-	ide_ascii_rotate(ide_devices[device].model);
+	word_bytes_swap_memcpy(ide_devices[device].serial_number, buffer + 10, 20);
+	word_bytes_swap_memcpy(ide_devices[device].firmware, buffer + 23, 8);
+	word_bytes_swap_memcpy(ide_devices[device].model, buffer + 27, 40);
 
 	if (buffer[0] & 0x80) {
 		ide_devices[device].removable = 1;
@@ -258,49 +233,11 @@ void ide_identify_device(uint_t controller, uint_t device)
 	device_insert((DEVICE*) &ide_devices[device]);
 }
 
-int ide_wait_condition(uint_t device)
-{
-	if (device < IDE_NUM_DEVICES) {
-		if (inportb(ide_ports[device / 2].comStat) & 0x08) {
-			return 0;
-		}
-	}
-	return -1;
-}
-
-int ide_wait(uint_t device)
-{
-	return kwait_until_0(0, IDE_TIMEOUT, (waitfunc_t) ide_wait_condition, (waitparam_t) device) ? IDE_ERROR_TIMED_OUT : 0;
-}
-/*
-int ide_wait (uint_t device)
-{
-	struct timeval alkuaika, nytaika;
-
-	get_uptime(&alkuaika);
-	alkuaika.sec += IDE_TIMEOUT / 1000000;
-	alkuaika.usec += IDE_TIMEOUT % 1000000;
-	TIMEVAL_VALIDATE(alkuaika);
-
-	for (;;) {
-		if (inportb(ide_ports[device / 2].comStat) & 0x08) {
-			return 0;
-		}
-
-		get_uptime(&nytaika);
-		if (TIMEVAL_CMP(alkuaika, nytaika) <= 0) {
-			return IDE_ERROR_TIMED_OUT;
-		}
-	}
-	return 0;
-}
-*/
-
 int ata_read_next_sector (uint_t device, uint16_t * buf)
 {
 	int i;
 	for (i = 0; i < 256; i++) {
-		buf[i] = inportw(ide_ports[device / 2].data);
+		buf[i] = inportw(ide_ports[device >> 1].data);
 	}
 
 	return 0;
@@ -311,7 +248,7 @@ int ata_write_next_sector (uint_t device, uint16_t * buf)
 	int i;
 
 	for (i = 0; i < 256; i++) {
-		outportw(ide_ports[device / 2].data, buf[i]);
+		outportw(ide_ports[device >> 1].data, buf[i]);
 	}
 
 	return 0;
@@ -319,16 +256,12 @@ int ata_write_next_sector (uint_t device, uint16_t * buf)
 
 int setup_LBA (uint_t device, uint64_t sector, uint8_t count)
 {
-	// Sektorien määrä joita siis säädetään
-	outportb(ide_ports[device / 2].sectorCount, count);
-	// osoitteen bitit 1 -> 8
-	outportb(ide_ports[device / 2].sectorNumber, sector);
-	// osoitteen bitit 9 -> 16
-	outportb(ide_ports[device / 2].cylinderLow, sector >> 8);
-	// osoitteen bitit 17 -> 24
-	outportb(ide_ports[device / 2].cylinderHigh, sector >> 16);
+	outportb(ide_ports[device >> 1].sectorCount, count);
+	outportb(ide_ports[device >> 1].sectorNumber, sector);
+	outportb(ide_ports[device >> 1].cylinderLow, sector >> 8);
+	outportb(ide_ports[device >> 1].cylinderHigh, sector >> 16);
 	// osoitteen bitit 25 -> 28 + laitteen tunnus, käytetään LBA:ta ym.
-	outportb(ide_ports[device / 2].driveHead, 0xE0 | ((device & 0x01) << 4) | (((uint32_t)sector >> 24) & 0x0F));
+	outportb(ide_ports[device >> 1].driveHead, 0xE0 | ((device & 0x01) << 4) | (((uint32_t)sector >> 24) & 0x0F));
 
 	return 0;
 }
@@ -340,12 +273,12 @@ size_t ata_rw_some (uint_t device, uint64_t sector, uint8_t count, char * buf, a
 
 	setup_LBA(device, sector, count);
 	// lukukomento
-	outportb(ide_ports[device / 2].comStat, 0x20);
+	outportb(ide_ports[device >> 1].comStat, 0x20);
 
 	retval = 0;
 	for (i = 0; i < count; i++) {
-		ide_wait(device);
-		if (rw_next_sector(device, (uint16_t*)(buf + i * IDE_BYTES_PER_SECTOR)) != 0) {
+		if ((ide_wait(device) != 0)
+		|| (rw_next_sector(device, (uint16_t*)(buf + i * IDE_BYTES_PER_SECTOR)) != 0)) {
 			return retval;
 		}
 		++retval;

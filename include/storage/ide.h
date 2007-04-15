@@ -58,7 +58,6 @@ typedef struct ide_device {
 
 typedef int (*ata_rw_next_sector_t) (uint_t device, uint16_t * buf);
 
-int ide_ascii_rotate(char * str);
 int ide_select_device(uint_t device);
 int ide_reset(uint_t controller);
 void ide_identify_device(uint_t controller, uint_t device);
