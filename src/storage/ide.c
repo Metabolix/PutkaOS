@@ -227,7 +227,7 @@ void ide_identify_device(uint_t controller, uint_t device)
 	name[1] = controller + '0';
 	name[2] = 'd';
 	name[3] = (device&1) + '0';
-	name[5] = 0;
+	name[4] = 0;
 	ide_devices[device].blockdev.std.name = name;
 
 	// Lahjoitetaan se devmanagerille
@@ -237,6 +237,8 @@ void ide_identify_device(uint_t controller, uint_t device)
 	switch (ide_devices[device].blockdev.std.dev_type) {
 		case DEV_TYPE_HARDDISK:
 			hdd_read_partitions(&ide_devices[device]);
+			break;
+		default:
 			break;
 	}
 }
@@ -341,6 +343,5 @@ int ata_safely_remove(ide_device_t *device)
 	if (!device || !device->removable) {
 		return -1; // Fail
 	}
-	kfree((void*) device->blockdev.std.name);
 	return 0; // Success
 }

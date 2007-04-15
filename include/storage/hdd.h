@@ -5,6 +5,18 @@
 #include <storage/ide.h>
 #include <stdint.h>
 
+enum HDD_PART_TYPES {
+	HDD_PART_EMPTY = 0,
+	HDD_PART_LOGICAL_DOS = 0x05,
+	HDD_PART_LOGICAL_W95 = 0x0f,
+	HDD_PART_LOGICAL = 0x85,
+	HDD_PART_EFI_GPT = 0xee
+};
+#define HDD_IS_LOGICAL(x) \
+	((x) == HDD_PART_LOGICAL || \
+	(x) == HDD_PART_LOGICAL_W95 || \
+	(x) == HDD_PART_LOGICAL_DOS)
+
 struct hdd_bootrec_entry {
 	uint32_t
 		nulls :7,
@@ -30,10 +42,11 @@ struct hdd_bootrec {
 }
 __attribute__((packed));
 
-struct _hdd_partition_t {
-	BD_DEVICE blockdev;
-	ide_device_t *diskdev;
+struct _hdd_partition_device_t {
+	ide_device_t diskdev;
+	ide_device_t *parentdev;
 };
+typedef struct _hdd_partition_device_t hdd_partdev_t;
 
 extern void hdd_read_partitions(ide_device_t *dev);
 

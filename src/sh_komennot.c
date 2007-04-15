@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include <sh_komennot.h>
+void sh_hexcat(char *name);
 
 struct sh_komento komentotaulu[] = {
 	{"?", "Apua", sh_help},
@@ -23,6 +24,7 @@ struct sh_komento komentotaulu[] = {
 	{"history", "Komentohistoria", sh_history},
 	{"ls", "ls polku; listaa hakemisto", sh_ls},
 	{"cat", "cat polku; tulosta tiedoston sisalto", sh_cat},
+	{"hexcat", "hexcat polku; tulosta tiedoston sisalto tavuittain heksana", sh_hexcat},
 	{"mount", "mount laite liitospiste; liita laite pisteeseen (vain luku)", sh_mount},
 	{"mountrw", "mount laite liitospiste; liita laite pisteeseen (luku ja kirjoitus)", sh_mountrw},
 	{"umount", "umount {laite | polku}; poista laite tai liitoskohta", sh_umount},
@@ -159,6 +161,52 @@ void sh_cat(char *name)
 	fclose(f);
 }
 
+void sh_hexcat(char *name)
+{
+	int i, j, l;
+	FILE *f;
+	char buf[257];
+	fpos_t pos;
+	kprintf("hexcat '%s'\n", name);
+	f = fopen(name, "r");
+	if (!f) {
+		kprintf("sh: ls: Tiedostoa '%s' ei ole tai ei saada auki.\n", name);
+		return;
+	}
+	l = 256;
+	while (1) {
+		if (fgetpos(f, &pos)) {
+			kprintf("sh: ls: fgetpos!\n");
+			break;
+		}
+		print("\n");
+		if (fread(buf, 256, 1, f)) {
+			for (j = 0; j < 256; j += i) {
+				for (i = 0; i < 16; ++i) {
+					kprintf("%02x ", (int)(unsigned char)buf[j+i]);
+				}
+				print("\n");
+			}
+		} else {
+			if (fsetpos(f, &pos)) {
+				kprintf("sh: ls: fsetpos!\n");
+				break;
+			}
+			l = fread(buf, 1, 256, f);
+			for (j = 0; j < l; j += i) {
+				for (i = 0; i < 16 && j+i < l; ++i) {
+					kprintf("%02x ", (int)(unsigned char)buf[j+i]);
+				}
+				print("\n");
+			}
+			break;
+		}
+		kwait(0, 500000);
+	}
+	putch('\n');
+	fclose(f);
+}
+
 void sh_history(char *buf)
 {
 	int i;
@@ -260,6 +308,7 @@ void sh_exit(char *buf)
 	0};
 	const char **rivi, *merkki;
 	putch('\n');
+	set_colour(7);
 	for (rivi = dont_panic_xpm; *rivi; ++rivi) {
 		print("  ");
 		for (merkki = *rivi; *merkki; ++merkki) {
