@@ -1,4 +1,5 @@
 #include <storage/ide.h>
+#include <storage/hdd.h>
 #include <io.h>
 #include <timer.h>
 #include <time.h>
@@ -231,6 +232,13 @@ void ide_identify_device(uint_t controller, uint_t device)
 
 	// Lahjoitetaan se devmanagerille
 	device_insert((DEVICE*) &ide_devices[device]);
+
+	// Osiot yms...
+	switch (ide_devices[device].blockdev.std.dev_type) {
+		case DEV_TYPE_HARDDISK:
+			hdd_read_partitions(&ide_devices[device]);
+			break;
+	}
 }
 
 int ata_read_next_sector (uint_t device, uint16_t * buf)

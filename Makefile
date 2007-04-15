@@ -15,7 +15,7 @@ C_SOURCES_MEM=memory.c malloc.c
 C_SOURCES_MULTITASK=thread.c process.c
 
 # Storage
-C_SOURCES_STORAGE_1=blockdev.c floppy.c ide.c
+C_SOURCES_STORAGE_1=blockdev.c floppy.c ide.c hdd.c
 C_SOURCES_STORAGE=$(addprefix storage/,$(C_SOURCES_STORAGE_1))
 
 # File system
