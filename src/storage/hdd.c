@@ -3,21 +3,75 @@
 #include <storage/blockdev.h>
 #include <debugprint.h>
 #include <panic.h>
+#include <string.h>
+#include <malloc.h>
 
-void hdd_read_logicals(ide_device_t *dev, struct hdd_bootrec_entry *logical_entry, BD_FILE *f)
+void hdd_free_partition(hdd_partdev_t *part)
+{
+	kfree(part);
+}
+
+static void hdd_partition_found(ide_device_t *dev, struct hdd_bootrec_entry *entry, int pnum)
+{
+	int len;
+	char *nimi;
+
+	hdd_partdev_t *newdev;
+
+	len = strlen(dev->blockdev.std.name);
+	newdev = kmalloc(sizeof(hdd_partdev_t) + len + 13);
+	if (!newdev) {
+		return;
+	}
+	newdev->diskdev = *dev;
+	newdev->parentdev = dev;
+
+	newdev->diskdev.blockdev.first_block_num = entry->start_lba;
+	newdev->diskdev.blockdev.block_count = entry->sector_count;
+
+	nimi = (char*)(newdev + 1);
+	memcpy(nimi, dev->blockdev.std.name, len);
+	// sprintf(&nimi[len], "_p%d", pnum);
+	nimi[len] = '_'; nimi[len+1] = 'p'; nimi[len+2] = '0' + pnum; nimi[len+3] = 0;
+	newdev->diskdev.blockdev.std.name = nimi;
+
+	device_insert((DEVICE*) newdev);
+
+	DEBUGF("%s\n", nimi);
+}
+
+static int hdd_read_logicals(ide_device_t *dev, struct hdd_bootrec_entry *logical_entry, BD_FILE *f, int pnum)
 {
 	struct hdd_bootrec bootrec;
 	fpos_t pos;
 
-	pos = logical_entry->start_lba;
-	pos *= dev->blockdev.block_size;
-	pos += HDD_BOOTREC_SKIP;
-	if (blockdev_fsetpos(f, &pos)
-	|| blockdev_fread(&bootrec, sizeof(bootrec), 1, f) != 1
-	|| bootrec.xAA55 != 0xAA55) {
-		DEBUGP("hdd_read_logicals: Corrupted bootrec...\n");
-		return;
+	while (HDD_IS_LOGICAL(logical_entry->type)) {
+		pos = logical_entry->start_lba;
+		pos *= dev->blockdev.block_size;
+		pos += HDD_BOOTREC_SKIP;
+		if (blockdev_fsetpos(f, &pos)
+		|| blockdev_fread(&bootrec, sizeof(bootrec), 1, f) != 1
+		|| bootrec.xAA55 != 0xAA55) {
+			DEBUGP("Corrupted bootrec...\n");
+			return pnum;
+		}
+
+		bootrec.osio[0].start_lba += logical_entry->start_lba;
+		bootrec.osio[1].start_lba += logical_entry->start_lba;
+
+		if (bootrec.osio[0].type != HDD_PART_EMPTY) {
+			hdd_partition_found(dev, &bootrec.osio[0], pnum);
+			++pnum;
+		}
+		logical_entry = &bootrec.osio[1];
 	}
+	return pnum;
+}
+
+static int hdd_read_gpt(ide_device_t *dev, struct hdd_bootrec_entry *logical_entry, BD_FILE *f, int pnum)
+{
+	DEBUGP("Stub.\n");
+	return pnum;
 }
 
 void hdd_read_partitions(ide_device_t *dev)
@@ -26,34 +80,33 @@ void hdd_read_partitions(ide_device_t *dev)
 	struct hdd_bootrec bootrec;
 	fpos_t pos;
 	int i;
-
-	if (sizeof(bootrec) != 512) {
-		panic("sizeof(struct hdd_mbr) != 512, O_O");
-	}
+	int logical_pnum = 5;
 
 	pos = HDD_BOOTREC_SKIP;
 
 	// MBR & kelpoisuustarkistus
 	if (!(f = blockdev_fopen(&dev->blockdev, FILE_MODE_READ))) {
-		DEBUGP("hdd_read_partitions: Can't open blockdev...\n");
+		DEBUGP("Can't open blockdev...\n");
 		return;
 	}
 
 	if (blockdev_fsetpos(f, &pos)
 	|| blockdev_fread(&bootrec, sizeof(bootrec), 1, f) != 1
 	|| bootrec.xAA55 != 0xAA55) {
-		DEBUGP("hdd_read_partitions: Corrupted bootrec...\n");
+		DEBUGP("Corrupted bootrec...\n");
 		return;
 	}
 
 	for (i = 0; i < 4; ++i) {
-		if (!bootrec.osio[i].type) {
+		if (bootrec.osio[i].type == HDD_PART_EMPTY) {
 			continue;
-		}
-		if (bootrec.osio[i].type == 5) {
-			hdd_read_logicals(dev, &bootrec.osio[i], f);
+		} else if (HDD_IS_LOGICAL(bootrec.osio[i].type)) {
+			logical_pnum = hdd_read_logicals(dev, &bootrec.osio[i], f, logical_pnum);
+		} else if (bootrec.osio[i].type == HDD_PART_EFI_GPT) {
+			logical_pnum = hdd_read_gpt(dev, &bootrec.osio[i], f, logical_pnum);
+		} else {
+			hdd_partition_found(dev, &bootrec.osio[i], i);
 		}
 	}
-
 	blockdev_fclose(f);
 }
