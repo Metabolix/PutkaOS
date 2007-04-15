@@ -19,7 +19,7 @@ static void hdd_partition_found(ide_device_t *dev, struct hdd_bootrec_entry *ent
 	hdd_partdev_t *newdev;
 
 	len = strlen(dev->blockdev.std.name);
-	newdev = kmalloc(sizeof(hdd_partdev_t) + len + 13);
+	newdev = kmalloc(sizeof(hdd_partdev_t) + len + 12);
 	if (!newdev) {
 		return;
 	}
@@ -32,7 +32,7 @@ static void hdd_partition_found(ide_device_t *dev, struct hdd_bootrec_entry *ent
 	nimi = (char*)(newdev + 1);
 	memcpy(nimi, dev->blockdev.std.name, len);
 	// sprintf(&nimi[len], "_p%d", pnum);
-	nimi[len] = '_'; nimi[len+1] = 'p'; nimi[len+2] = '0' + pnum; nimi[len+3] = 0;
+	nimi[len] = 'p'; nimi[len+1] = '0' + pnum; nimi[len+2] = 0;
 	newdev->diskdev.blockdev.std.name = nimi;
 
 	device_insert((DEVICE*) newdev);

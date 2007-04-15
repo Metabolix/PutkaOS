@@ -284,6 +284,7 @@ void *fat16_fopen_all(struct fat16_fs *this, const char * filename, uint_t mode,
 		}
 	}
 	if (fat16_invalid_filename(buffer)) {
+		DEBUGF("(fat16_invalid_filename(buffer)), '%s'\n", filename);
 		kfree(buffer);
 		return 0;
 	}
@@ -313,6 +314,7 @@ void *fat16_fopen_all(struct fat16_fs *this, const char * filename, uint_t mode,
 	silmukka:
 		for (i = 0; rootdir_menossa ? (++i <= this->header.max_rootdir_entries) : ((i += sizeof(direntry)) <= this->bytes_per_cluster);) {
 			if (fread(&direntry, sizeof(direntry), 1, this->device) != 1) {
+				DEBUGF("(fread(&direntry, ...) != 1), '%s'\n", filename);
 				kfree(buffer);
 				return 0;
 			}
@@ -322,6 +324,7 @@ void *fat16_fopen_all(struct fat16_fs *this, const char * filename, uint_t mode,
 		}
 
 		if (rootdir_menossa) {
+			DEBUGF("(rootdir_menossa), '%s'\n", filename);
 			kfree(buffer);
 			return 0;
 		}
@@ -330,6 +333,7 @@ void *fat16_fopen_all(struct fat16_fs *this, const char * filename, uint_t mode,
 
 		// Loppuiko hakemisto kokonaan?
 		if (!FAT16_CLUSTER_USED(real_cluster)) {
+			DEBUGF("(!FAT16_CLUSTER_USED(real_cluster)), '%s'\n", filename);
 			kfree(buffer);
 			return 0;
 		}
@@ -337,6 +341,7 @@ void *fat16_fopen_all(struct fat16_fs *this, const char * filename, uint_t mode,
 		// Etsitään uusi kohta laitteesta...
 		pos = this->data_start + (real_cluster - 2) * this->bytes_per_cluster;
 		if (fsetpos(this->device, &pos)) {
+			DEBUGF("(fsetpos(this->device, &pos)), '%s'\n", filename);
 			kfree(buffer);
 			return 0;
 		}
@@ -344,16 +349,18 @@ void *fat16_fopen_all(struct fat16_fs *this, const char * filename, uint_t mode,
 	loytyi:
 		rootdir_menossa = 0;
 		if ((direntry.attributes & FAT_ATTR_SUBDIR) == 0) {
-			if (!accept_dir) {
+			for(;*buf++;);
+			if (buf < buffer + len) {
+				DEBUGF("((direntry.attributes & FAT_ATTR_SUBDIR) == 0), '%s'\n", filename);
 				return 0;
 			}
-			for(;*buf++;);
 			break;
 		}
 
 		// Onko uusi klusteri kunnossa FATin mukaan?
 		real_cluster = direntry.first_cluster;
 		if (!FAT16_CLUSTER_USED(real_cluster)) {
+			DEBUGF("(!FAT16_CLUSTER_USED(real_cluster)), '%s'\n", filename);
 			kfree(buffer);
 			return 0;
 		}
@@ -361,13 +368,20 @@ void *fat16_fopen_all(struct fat16_fs *this, const char * filename, uint_t mode,
 		// Etsitään uusi kohta laitteesta
 		pos = this->data_start + (real_cluster - 2) * this->bytes_per_cluster;
 		if (fsetpos(this->device, &pos)) {
+			DEBUGF("(fsetpos(this->device, &pos)), '%s'\n", filename);
 			kfree(buffer);
 			return 0;
 		}
 		for(;*buf++;);
 	}
 	kfree(buffer);
+
+	// Hakemiston koko noin tiedostona...
 	if (direntry.attributes & FAT_ATTR_SUBDIR) {
+		if (!accept_dir) {
+			DEBUGF("(!accept_dir), '%s'\n", filename);
+			return 0;
+		}
 		if (direntry.file_size == 0) {
 			real_cluster = direntry.first_cluster;
 			while (FAT16_CLUSTER_USED(real_cluster)) {
@@ -382,12 +396,13 @@ void *fat16_fopen_all(struct fat16_fs *this, const char * filename, uint_t mode,
 
 	// Onhan se olemassa? Ettei ole haamutiedosto...
 	if (!FAT16_CLUSTER_USED(real_cluster)) {
+		DEBUGF("(!FAT16_CLUSTER_USED(real_cluster)), '%s'\n", filename);
 		return 0;
 	}
 
 	// Avataan RO-tiedostot kiltisti
 	if ((direntry.attributes & FAT_ATTR_READONLY) && (mode & FILE_MODE_WRITE)) {
-		DEBUGF("fat16_fopen: '%s' is read-only\n", filename);
+		DEBUGF("'%s' is read-only\n", filename);
 		return 0;
 	}
 	retval = kcalloc(1, sizeof(struct fat16_file));
