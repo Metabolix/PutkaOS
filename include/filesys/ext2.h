@@ -6,7 +6,6 @@
 #define _EXT2_FS_H
 
 #include <filesys/filesystem.h>
-#include <errno.h>
 
 /*
  * The second extended filesystem constants/structures
