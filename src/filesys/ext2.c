@@ -40,8 +40,8 @@ struct ext2_inode get_ext2_inode(struct ext2_fs * ext2, unsigned int num) {
 	static struct ext2_inode inode;
 	unsigned short desc_n = (num  - 1)/ ext2->super_block->s_inodes_per_group;
 
-	if(num < 1 || num > ext2->super_block->s_inodes_count) {
-		DEBUGP("Bad inode number!\n");
+	if(num < 1) {
+		DEBUGF("Bad inode number (%d)!\n", num);
 		return inode;
 	}
 
@@ -181,8 +181,10 @@ int ext2_search_entry(struct ext2_fs * ext2, const char * filename)
 	while(filename[0] == '/' || first || filename[0]) { /* while something to parse */
 		roll:
 		first = 0;
-		if(last_inode == inode_n) {
-			if(filename[0] == '/')
+		if(last_inode == inode_n || inode_n == 0) {
+			if(inode_n == 0)
+				inode_n = last_inode;
+			if(filename[0] == '/' || !filename[0])
 				break;
 			goto error;
 		}
