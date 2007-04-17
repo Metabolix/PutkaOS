@@ -19,7 +19,7 @@ C_SOURCES_STORAGE_1=blockdev.c floppy.c ide.c hdd.c
 C_SOURCES_STORAGE=$(addprefix storage/,$(C_SOURCES_STORAGE_1))
 
 # File system
-C_SOURCES_FS_1=mount.c filesystem.c pseudofsdriver.c file.c dir.c fat.c fat16.c
+C_SOURCES_FS_1=mount.c filesystem.c pseudofsdriver.c file.c dir.c fat.c fat16.c ext2.c
 C_SOURCES_FS=$(addprefix filesys/,$(C_SOURCES_FS_1))
 
 # Misc
@@ -38,7 +38,7 @@ C_OBJS=$(C_SRC:.c=.o)
 C_OBJS_OPTI=$(C_SRC_OPTI:.c=.o)
 OBJS=$(ASM_OBJS) $(C_OBJS)
 
-LDFLAGS=--oformat=elf32-i386
+LDFLAGS=--oformat=elf32-i386 -melf_i386
 
 all: $(ASM_OBJS) $(C_OBJS) $(C_OBJS_OPTI)
 	ld -T link.ld $(LDFLAGS) -o ./kernel $(ASM_OBJS) $(C_OBJS) $(C_OBJS_OPTI)
