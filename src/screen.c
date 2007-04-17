@@ -53,10 +53,12 @@ int move(unsigned int y, unsigned int x)
 
 void scroll_buffer(char * p, size_t count)
 {
+	#ifdef SCREEN_BUFFER
 	if (vt[cur_vt].buffer) {
 		memmove(vt[cur_vt].buffer, vt[cur_vt].buffer + count, SCREEN_BUFFER_SIZE - count);
 		memmove(vt[cur_vt].buffer + SCREEN_BUFFER_SIZE - count, p, count);
 	}
+	#endif
 }
 
 unsigned char get_colour(void)
@@ -79,6 +81,7 @@ void set_colour(unsigned char c)
 
 void change_vt(unsigned int vt_num)
 {
+	#ifdef SCREEN_BUFFER
 	if (vt_num >= VT_COUNT) {
 		return;
 	}
@@ -94,6 +97,7 @@ void change_vt(unsigned int vt_num)
 	move_cursor();
 	memcpy((void*)0xB8000, vt[cur_vt].buffer + SCREEN_BUFFER_SIZE - SCREEN_SIZE, SCREEN_SIZE);
 	do_eop();
+	#endif
 }
 /* FIXME */
 #if 0
@@ -189,11 +193,12 @@ void putch_vt(int c, unsigned int vt_num)
 			*(char*)(0xB8000 + vt[vt_num].cy * 160 + vt[vt_num].cx * 2) = c;
 			*(char*)(0xB8000 + vt[vt_num].cy * 160 + vt[vt_num].cx * 2 + 1) = vt[vt_num].colour;
 		}
-
+		#ifdef SCREEN_BUFFER
 		if(vt[vt_num].buffer) {
 			*(vt[vt_num].buffer + SCREEN_BUFFER_SIZE - SCREEN_SIZE + vt[vt_num].cy * 160 + vt[vt_num].cx * 2) = c;
 			*(vt[vt_num].buffer + SCREEN_BUFFER_SIZE - SCREEN_SIZE + vt[vt_num].cy * 160 + vt[vt_num].cx * 2 + 1) = vt[vt_num].colour;
 		}
+		#endif
 		vt[vt_num].cx++;
 	}
 

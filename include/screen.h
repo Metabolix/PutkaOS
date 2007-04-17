@@ -7,6 +7,7 @@
 #include <spinlock.h>
 #include <keyboard.h>
 
+#undef SCREEN_BUFFER
 #define SCREEN_SIZE (80*25*2)
 #define SCREEN_BUFFER_SIZE (SCREEN_SIZE*2)
 #define VT_COUNT 6
