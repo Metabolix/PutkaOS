@@ -26,7 +26,7 @@
 void testattava_koodi();
 
 const char systeemi[] = "PutkaOS";
-const char versio[] = "v0.001";
+const char versio[] = "v0.002";
 
 multiboot_info_t mbt_real;
 multiboot_info_t *mbt = &mbt_real;
@@ -77,7 +77,6 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 	kprintf("%s %s is up and running _o/\n", systeemi, versio);
 	new_thread(run_sh, 0, 0);
 	start_threading();
-	//for (;;);
 }
 
 void testattava_koodi()
