@@ -39,6 +39,7 @@ struct ext2_fs ext2_op = {
 struct ext2_inode get_ext2_inode(struct ext2_fs * ext2, unsigned int num) {
 	static struct ext2_inode inode;
 	unsigned short desc_n = (num  - 1)/ ext2->super_block->s_inodes_per_group;
+	fpos_t pos;
 
 	if(num < 1) {
 		DEBUGF("Bad inode number (%d)!\n", num);
@@ -46,20 +47,23 @@ struct ext2_inode get_ext2_inode(struct ext2_fs * ext2, unsigned int num) {
 	}
 
 	if(desc_n != ext2->group_desc_n) {
-		fseek(ext2->device, ext2->super_block->s_blocks_per_group *  ext2->block_size * desc_n, SEEK_SET);
+		pos = ((fpos_t)ext2->super_block->s_blocks_per_group) *  ext2->block_size * desc_n;
+		fsetpos(ext2->device, &pos);
 		fread(ext2->group_desc, sizeof(struct ext2_group_desc), 1, ext2->device);
 
 		ext2->group_desc_n = desc_n;
 	}
 
-	fseek(ext2->device, ext2->block_size * ext2->group_desc->bg_inode_table + (num - 1) % ext2->super_block->s_inodes_per_group * ext2->super_block->s_inode_size, SEEK_SET);
+	pos = ((fpos_t)ext2->block_size) * ext2->group_desc->bg_inode_table + (num - 1) % ext2->super_block->s_inodes_per_group * ext2->super_block->s_inode_size;
+	fsetpos(ext2->device, &pos);
 	fread(&inode, ext2->super_block->s_inode_size, 1, ext2->device);
 
 	return inode;
 }
 /* Get_block: Get a block from device*/
-char * get_block(unsigned int num, size_t size, struct ext2_fs * ext2, void * buffer) {
-	fseek(ext2->device, size * num, SEEK_SET);
+char * get_block(unsigned long long int num, size_t size, struct ext2_fs * ext2, void * buffer) {
+	fpos_t pos = size * num;
+	fsetpos(ext2->device, &pos);
 	if(fread(buffer, size, 1, ext2->device) < 1) {
 		return (char*)0;
 	}
@@ -68,7 +72,8 @@ char * get_block(unsigned int num, size_t size, struct ext2_fs * ext2, void * bu
 
 /* Get_part_block: Get a part of a block */
 char * get_part_block(unsigned int num, size_t size, struct ext2_fs * ext2, void * buffer, size_t read, unsigned int offset) {
-	fseek(ext2->device, size*num + offset, SEEK_SET);
+	fpos_t pos = size*num + offset;
+	fsetpos(ext2->device, &pos);
 	if(fread(buffer, read, 1, ext2->device) < 1) {
 		return (char*)0;
 	}
@@ -237,11 +242,10 @@ error:
 }
 
 void *ext2_fopen(struct ext2_fs *ext2, const char * filename, uint_t mode) {
-	struct ext2_file * file; /*= kmalloc(sizeof(struct ext2_file));*/
+	struct ext2_file * file;
 	struct ext2_inode inode;
 	int inode_n = ext2_search_entry(ext2, filename);
 	if(!inode_n) {
-		//kprintf("EXT2: no such entry\n");
 		return 0;
 	}
 	inode = get_ext2_inode(ext2, inode_n);
@@ -313,7 +317,22 @@ long ext2_ftell(struct ext2_file *stream) {
 }
 
 int ext2_fseek(struct ext2_file * stream, long int offset, int origin) {
-	return EOF;
+	if(origin == SEEK_SET) {
+		if(stream->std.size >= offset)
+			stream->std.pos = stream->std.size - 1;
+		else
+			stream->std.pos = offset;
+	} else if(origin == SEEK_CUR) {
+		stream->std.pos += offset;
+		if(stream->std.pos >= stream->std.size)
+			stream->std.pos = stream->std.size - 1;
+	} else if(origin == SEEK_END) {
+		stream->std.pos = stream->std.size - offset - 1;
+		if(stream->std.pos < 0)
+			stream->std.pos = 0;
+	}
+
+	return 0;
 }
 
 int ext2_dmake(struct ext2_fs * this, const char * dirname, uint_t owned, uint_t rights) {
@@ -350,60 +369,59 @@ DIR *ext2_dopen(struct ext2_fs * this, const char * dirname)
 	dir->std.size = inode.i_size;
 	dir->std.name = 0;
 	dir->inode_num = 0;
+	dir->buffer = kmalloc(this->block_size);
+	dir->pos = 0;
+	dir->block = -1;
 
 	return (DIR*)dir;
 }
 
 int ext2_dread(struct ext2_dir * listing) {
-	unsigned int found = 0;
 	struct ext2_fs * ext2 = listing->fs;
 	struct ext2_inode inode;
-	struct ext2_dir_entry_2 * dir;
-	unsigned int cur_block = 0;
-	char * block = kmalloc(ext2->block_size);
+	struct ext2_dir_entry_2 * dir = (struct ext2_dir_entry_2 *)(listing->pos + listing->buffer);
+	unsigned int cur_block = listing->block;
 
-	if(!listing->inode_num)
-		found = 1;
-
+	if(listing->block == -1) {
+		listing->block = 0;
+		cur_block = 0;
+		if(!get_block(get_iblock(listing->inode, cur_block, ext2), ext2->block_size, ext2, listing->buffer))
+			return 1;
+	}
 
 	while(cur_block * ext2->block_size < (listing->inode->i_size)) {
-		if(!get_block(get_iblock(listing->inode, cur_block, ext2), ext2->block_size, ext2, block)) {
-			return 1;
-		}
-		dir = (struct ext2_dir_entry_2 *)block;
-		while((unsigned int)dir < ((unsigned int)block + ext2->block_size)) {
-			if(dir->inode && ((dir->inode == listing->inode_num && !found) || (dir->inode != listing->inode_num && found))) {
-				if(found == 0) {
-					found = 1;
-				} else {
-					inode = get_ext2_inode(ext2, dir->inode);
+		while((unsigned int)dir < ((unsigned int)listing->buffer + ext2->block_size)) {
+			if(dir->inode) {
+				inode = get_ext2_inode(ext2, dir->inode);
 
-					listing->std.name = krealloc(listing->std.name, dir->name_len + 1);
-					memcpy(listing->std.name, dir->name, dir->name_len);
-					listing->std.name[dir->name_len] = 0;
-					listing->std.size = inode.i_size;
-					listing->std.owner = inode.i_uid;
-					listing->std.rights = inode.i_mode & 0777;
-					listing->std.created = inode.i_ctime;
-					listing->std.accessed = inode.i_atime;
-					listing->std.modified = inode.i_mtime;
-					listing->std.references = inode.i_links_count;
-					listing->inode_num = dir->inode;
+				listing->std.name = krealloc(listing->std.name, dir->name_len + 1);
+				memcpy(listing->std.name, dir->name, dir->name_len);
+				listing->std.name[dir->name_len] = 0;
+				listing->std.size = inode.i_size;
+				listing->std.owner = inode.i_uid;
+				listing->std.rights = inode.i_mode & 0777;
+				listing->std.created = inode.i_ctime;
+				listing->std.accessed = inode.i_atime;
+				listing->std.modified = inode.i_mtime;
+				listing->std.references = inode.i_links_count;
+				listing->inode_num = dir->inode;
 
-					kfree(block);
-					return 0;
-				}
+				listing->pos = ((unsigned int)dir - (unsigned int)listing->buffer) + dir->rec_len;
+				listing->block = cur_block;
+				return 0;
 			}
 			dir = (struct ext2_dir_entry_2*)((unsigned int) dir + dir->rec_len);
 		}
 		cur_block++;
+		if(!get_block(get_iblock(listing->inode, cur_block, ext2), ext2->block_size, ext2, listing->buffer))
+			return 1;
 	}
-	kfree(block);
 	return 1;
 }
 
 int ext2_dclose(struct ext2_dir *listing) {
 	kfree(listing->inode);
+	kfree(listing->buffer);
 	kfree(listing);
 
 	return 0;

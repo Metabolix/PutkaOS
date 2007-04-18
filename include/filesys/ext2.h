@@ -527,9 +527,11 @@ struct ext2_dir {
 
 	struct ext2_inode *inode;
 	int directory_inode;
-	int inode_num;
 	struct ext2_fs *fs;
-	int last_inode;
+	int inode_num;
+
+	char * buffer;
+	int pos, block;
 };
 
 extern struct fs *ext2_mount(FILE *device, uint_t mode);
