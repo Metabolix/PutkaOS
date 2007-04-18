@@ -1,7 +1,7 @@
 #include <devmanager.h>
 #include <malloc.h>
 #include <string.h>
-#include <screen.h>
+//#include <screen.h>
 
 struct fs devfs = {
 	0,0,
@@ -139,6 +139,6 @@ int device_insert(DEVICE *device)
 	}
 	list->dev = device;
 	device->index = ++free_index;
-	kprintf("Devmanager: Added device '%s' with index %d\n", device->name, device->index);
+	//kprintf("Devmanager: Added device '%s' with index %d\n", device->name, device->index);
 	return 0;
 }

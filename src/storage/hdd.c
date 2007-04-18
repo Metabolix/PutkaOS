@@ -5,13 +5,14 @@
 #include <panic.h>
 #include <string.h>
 #include <malloc.h>
+#include <stdint.h>
 
 void hdd_free_partition(hdd_partdev_t *part)
 {
 	kfree(part);
 }
 
-static void hdd_partition_found(ide_device_t *dev, struct hdd_bootrec_entry *entry, int pnum)
+static void hdd_partition_found(ide_device_t *dev, uint64_t secstart, uint64_t seccount, int pnum)
 {
 	int len;
 	char *nimi;
@@ -26,8 +27,8 @@ static void hdd_partition_found(ide_device_t *dev, struct hdd_bootrec_entry *ent
 	newdev->diskdev = *dev;
 	newdev->parentdev = dev;
 
-	newdev->diskdev.blockdev.first_block_num = entry->start_lba;
-	newdev->diskdev.blockdev.block_count = entry->sector_count;
+	newdev->diskdev.blockdev.first_block_num = secstart;
+	newdev->diskdev.blockdev.block_count = seccount;
 
 	nimi = (char*)(newdev + 1);
 	memcpy(nimi, dev->blockdev.std.name, len);
@@ -37,18 +38,28 @@ static void hdd_partition_found(ide_device_t *dev, struct hdd_bootrec_entry *ent
 
 	device_insert((DEVICE*) newdev);
 
-	DEBUGF("%s\n", nimi);
+	unsigned long secsize = newdev->diskdev.blockdev.block_size;
+	kprintf("HDD-part %s ; secs [%d, %d], %d.%03d MiB\n", nimi,
+		(int)secstart,
+		(int)(secstart + seccount) - 1,
+		(int)((seccount * secsize) >> 20),
+		(int)(((((seccount * secsize) >> 10) & 1023) * 1000) / 1024));
 }
 
 static int hdd_read_logicals(ide_device_t *dev, struct hdd_bootrec_entry *logical_entry, BD_FILE *f, int pnum)
 {
 	struct hdd_bootrec bootrec;
+	uint64_t sect;
 	fpos_t pos;
 
+	sect = 0;
+
 	while (HDD_IS_LOGICAL(logical_entry->type)) {
-		pos = logical_entry->start_lba;
-		pos *= dev->blockdev.block_size;
+		sect += logical_entry->start_lba;
+
+		pos = sect * dev->blockdev.block_size;
 		pos += HDD_BOOTREC_SKIP;
+
 		if (blockdev_fsetpos(f, &pos)
 		|| blockdev_fread(&bootrec, sizeof(bootrec), 1, f) != 1
 		|| bootrec.xAA55 != 0xAA55) {
@@ -56,11 +67,11 @@ static int hdd_read_logicals(ide_device_t *dev, struct hdd_bootrec_entry *logica
 			return pnum;
 		}
 
-		bootrec.osio[0].start_lba += logical_entry->start_lba;
-		bootrec.osio[1].start_lba += logical_entry->start_lba;
-
 		if (bootrec.osio[0].type != HDD_PART_EMPTY) {
-			hdd_partition_found(dev, &bootrec.osio[0], pnum);
+			uint64_t secstart, seccount;
+			secstart = sect + bootrec.osio[0].start_lba;
+			seccount = bootrec.osio[0].sector_count;
+			hdd_partition_found(dev, secstart, seccount, pnum);
 			++pnum;
 		}
 		logical_entry = &bootrec.osio[1];
@@ -68,7 +79,7 @@ static int hdd_read_logicals(ide_device_t *dev, struct hdd_bootrec_entry *logica
 	return pnum;
 }
 
-static int hdd_read_gpt(ide_device_t *dev, struct hdd_bootrec_entry *logical_entry, BD_FILE *f, int pnum)
+static int hdd_read_gpt(ide_device_t *dev, struct hdd_bootrec_entry *gpt_part, BD_FILE *f, int pnum)
 {
 	DEBUGP("Can't (yet) read GUID Partition Table.\n");
 	return pnum;
@@ -107,11 +118,14 @@ void hdd_read_partitions(ide_device_t *dev)
 			if (primary_lkm) {
 				logical_pnum = hdd_read_gpt(dev, &bootrec.osio[i], f, logical_pnum);
 			} else {
-				hdd_read_gpt(dev, &bootrec.osio[i], f, 1);
+				hdd_read_gpt(dev, &bootrec.osio[i], f, 0);
 				break;
 			}
 		} else {
-			hdd_partition_found(dev, &bootrec.osio[i], i);
+			uint64_t secstart, seccount;
+			secstart = bootrec.osio[i].start_lba;
+			seccount = bootrec.osio[i].sector_count;
+			hdd_partition_found(dev, secstart, seccount, i);
 			++primary_lkm;
 		}
 	}

@@ -5,9 +5,9 @@
 
 FILE *fopen_intflags(const char * filename, uint_t intmode)
 {
-	struct mountpoint *mnt;
+	const struct mountpoint *mnt;
 
-	if (!filename || !(mnt = etsi_kohta(&filename)) || !mnt->fs || !mnt->fs->filefunc.fopen) {
+	if (!filename || !(mnt = mount_etsi_kohta(&filename)) || !mnt->fs || !mnt->fs->filefunc.fopen) {
 		return 0;
 	}
 	return mnt->fs->filefunc.fopen(mnt->fs, filename, intmode);
@@ -15,12 +15,12 @@ FILE *fopen_intflags(const char * filename, uint_t intmode)
 
 FILE *fopen(const char * filename, const char * mode)
 {
-	struct mountpoint *mnt;
+	const struct mountpoint *mnt;
 	uint_t intmode = 0;
 	if (!filename || !mode) {
 		return 0;
 	}
-	mnt = etsi_kohta(&filename);
+	mnt = mount_etsi_kohta(&filename);
 
 	if (!mnt || !mnt->fs || !mnt->fs->filefunc.fopen) {
 		return 0;

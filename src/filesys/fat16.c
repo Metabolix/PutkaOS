@@ -80,8 +80,8 @@ struct fat16_fs *fat16_mount(FILE *device, uint_t mode, const struct fat_header 
 fat16_fat_t fat16_get_fat(struct fat16_fs *fs, fat16_fat_t real_cluster)
 {
 	unsigned short retval;
-	fseek(fs->device, fs->fat_start + 2*real_cluster, SEEK_SET);
-	if (fread(&retval, 1, 2, fs->device) != 1) {
+	fpos_t pos = fs->fat_start + (2 * real_cluster);
+	if (fsetpos(fs->device, &pos) || fread(&retval, 1, 2, fs->device) != 1) {
 		return 0xFFF7;
 	}
 	return retval;
@@ -94,7 +94,10 @@ fat16_fat_t fat16_set_next_cluster(struct fat16_fs *fs, fat16_fat_t cluster)
 {
 	const long int FUNC_BUF_SIZE = 256;
 	fat16_fat_t i, j, fat[FUNC_BUF_SIZE];
-	if (fseek(fs->device, fs->fat_start, SEEK_SET)) {
+	fpos_t pos;
+
+	pos = fs->fat_start;
+	if (fsetpos(fs->device, &pos)) {
 		return 0xffff;
 	}
 	for (i = j = 2; j < fs->cluster_count; j += i, i = 0) {
@@ -111,7 +114,8 @@ fat16_fat_t fat16_set_next_cluster(struct fat16_fs *fs, fat16_fat_t cluster)
 				}
 				fat[i] = 0xffff;
 				if (FAT16_CLUSTER_USED(cluster)) {
-					if (fseek(fs->device, fs->fat_start + cluster * sizeof(fat16_fat_t), SEEK_SET)) {
+					pos = fs->fat_start + cluster * sizeof(fat16_fat_t);
+					if (fsetpos(fs->device, &pos)) {
 						return 0xffff;
 					}
 					fat[0] = i + j;
@@ -128,7 +132,10 @@ fat16_fat_t fat16_set_next_cluster(struct fat16_fs *fs, fat16_fat_t cluster)
 int fat12_read_fat(struct fat16_fs *fs)
 {
 	fat16_fat_t i, *fat;
-	if (fseek(fs->device, fs->fat_start, SEEK_SET)) {
+	fpos_t pos;
+
+	pos = fs->fat_start;
+	if (fsetpos(fs->device, &pos)) {
 		return -1;
 	}
 	struct fat12_fat_duo buf;
@@ -145,7 +152,10 @@ int fat12_read_fat(struct fat16_fs *fs)
 int fat12_write_fat(struct fat16_fs *fs)
 {
 	fat16_fat_t i, *fat;
-	if (fseek(fs->device, fs->fat_start, SEEK_SET)) {
+	fpos_t pos;
+
+	pos = fs->fat_start;
+	if (fsetpos(fs->device, &pos)) {
 		return -1;
 	}
 	struct fat12_fat_duo buf;
@@ -252,13 +262,16 @@ void *fat16_fopen_all(struct fat16_fs *this, const char * filename, uint_t mode,
 	struct fat16_file *retval;
 	fpos_t pos;
 	int i;
-	int len = strlen(filename);
-	char *buffer = kmalloc(len + 1);
+	int len;
+	char *buffer;
 	char *buf;
 	char nimi[8+3];
 	unsigned short real_cluster;
 	char rootdir_menossa;
 	struct fat_direntry direntry;
+
+	len = strlen(filename);
+	buffer = kmalloc(len + 1);
 
 	if (len == 0) {
 		if (!accept_dir) {
@@ -284,7 +297,7 @@ void *fat16_fopen_all(struct fat16_fs *this, const char * filename, uint_t mode,
 		}
 	}
 	if (fat16_invalid_filename(buffer)) {
-		DEBUGF("(fat16_invalid_filename(buffer)), '%s'\n", filename);
+		DEBUGF("invalid filename, '%s'\n", filename);
 		kfree(buffer);
 		return 0;
 	}
@@ -297,7 +310,12 @@ void *fat16_fopen_all(struct fat16_fs *this, const char * filename, uint_t mode,
 
 	rootdir_menossa = 1;
 	real_cluster = 0; // Compiler wants it... Needless
-	fseek(this->device, this->rootdir_start, SEEK_SET);
+	pos = this->rootdir_start;
+	if (fsetpos(this->device, &pos)) {
+		DEBUGF("fsetpos, '%s'\n", filename);
+		kfree(buffer);
+		return 0;
+	}
 	for (buf = buffer; buf < buffer + len;) {
 		memset(nimi, ' ', sizeof(nimi));
 		for (i = 0; i < 8 && *buf && *buf != '.'; ++i, ++buf) {
@@ -417,7 +435,9 @@ void *fat16_fopen_all(struct fat16_fs *this, const char * filename, uint_t mode,
 
 int fat16_devseek(struct fat16_file *stream)
 {
-	return fseek(stream->fs->device, stream->fs->data_start + (stream->real_cluster - 2) * stream->fs->bytes_per_cluster + stream->pos_in, SEEK_SET);
+	fpos_t pos;
+	pos = stream->fs->data_start + (stream->real_cluster - 2) * stream->fs->bytes_per_cluster + stream->pos_in;
+	return fsetpos(stream->fs->device, &pos);
 }
 
 int fat16_fclose(struct fat16_file *stream)
@@ -428,7 +448,12 @@ int fat16_fclose(struct fat16_file *stream)
 
 size_t fat16_fread_rootdir(void *buf, size_t size, size_t count, struct fat16_file *stream)
 {
-	fseek(stream->fs->device, stream->fs->rootdir_start + stream->pos_in, SEEK_SET);
+	fpos_t pos;
+
+	pos = stream->fs->rootdir_start + stream->pos_in;
+	if (fsetpos(stream->fs->device, &pos)) {
+		return 0;
+	}
 	if (count * size > stream->file_size - stream->pos_in) {
 		count = (stream->file_size - stream->pos_in) / size;
 	}
@@ -439,7 +464,12 @@ size_t fat16_fread_rootdir(void *buf, size_t size, size_t count, struct fat16_fi
 
 size_t fat16_fwrite_rootdir(void *buf, size_t size, size_t count, struct fat16_file *stream)
 {
-	fseek(stream->fs->device, stream->fs->rootdir_start + stream->pos_in, SEEK_SET);
+	fpos_t pos;
+
+	pos = stream->fs->rootdir_start + stream->pos_in;
+	if (fsetpos(stream->fs->device, &pos)) {
+		return 0;
+	}
 	if (count * size > stream->file_size - stream->pos_in) {
 		count = (stream->file_size - stream->pos_in) / size;
 	}
@@ -646,6 +676,7 @@ int fat16_dclose(struct fat16_dir *listing)
 
 int fat16_dread(struct fat16_dir *listing)
 {
+	// TODO: LFN
 fat16_dread_alku:
 	if (listing->file->std.func->fread(&listing->direntry, sizeof(struct fat_direntry), 1, (FILE*)listing->file) != 1) {
 		return -1;

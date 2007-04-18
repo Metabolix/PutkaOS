@@ -8,8 +8,9 @@ struct fs *fat_mount(FILE *device, uint_t mode)
 {
 	struct fat_header fat_header;
 
-	fseek(device, 0, SEEK_SET);
-	if (fread(&fat_header, sizeof(fat_header), 1, device) != 1) {
+	fpos_t pos = 0;
+
+	if (fsetpos(device, &pos) || fread(&fat_header, sizeof(fat_header), 1, device) != 1) {
 		return 0;
 	}
 	if (fat_header.total_sectors_small) {
