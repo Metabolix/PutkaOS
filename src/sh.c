@@ -81,7 +81,7 @@ void run_sh(void)
 			if (ch == '\n' || hex == 0x9c) {
 				break;
 			}
-			if (!ch) {
+			if (!ch || ch == '\t') {
 				continue;
 			}
 			if (ch == '\b') {
