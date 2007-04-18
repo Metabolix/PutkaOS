@@ -43,8 +43,8 @@ struct _BD_FILE {
 };
 
 extern BD_FILE *blockdev_fopen(BD_DEVICE *dev, uint_t mode);
-extern void blockdev_fclose(BD_FILE *desc);
-extern void blockdev_fflush(BD_FILE *desc);
+extern int blockdev_fclose(BD_FILE *desc);
+extern int blockdev_fflush(BD_FILE *desc);
 extern size_t blockdev_fread(void *buffer, size_t size, size_t count, BD_FILE *device);
 extern size_t blockdev_fwrite(const void *buffer, size_t size, size_t count, BD_FILE *device);
 extern int blockdev_fgetpos(BD_FILE *device, fpos_t *pos);

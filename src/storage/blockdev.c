@@ -5,15 +5,8 @@
 
 #include <screen.h>
 
-int blockdev_getblock(BD_FILE *device);
-void blockdev_update_pos(BD_FILE *device);
-int blockdev_fgetpos(BD_FILE *device, fpos_t *pos);
-int blockdev_fsetpos(BD_FILE *device, const fpos_t *pos);
-void blockdev_fflush(BD_FILE *device);
-BD_FILE *blockdev_fopen(BD_DEVICE *phys, uint_t mode);
-void blockdev_fclose(BD_FILE *device);
-size_t blockdev_fread(void *buffer, size_t size, size_t count, BD_FILE *device);
-size_t blockdev_fwrite(const void *buffer, size_t size, size_t count, BD_FILE *device);
+static int blockdev_getblock(BD_FILE *device);
+static void blockdev_update_pos(BD_FILE *device);
 
 int blockdev_dummy_read_one_block(BD_DEVICE *self, uint64_t num, void * buf);
 int blockdev_dummy_write_one_block(BD_DEVICE *self, uint64_t num, const void * buf);
@@ -82,14 +75,16 @@ int blockdev_getblock(BD_FILE *device)
 	return retval;
 }
 
-void blockdev_fflush(BD_FILE *device)
+int blockdev_fflush(BD_FILE *device)
 {
 	if (device->has_read && device->has_written) {
 		if (device->phys->write_one_block(device->phys, device->phys->first_block_num + device->block_in_dev, device->buffer)) {
 			kprintf("blockdev_fflush: kirjoitus laitteeseen %s kohtaan %#010x ei onnistunut.\n", device->phys->std.name, device->block_in_dev);
+			return -1;
 		}
 		device->has_written = 0;
 	}
+	return 0;
 }
 
 /* TODO: Mode */
@@ -144,10 +139,12 @@ BD_FILE *blockdev_fopen(BD_DEVICE *phys, uint_t mode)
 	return retval;
 }
 
-void blockdev_fclose(BD_FILE *device)
+int blockdev_fclose(BD_FILE *device)
 {
-	blockdev_fflush(device);
+	int retval;
+	retval = blockdev_fflush(device);
 	kfree(device);
+	return retval;
 }
 
 size_t blockdev_fread(void *buffer, size_t size, size_t count, BD_FILE *device)
