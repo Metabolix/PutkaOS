@@ -70,7 +70,7 @@ static int hdd_read_logicals(ide_device_t *dev, struct hdd_bootrec_entry *logica
 
 static int hdd_read_gpt(ide_device_t *dev, struct hdd_bootrec_entry *logical_entry, BD_FILE *f, int pnum)
 {
-	DEBUGP("Stub.\n");
+	DEBUGP("Can't (yet) read GUID Partition Table.\n");
 	return pnum;
 }
 
@@ -80,7 +80,8 @@ void hdd_read_partitions(ide_device_t *dev)
 	struct hdd_bootrec bootrec;
 	fpos_t pos;
 	int i;
-	int logical_pnum = 5;
+	int primary_lkm = 0;
+	int logical_pnum = 4;
 
 	pos = HDD_BOOTREC_SKIP;
 
@@ -103,9 +104,15 @@ void hdd_read_partitions(ide_device_t *dev)
 		} else if (HDD_IS_LOGICAL(bootrec.osio[i].type)) {
 			logical_pnum = hdd_read_logicals(dev, &bootrec.osio[i], f, logical_pnum);
 		} else if (bootrec.osio[i].type == HDD_PART_EFI_GPT) {
-			logical_pnum = hdd_read_gpt(dev, &bootrec.osio[i], f, logical_pnum);
+			if (primary_lkm) {
+				logical_pnum = hdd_read_gpt(dev, &bootrec.osio[i], f, logical_pnum);
+			} else {
+				hdd_read_gpt(dev, &bootrec.osio[i], f, 1);
+				break;
+			}
 		} else {
 			hdd_partition_found(dev, &bootrec.osio[i], i);
+			++primary_lkm;
 		}
 	}
 	blockdev_fclose(f);
