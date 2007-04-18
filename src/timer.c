@@ -52,7 +52,7 @@ void ktimer_stop(timer_id_t timer_id)
 {
 	int i;
 	for (i = 0; i < MAX_TIMERS && timers[i].id != timer_id; ++i);
-	if (i < MAX_TIMERS) {
+	if (i < MAX_TIMERS && timers[i].active) {
 		timers[i].active = 0;
 		--timer_count;
 	}

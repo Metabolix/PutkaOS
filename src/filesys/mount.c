@@ -8,10 +8,15 @@
 #include <panic.h>
 #include <string.h>
 
-const struct mountpoint *mount_etsi_kohta(const char ** filename_ptr)
-{
-	return etsi_kohta(filename_ptr);
-}
+/*
+ * Internals
+ */
+static const char *parse_mboot_device_root(unsigned long mboot_device);
+static const char *parse_mboot_cmdline_root(const char *str);
+static struct mountpoint *etsi_laite_rek(const char * device_name, struct mountpoint *mnt);
+static struct mountpoint *etsi_kohta(const char ** filename_ptr);
+static int umount_array(struct mountpoint *array, size_t size);
+static int umount_point(struct mountpoint *mnt, struct mountpoint *ret);
 
 #define MAKE_NULL(b, a); {if (a) { b(a); (a) = 0; }}
 
@@ -19,11 +24,13 @@ char tyhja_string[1] = "";
 struct mountpoint root = {
 	tyhja_string, "/", tyhja_string,
 	0, 0,
+	0,
 	0, 0
 };
 
 /**
  * Etsii kohdan, johon laite on liitetty
+ * (static)
 **/
 struct mountpoint *etsi_laite_rek(const char * device_name, struct mountpoint *mnt)
 {
@@ -46,6 +53,7 @@ struct mountpoint *etsi_laite_rek(const char * device_name, struct mountpoint *m
 /**
  * Etsii kohdan, jättää loput tiedostonimestä jäljelle.
  * f("/mnt/piste/joku/file"); => return mountpoint("/mnt/piste"), filename_ptr = "joku/file"
+ * (static)
 **/
 struct mountpoint *etsi_kohta(const char ** filename_ptr)
 {
@@ -113,7 +121,7 @@ const char *parse_mboot_cmdline_root(const char *str)
 			return 0;
 		}
 	}
-	result = kmalloc((end1 - pos) + 1);
+	result = kmalloc((end1 - pos) + 1 + 2); // tilaa myös /:lle, juuren "polulle"
 	if (!result) {
 		return 0;
 	}
@@ -148,15 +156,15 @@ int mount_init(unsigned long mboot_device, const char *mboot_cmdline)
 		panic("mount: Out of kernel memory!\n");
 	}
 
-	root.subtree->dev_name = kmalloc(7);
-	root.subtree->absolute_path = kmalloc(5);
+	root.subtree->dev_name = kmalloc(7 + 5); // "devman" + "/dev"
+	root.subtree->absolute_path = root.subtree->dev_name + 7;
 	root.subtree->relative_path = root.subtree->absolute_path + 1;
 	root.subtree->subtree_size = 0;
 	root.subtree->subtree = 0;
 	root.subtree->dev = 0;
 	root.subtree->fs = &devfs;
-	strcpy(root.subtree->absolute_path, "/dev");
 	strcpy(root.subtree->dev_name, "devman");
+	strcpy(root.subtree->absolute_path, "/dev");
 
 	/* Sitten / */
 	flags = FILE_MODE_READ | FILE_MODE_WRITE;
@@ -180,12 +188,17 @@ int mount_init(unsigned long mboot_device, const char *mboot_cmdline)
 		kprintf("mount: Warning: root device (%s) mounted read-only!\n", root_device);
 	}
 
-	if (root_device != rootdev_default) {
-		root.dev_name = kmalloc(strlen(root_device) + 1);
-		memcpy(root.dev_name, root_device, strlen(root_device) + 1);
+	size_t dev_len = strlen(root_device);
+	if (root_device == rootdev_default) {
+		root.dev_name = kmalloc(dev_len + 3);
+		memcpy(root.dev_name, root_device, dev_len + 1);
 	} else {
 		root.dev_name = (char*) root_device;
 	}
+	root.absolute_path = root.dev_name + dev_len + 1;
+	root.relative_path = root.absolute_path + 1;
+	root.absolute_path[0] = '/';
+	root.absolute_path[1] = 0;
 
 	return 0;
 }
@@ -193,6 +206,7 @@ int mount_init(unsigned long mboot_device, const char *mboot_cmdline)
 /**
  * Irrottaa taulukollisen rekursiivisesti
  * Käytetään vain mount_uninitissa!
+ * (static)
 **/
 int umount_array(struct mountpoint *array, size_t size)
 {
@@ -205,7 +219,7 @@ int umount_array(struct mountpoint *array, size_t size)
 			MAKE_NULL(kfree, array[size].subtree);
 			array[size].subtree_size = 0;
 
-			if (umount_point(array + size)) {
+			if (umount_point(array + size, 0)) {
 				i = -1;
 			}
 		}
@@ -242,6 +256,7 @@ elsen_yli_2:
 		kprintf("mount: uninit: (%s) == (%s): fclose failed. (WTF? :D)\n", root.dev, root.absolute_path);
 	} else {
 		root.dev = 0;
+		MAKE_NULL(kfree, root.dev_name);
 	}
 }
 
@@ -250,25 +265,34 @@ elsen_yli_2:
 **/
 int mount_something(const char * device_filename, const char * mountpoint, uint_t flags)
 {
-	const char * relative = mountpoint;
+	const char * point_rel;
 	struct mountpoint uusi = {
 		0, 0, 0,
 		0, 0,
 		0, 0
 	};
-	int i, j;
+	struct mountpoint *point_mnt;
+	int mnt_len, rel_len, dev_len;
+	int keno_lopussa;
 
-	uusi.parent = etsi_kohta(&relative);
-	if (!uusi.parent) {
+	point_rel = mountpoint;
+	point_mnt = etsi_kohta(&point_rel);
+
+	if (!point_mnt) {
 		kprintf("mount: (%s) => (%s): Point not found!\n", device_filename, mountpoint);
+		return MOUNT_ERR_TOTAL_FAILURE;
 	}
-	i = strlen(relative);
-	if (!i || (i == 1 && relative[0] == '/')) {
+
+	rel_len = strlen(point_rel);
+	keno_lopussa = ((point_rel[rel_len - 1] == '/') ? 1 : 0);
+	mnt_len = rel_len + (point_rel - mountpoint) - keno_lopussa;
+	dev_len = strlen(device_filename);
+
+	if (!(rel_len - keno_lopussa)) {
 		kprintf("mount: (%s) => (%s): Point in use!\n", device_filename, mountpoint);
 		return MOUNT_ERR_ALREADY_MOUNTED;
 	}
 
-	if (!(uusi.dev = fopen_intflags(device_filename, flags)))
 	if (!(uusi.dev = fopen_intflags(device_filename, flags))) {
 		kprintf("mount: (%s) => (%s): Couldn't open device.\n", device_filename, mountpoint);
 		return MOUNT_ERR_DEVICE_ERROR;
@@ -281,60 +305,146 @@ int mount_something(const char * device_filename, const char * mountpoint, uint_
 	uusi.fs = fs_mount(uusi.dev, flags);
 	if (!uusi.fs) {
 		kprintf("mount: (%s) => (%s): Couldn't mount device.\n", device_filename, mountpoint);
-		fclose(uusi.dev);
+		MAKE_NULL(fclose, uusi.dev);
 		return MOUNT_ERR_FILESYS_ERROR;
 	}
 	if (!uusi.fs->filefunc.fwrite && (flags & FILE_MODE_WRITE)) {
 		kprintf("mount: (%s) => (%s): Warning: mounted read-only!\n", device_filename, mountpoint);
 	}
 
-	if (relative[i-1] == '/') {
-		j = -1; --i;
-	} else {
-		j = 0;
-	}
-	i = strlen(mountpoint) + j;
-	uusi.absolute_path = kmalloc(i + 1);
-	memcpy(uusi.absolute_path, mountpoint, i);
-	uusi.absolute_path[i] = 0;
-	uusi.relative_path = uusi.absolute_path + (relative - mountpoint);
+	uusi.dev_name = kmalloc(mnt_len + 1 + dev_len + 1);
+	uusi.absolute_path = uusi.dev_name + dev_len + 1;
 
-	i = strlen(device_filename);
-	uusi.dev_name = kmalloc(i + 1);
-	memcpy(uusi.dev_name, device_filename, i);
-	uusi.dev_name[i] = 0;
+	memcpy(uusi.dev_name, device_filename, dev_len + 1);
+	memcpy(uusi.absolute_path, mountpoint, mnt_len + 1);
 
+	uusi.relative_path = uusi.absolute_path + (point_rel - mountpoint);
+
+	uusi.parent = point_mnt;
 	++uusi.parent->subtree_size;
 	uusi.parent->subtree = krealloc(uusi.parent->subtree, uusi.parent->subtree_size * sizeof(struct mountpoint));
 	uusi.parent->subtree[uusi.parent->subtree_size - 1] = uusi;
+
+	return 0;
+}
+
+/**
+ * Liittää uuden laitteen hakemistoon vanhan paikalle
+**/
+int mount_replace(const char * device_filename, const char * mountpoint, uint_t flags)
+{
+	const char * point_rel;
+	const char * device_rel;
+	struct mountpoint uusi;
+	struct mountpoint *point_mnt, *device_mnt;
+	int mnt_len, rel_len, dev_len;
+	int keno_lopussa;
+
+	point_rel = mountpoint;
+	point_mnt = etsi_kohta(&point_rel);
+	device_rel = device_filename;
+	device_mnt = etsi_kohta(&device_rel);
+
+	if (!point_mnt) {
+		kprintf("mount_replace: (%s) => (%s): Point not found!\n", device_filename, mountpoint);
+		return MOUNT_ERR_TOTAL_FAILURE;
+	}
+	if (!device_mnt || !device_mnt->fs->filefunc.fopen) {
+		kprintf("mount_replace: (%s) => (%s): Device not found!\n", device_filename, mountpoint);
+		return MOUNT_ERR_TOTAL_FAILURE;
+	}
+
+	uusi = *point_mnt;
+
+	rel_len = strlen(point_rel);
+	keno_lopussa = ((point_rel[rel_len - 1] == '/') ? 1 : 0);
+	mnt_len = rel_len + (point_rel - mountpoint) - keno_lopussa;
+	dev_len = strlen(device_filename);
+
+	if (rel_len - keno_lopussa > 0) {
+		kprintf("mount_replace: (%s) => (%s): Point not found!\n", device_filename, mountpoint);
+		return MOUNT_ERR_TOTAL_FAILURE;
+	}
+	if (device_mnt == point_mnt) {
+		kprintf("mount_replace: (%s) => (%s): Can't unmount old point, device is there!\n", device_filename, mountpoint);
+		return MOUNT_ERR_TOTAL_FAILURE;
+	}
+
+	if (!(uusi.dev = fopen_intflags(device_filename, flags))) {
+		kprintf("mount_replace: (%s) => (%s): Couldn't open device.\n", device_filename, mountpoint);
+		return MOUNT_ERR_DEVICE_ERROR;
+	}
+	if (!(flags & FILE_MODE_WRITE)) {
+		uusi.dev->func->fwrite = 0;
+		// TODO: Flagit xD
+	}
+
+	uusi.fs = fs_mount(uusi.dev, flags);
+	if (!uusi.fs) {
+		kprintf("mount_replace: (%s) => (%s): Couldn't mount device.\n", device_filename, mountpoint);
+		MAKE_NULL(fclose, uusi.dev);
+		return MOUNT_ERR_FILESYS_ERROR;
+	}
+	if (!uusi.fs->filefunc.fwrite && (flags & FILE_MODE_WRITE)) {
+		kprintf("mount_replace: (%s) => (%s): Warning: mounted read-only!\n", device_filename, mountpoint);
+	}
+
+	if (point_mnt->fs->fs_umount(point_mnt->fs)) {
+		MAKE_NULL(uusi.fs->fs_umount, uusi.fs);
+		MAKE_NULL(fclose, uusi.dev);
+		kprintf("mount_replace: (%s) => (%s): Can't unmount old point!\n", device_filename, mountpoint);
+		return MOUNT_ERR_FILESYS_ERROR;
+	}
+	if (fclose(point_mnt->dev)) {
+		kprintf("mount_replace: (%s) => (%s): Warning: Old device not closed!\n", device_filename, mountpoint);
+	}
+
+	mnt_len = strlen(point_mnt->absolute_path);
+	uusi.dev_name = kmalloc(dev_len + 1 + mnt_len + 1);
+	uusi.absolute_path = uusi.dev_name + dev_len + 1;
+
+	memcpy(uusi.dev_name, device_filename, dev_len + 1);
+	memcpy(uusi.absolute_path, point_mnt->absolute_path, mnt_len + 1);
+
+	uusi.relative_path = uusi.absolute_path + (point_mnt->relative_path - point_mnt->absolute_path);
+
+	kfree(point_mnt->dev_name);
+	*point_mnt = uusi;
+
 	return 0;
 }
 
 /**
  * Irrottaa liitospisteen
 **/
-int umount_point(struct mountpoint *mnt)
+int umount_point(struct mountpoint *mnt, struct mountpoint *ret)
 {
 	int i;
 
 	if (mnt->subtree_size) {
-		return MOUNT_ERR_MOUNTED_SUBPOINTS;
+		if (ret) {
+			ret->subtree = mnt->subtree;
+			ret->subtree_size = mnt->subtree_size;
+		} else {
+			return MOUNT_ERR_MOUNTED_SUBPOINTS;
+		}
 	}
 	switch (i = mnt->fs->fs_umount(mnt->fs)) {
 		case MOUNT_ERR_BUSY:
 			return MOUNT_ERR_BUSY;
 		case 0:
-			MAKE_NULL(kfree, mnt->dev_name);
-			MAKE_NULL(kfree, mnt->absolute_path);
-			mnt->relative_path = 0;
-			mnt->subtree_size = 0;
-			MAKE_NULL(kfree, mnt->subtree);
-			MAKE_NULL(fclose, mnt->dev);
 			mnt->fs = 0;
-			if (mnt->parent) {
-				--mnt->parent->subtree_size;
-				*mnt = mnt->parent->subtree[mnt->parent->subtree_size];
-				// realloc? Mitäpä sillä, turhaa ajantuhlausta...
+			MAKE_NULL(fclose, mnt->dev);
+
+			MAKE_NULL(kfree, mnt->dev_name);
+			mnt->absolute_path = mnt->relative_path = 0;
+			if (!ret) {
+				mnt->subtree_size = 0;
+				MAKE_NULL(kfree, mnt->subtree);
+				if (mnt->parent) {
+					--mnt->parent->subtree_size;
+					*mnt = mnt->parent->subtree[mnt->parent->subtree_size];
+				}
 			}
 			return 0;
 		default:
@@ -342,13 +452,14 @@ int umount_point(struct mountpoint *mnt)
 			kprintf("umount: ... Just told us %d, F*cking fs driver!\n", i);
 			return MOUNT_ERR_TOTAL_FAILURE;
 	}
+#if 0
 	switch (i = fclose(mnt->dev)) {
 		case 0:
 			return 0;
 		default:
 			kprintf("umount: fclose failed (WTF? :D) at device '%s' (%s)\n", mnt->dev_name, mnt->absolute_path);
-			return i;
 	}
+#endif
 	return MOUNT_ERR_TOTAL_FAILURE;
 }
 
@@ -362,14 +473,22 @@ int umount_something(const char * device_or_point)
 
 	mnt = etsi_laite_rek(device_or_point, &root);
 	if (mnt) {
-		return umount_point(mnt);
+		return umount_point(mnt, 0);
 	}
 
 	filename = device_or_point;
 	mnt = etsi_kohta(&filename);
 	if (mnt && filename[0] == 0) {
-		return umount_point(mnt);
+		return umount_point(mnt, 0);
 	}
 	kprintf("umount: %s isn't a point or a device\n", device_or_point);
 	return MOUNT_ERR_TOTAL_FAILURE;
+}
+
+/**
+ * Etsii tiedostonimen perusteella lähimmän liitospisteen ja muuttaa osoitinta niin, että siinä on tiedostonimen loppuosa
+**/
+const struct mountpoint *mount_etsi_kohta(const char ** filename_ptr)
+{
+	return etsi_kohta(filename_ptr);
 }

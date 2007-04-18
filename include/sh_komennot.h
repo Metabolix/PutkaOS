@@ -4,9 +4,12 @@
 #include <stdint.h>
 
 void sh_mount(char *buf);
-void sh_mountrw(char *dev_point);
-void sh_mount_real(char *dev_point, uint_t mode);
+void sh_mount_ro(char *buf);
+void sh_remount(char *buf);
+void sh_remount_ro(char *buf);
+void sh_mount_real(char *dev_point, uint_t mode, int remount);
 void sh_umount(char *buf);
+
 void sh_cat(char *buf);
 void sh_ls(char *buf);
 void sh_help(char *buf);

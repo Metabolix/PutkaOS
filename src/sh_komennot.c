@@ -25,8 +25,10 @@ struct sh_komento komentotaulu[] = {
 	{"ls", "ls polku; listaa hakemisto", sh_ls},
 	{"cat", "cat polku; tulosta tiedoston sisalto", sh_cat},
 	{"hexcat", "hexcat polku; tulosta tiedoston sisalto tavuittain heksana", sh_hexcat},
-	{"mount", "mount laite liitospiste; liita laite pisteeseen (vain luku)", sh_mount},
-	{"mountrw", "mount laite liitospiste; liita laite pisteeseen (luku ja kirjoitus)", sh_mountrw},
+	{"mountro", "mountro laite liitospiste; liita laite pisteeseen (vain luku)", sh_mount_ro},
+	{"remountro", "remountro laite liitospiste; korvaa vanha liitos pisteessa (vain luku)", sh_remount_ro},
+	{"mount", "mount laite liitospiste; liita laite pisteeseen", sh_mount},
+	{"remount", "remount laite liitospiste; korvaa vanha liitos pisteessa", sh_remount},
 	{"umount", "umount {laite | polku}; poista laite tai liitoskohta", sh_umount},
 	{0, 0, sh_ei_tunnistettu} /* Terminaattori */
 };
@@ -65,17 +67,27 @@ int sh_read_int(char **bufptr)
 	return retval;
 }
 
-void sh_mountrw(char *dev_point)
-{
-	sh_mount_real(dev_point, FILE_MODE_READ | FILE_MODE_WRITE);
-}
-
 void sh_mount(char *dev_point)
 {
-	sh_mount_real(dev_point, FILE_MODE_READ);
+	sh_mount_real(dev_point, FILE_MODE_READ | FILE_MODE_WRITE, 0);
 }
 
-void sh_mount_real(char *dev_point, uint_t mode)
+void sh_mount_ro(char *dev_point)
+{
+	sh_mount_real(dev_point, FILE_MODE_READ, 0);
+}
+
+void sh_remount(char *dev_point)
+{
+	sh_mount_real(dev_point, FILE_MODE_READ | FILE_MODE_WRITE, 1);
+}
+
+void sh_remount_ro(char *dev_point)
+{
+	sh_mount_real(dev_point, FILE_MODE_READ, 1);
+}
+
+void sh_mount_real(char *dev_point, uint_t mode, int remount)
 {
 	char *dev = dev_point, *point = strchr(dev_point, ' ');
 	if (!point) {
@@ -83,7 +95,9 @@ void sh_mount_real(char *dev_point, uint_t mode)
 	}
 	*point = 0;
 	++point;
-	switch (mount_something(dev, point, mode)) {
+	switch ((!remount ? mount_something(dev, point, mode) : mount_replace(dev, point, mode))) {
+		case 0:
+			break;
 		case MOUNT_ERR_TOTAL_FAILURE:
 			kprintf("sh: mount: Jokin virhe.\n");
 			break;
@@ -95,6 +109,9 @@ void sh_mount_real(char *dev_point, uint_t mode)
 			break;
 		case MOUNT_ERR_FILESYS_ERROR:
 			kprintf("sh: mount: Tunnistamaton tiedostojarjestelma.\n");
+			break;
+		default:
+			kprintf("sh: mount: Muu virhe.\n");
 			break;
 	}
 }

@@ -30,17 +30,10 @@ enum MOUNT_ERR {
 
 extern int mount_init(unsigned long mboot_device, const char *mboot_cmdline);
 extern void mount_uninit(void);
+extern int mount_replace(const char * device_filename, const char * mountpoint, uint_t flags);
 extern int mount_something(const char * device_filename, const char * mountpoint, uint_t flags);
 extern int umount_something(const char * device_or_point);
 
 extern const struct mountpoint *mount_etsi_kohta(const char ** filename_ptr);
-
-/*
- * Internals
- */
-struct mountpoint *etsi_laite_rek(const char * device_name, struct mountpoint *mnt);
-struct mountpoint *etsi_kohta(const char ** filename_ptr);
-int umount_point(struct mountpoint *mnt);
-int umount_array(struct mountpoint *array, size_t size);
 
 #endif
