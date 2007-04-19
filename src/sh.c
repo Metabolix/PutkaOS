@@ -109,9 +109,6 @@ void run_sh(void)
 		// Check len
 		if (loc == -1) continue;
 
-		/* "Back up" buffer */
-		char *buf2 = buffer;
-
 		komento = komennot;
 		while (komento->komento) {
 			if (strrmsame(komento->komento, buffer)[0]) {
@@ -126,7 +123,6 @@ void run_sh(void)
 			}
 			++komento;
 		}
-		kprintf("Nyt?\n");
 		komento->suoritus(buffer);
 
 		ajettu: {}
