@@ -109,6 +109,9 @@ void run_sh(void)
 		// Check len
 		if (loc == -1) continue;
 
+		char *buf2 = kmalloc(strlen(buffer)*sizeof(char));
+		strcpy(buf2, buffer);
+
 		komento = komennot;
 		while (komento->komento) {
 			if (strrmsame(komento->komento, buffer)[0]) {
@@ -134,7 +137,8 @@ void run_sh(void)
 		}
 		/* And then save new command and do some other usefull stuff */
 		history_index = -1;
-		strcpy(history[0], buffer);
+		strcpy(history[0], buf2);
+		kfree(buf2);
 
 	}
 }
