@@ -1,147 +1,147 @@
 #ifndef _LIST_H
-#define _LIST_H
+#define _LIST_H 1
 
-/**
-* Kahteen suuntaan linkitetty lista
-* TODO: Virheenkäsittely, debuggaus, enkkukäännös(?)
-*
-* Käyttöesimerkki lopussa
-**/
+#include <stddef.h>
 
+struct list_of_void;
+struct list_member_of_void;
+#define list_ender_of_void list_member_of_void
+typedef struct list_of_void list_of_void;
+typedef struct list_member_of_void * list_iter_of_void;
 
+struct list_member_of_void {
+	struct list_of_void *list;
+	struct list_member_of_void *next, *prev;
+};
+struct list_of_void {
+	size_t size;
+	struct list_member_of_void *begin, *end;
+	struct list_ender_of_void real_end;
+};
 
-typedef struct { void* prev; void* next; void* data; } member;
-typedef struct { member* first; member* last; size_t num; } list;
+#define LIST_TYPE(nimi, tyyppi) \
+/* BEGIN OF LIST */ \
+struct list_of_ ## nimi ; \
+struct list_member_of_ ## nimi ; \
+typedef struct list_of_ ## nimi list_of_ ## nimi ; \
+typedef struct list_member_of_ ## nimi * list_iter_of_ ## nimi ; \
+\
+struct list_ender_of_ ## nimi { \
+        struct list_of_ ## nimi *list; \
+	struct list_member_of_ ## nimi *next, *prev; \
+}; \
+struct list_member_of_ ## nimi { \
+        struct list_of_ ## nimi *list; \
+	struct list_member_of_ ## nimi *next, *prev; \
+	tyyppi tavara; \
+}; \
+\
+struct list_of_ ## nimi { \
+	size_t size; \
+	struct list_member_of_ ## nimi *begin, *end; \
+	struct list_ender_of_ ## nimi real_end; \
+} /* Huomaa puolipisteen puuttuminen */ \
+/* END OF LIST */
 
-#define LIST list*
-/* Init: Varataan muistia listastruktille */
-#define LIST_INIT(x) x = kmalloc(sizeof(list)); x->num=0; x->first=0; x->last=0;
-#define LIST_NUM_OF_ITEMS(x) x->num;
-#define LIST_ITERATOR(x) member*
-/* Iteraattori listan alkuun, jos lista on tyhjä i=0 */
-#define LIST_START(x, i) i=x->first;
+#define list_init(list_a) {\
+	memset(&(list_a), 0, sizeof((list_a))); \
+	(list_a).begin = (list_a).end = (void*)&(list_a).real_end; \
+	(list_a).real_end.list = &(list_a);}
+#define list_destroy(list) _list_destroy_func((list_of_void*)&list)
 
-/* Iteraattori listan loppuun */
-#define LIST_END(x, i) i=x->last;
+#define list_begin(list) ((list).begin)
+#define list_end(list) ((list).end)
+#define list_size(list) ((const int)((list).size))
 
+#define list_next(iter) ((iter) ? ((iter)->next) : 0)
+#define list_prev(iter) ((iter) ? ((iter)->prev) : 0)
 
-/* lista, iteraattori, data, tyyppi */
-/* nollaiteraattori asetetaan tyhjän listan tapauksessa osoittamaan alkuun */
-#define LIST_ADD_BEFORE(l, i, x, type) \
-	if(i) {	/* helppo tapaus */ \
-		member* mem = kmalloc(sizeof(member)); \
-		type* dat = kmalloc(sizeof(type)); *dat=x; mem->data=dat; \
-		mem->next=i; mem->prev=i->prev; \
-		if (i->prev) { 	member* tmp = (member*)i->prev; tmp->next=i; } \
-		i->prev=mem; \
-		if (l->first==i) l->first=mem; \
-		l->num++; \
-	} \
-	else { /* i=0, jos lista tyhjä niin listan alkuun, muutoin ei tehdä mitään */ \
-		if (l->first==0) { \
-			member* mem = kmalloc(sizeof(member)); \
-			type* dat = kmalloc(sizeof(type)); *dat=x; mem->data=dat; \
-			l->first=mem; l->last=mem; l->num=1; i=mem;\
-		} \
-		else { /* lista ei ole tyhjä mutta iteraattori osoittaa nollaa, ei näin */ \
-			kprintf("Lista epätyhjä mutta iteraattori 0, en osaa\n"); \
-		} \
+#define list_inc(iter) ((iter) = list_next(iter))
+#define list_dec(iter) ((iter) = list_prev(iter))
+
+#define list_item(iter) ((iter)->tavara)
+
+#define list_insert_after(iter, val) \
+	((!(iter) || !(iter)->list || !(iter)->next || (sizeof((iter)->tavara) != sizeof(val))) ? -1 : \
+	_list_insert_func( \
+	(list_iter_of_void) iter, \
+	(char*)&((iter)->tavara) - (char*)(iter), \
+	sizeof(val), &val, 1))
+
+#define list_insert(iter, val) list_insert_before(iter, val)
+#define list_insert_before(iter, val) \
+	((!(iter) || !(iter)->list || (sizeof((iter)->tavara) != sizeof(val))) ? -1 : \
+	_list_insert_func( \
+	(list_iter_of_void) iter, \
+	(char*)&((iter)->tavara) - (char*)(iter), \
+	sizeof(val), &val, 0))
+
+#define list_erase(iter) _list_erase_func((list_iter_of_void)iter)
+
+// Älä koske näihin, prkl!
+extern list_iter_of_void _list_erase_func(list_iter_of_void l);
+extern int _list_destroy_func(list_of_void *l);
+extern int _list_insert_func(list_iter_of_void l, ptrdiff_t pos, size_t size, const void *val, int is_after);
+
+#if 0
+// Esimerkki
+
+struct koepiste {
+	int x, y;
+};
+
+LIST_TYPE(piste, struct koepiste);
+
+list_of_piste pisteet;
+list_iter_of_piste p;
+
+struct koepiste kp;
+
+void printtaa_lista()
+{
+	list_iter_of_piste i;
+	i = list_begin(pisteet);
+	kprintf("size: %d\n", list_size(pisteet));
+	while (i != list_end(pisteet)) {
+		kprintf("%p: (%d, %d)\n", i, list_item(i).x, list_item(i).y);
+		list_inc(i); // i = list_next(i);
 	}
+	print("\n");
+}
 
-/* lista, iteraattori, data, tyyppi */
-/* nollaiteraattori asetetaan tyhjän listan tapauksessa osoittamaan alkuun */
-#define LIST_ADD_AFTER(l, i, x, type) \
-	if(i) {	/* helppo tapaus */ \
-		member* mem = kmalloc(sizeof(member)); \
-		type* dat = kmalloc(sizeof(type)); *dat=x; mem->data=dat; \
-		mem->next=i->next; mem->prev=i; \
-		if (i->next) {member* tmp = (member*)i->next; tmp->prev=mem; }\
-		i->next=mem; \
-		if (l->last == i) l->last=mem; \
-		l->num++; \
-	} \
-	else { /* i=0, jos lista tyhjä niin listan alkuun, muutoin ei tehdä mitään */ \
-		if (l->first==0 || l->num==0) { \
-			member* mem = kmalloc(sizeof(member)); \
-			type* dat = kmalloc(sizeof(type)); *dat=x; mem->data=dat; \
-			l->first=mem; l->last=mem; l->num=1; i=mem; mem->next=0; mem->prev=0;\
-		} \
-		else { /* lista ei ole tyhjä mutta iteraattori osoittaa nollaa, ei näin */ \
-			kprintf("Lista epätyhjä mutta iteraattori 0, en osaa\n"); \
-		} \
-	}
+void testattava_koodi()
+{
+	list_init(pisteet);
 
-/* Poista alkio i listasta l */
-#define LIST_DELETE(l,i) \
-	if (i) { \
-		free(i->data); \
-		member* tmp = i->prev; \
-		if (tmp) tmp->next=i->next; \
-		tmp=i->next; \
-		if (tmp) tmp->prev=i->prev; \
-		if (l->first==i) l->first=i->next; \
-		if (l->last==i) l->last=i->prev; \
-		free(i); l->num--; \
-	} else kprintf("Yritettiin poistaa nollaiteraattori\n");
+	kp.x = 1; kp.y = 0;
+	list_insert(list_begin(pisteet), kp);
+	kp.x = 2; kp.y = 1;
+	list_insert(list_begin(pisteet), kp);
+	kp.x = 4; kp.y = 2;
+	list_insert(list_begin(pisteet), kp);
+	printtaa_lista();
 
-#define LIST_CLEAR(l)\
-{\
-	member *mem = l->first;\
-	for(;;){\
-		free(mem->data);\
-		if(mem==l->last){\
-			free(mem);\
-			break;\
-		}\
-		else{\
-			mem = (member*)mem->next;\
-			free(mem->prev);\
-		}\
-	}\
-	free(l);\
-}\
+	p = list_begin(pisteet); // 0.
+	list_inc(p); // 1.
+	list_inc(p); // 2.
+	kp.x = 8; kp.y = 3;
+	list_insert(p, kp); // Tulee ennen tätä (nyk. 2.), siis uusi 2.
+	kp.x = 16; kp.y = 4;
+	list_insert_after(p, kp); // Tulee tämän jälkeen (nyk. 3.), siis uusi 4.
+	kp.x = 32; kp.y = 5;
+	list_insert(list_end(pisteet), kp); // Listan loppuun
+	printtaa_lista();
 
-#define LIST_NEXT(i) if (i) { if (i->next) i=(member*)i->next; }
-#define LIST_PREVIOUS(i) if(i) { if(i->prev) i=i->prev; } 
+	p = list_begin(pisteet); // 0.
+	list_inc(p); // 1.
+	list_inc(p); // 2.
+	list_erase(p); // Poistetaan se
+	printtaa_lista();
 
-/* TODO: Segfaulttaa kai jos i=0 */
-#define LIST_MEMBER(i, type) *((type*)i->data)
+	list_destroy(pisteet);
+	printtaa_lista();
+}
+#endif
 
-/* Onko lista lopussa? tosi, jos iteraattori osoittaa viimeistä alkiota */
-#define LIST_AT_END(l, i) (l->last==i)
-
-
-/*
-KÄYTTÖESIMERKKI
-
-LIST lista;
-LIST_INIT(lista);
-
-LIST_ITERATOR(lista) i;
-LIST_START(lista, i);
-
-LIST_ADD_AFTER(lista, i, 2, int);
-LIST_ADD_BEFORE(lista, i, -2, int);
-LIST_ADD_AFTER(lista, i, 1000, int);
-LIST_ADD_AFTER(lista, i, 2000, int);
-LIST_DELETE(lista,i);
-
-LIST_START(lista, i);
-
-nt d; int items=LIST_NUM_OF_ITEMS(lista);
-for (d=0; d<items; d++) {
-	printf("itemi: %d\n", LIST_MEMBER(i, int));
-	LIST_NEXT(i);
-} 
-
-if (LIST_AT_END(lista,i))
-	printf("Joo kaikki (t)ulostettiin\n");
-
-
-int num = LIST_NUM_OF_ITEMS(lista);
-printf("itemejä %d\n", num);
-
-Listassa on siis lopussa luvut -2, 2000 ja 1000
-*/
 
 #endif

@@ -24,7 +24,7 @@ C_SOURCES_FS=$(addprefix filesys/,$(C_SOURCES_FS_1))
 
 # Misc
 C_SOURCES_OTHER=gdt.c isr.c main.c panic.c idt.c irq.c keyboard.c screen.c regs.c devmanager.c spinlock.c lcdscreen.c
-C_SOURCES_OTHER_OPT=int64.c timer.c kprintf.c sh.c sh_komennot.c time.c endian.c
+C_SOURCES_OTHER_OPT=int64.c timer.c kprintf.c sh.c sh_komennot.c time.c endian.c list.c
 
 C_SOURCES=$(C_SOURCES_MEM) $(C_SOURCES_MULTITASK) $(C_SOURCES_STORAGE) $(C_SOURCES_OTHER)
 C_SOURCES_OPTIMIZE=$(C_SOURCES_OTHER_OPT) $(C_SOURCES_STDROUTINES) $(C_SOURCES_FS)
