@@ -18,7 +18,7 @@
 #include <thread.h>
 #include <devmanager.h>
 #include <string.h>
-//#include <mouse.h>
+#include <mouse.h>
 #include <filesys/mount.h>
 #include <storage/ide.h>
 #include <storage/floppy.h>
@@ -55,7 +55,7 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 	timer_install();
 	malloc_init();
 	keyboard_install();
-	//mouse_install();
+	mouse_install();
 
 	devmanager_init();
 	install_floppy();

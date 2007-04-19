@@ -40,9 +40,12 @@ static unsigned char mouse_read(void)
 {
 	mouse_wait_data();
 	return inportb(0x60);
+	/*int i = inportb(0x60);
+	kprintf("mouse_read(): read 0x%X\n", i);
+	return i;*/
 }
 
-static unsigned char mouse_cmd(unsigned char b)
+static void ps2_write(unsigned char b)
 {
 	outportb(0x64, b);
 }
@@ -70,13 +73,12 @@ void mouse_get_state(struct mouse_state *state)
 void mouse_handle(void)
 {
 	struct mouse_movement_data data;
-	print("Moi.\n");
-	mouse_cmd(0xAD);
+	ps2_write(0xAD);
 	data.char1 = mouse_read();
 	data.char2 = mouse_read();
 	data.char3 = mouse_read();
 	data.char4 = (mouse_id ? mouse_read() : 0);
-	mouse_cmd(0xAE);
+	ps2_write(0xAE);
 	mouse.dx += mouse_get_9bit(data.x_sign, data.x_most);
 	mouse.dy += mouse_get_9bit(data.y_sign, data.y_most);
 	mouse.dz += data.z;
@@ -88,6 +90,7 @@ void mouse_handle(void)
 		mouse.btn_##a = data.btn_##a; \
 	}
 	BTN(l); BTN(m); BTN(r); BTN(4); BTN(5);
+	kprintf("mouse_handle: %i, %i, %i; %i, %i, %i\n", mouse.dx, mouse.dy, mouse.dz, mouse.btn_l, mouse.btn_m, mouse.btn_r);
 }
 
 #define GET_ACK if (mouse_read() != MOUSE_ANS_ACKNOWLEDGE) return -1;
@@ -118,42 +121,64 @@ int mouse_go_super(void)
 }
 #undef GET_ACK
 
+
 void mouse_install(void)
 {
-	int skippaa_super = 0;
-alku:
+	//int skippaa_super = 1;
+	int a1, a, b;
+//alku:
 	memset(&mouse, 0, offsetof(struct mouse_state, empty));
 	mouse_write(MOUSE_CMD_RESET);
-	if ((mouse_read() != MOUSE_ANS_ACKNOWLEDGE)
-	|| (mouse_read() != MOUSE_ANS_SELF_TEST_PASSED)) {
-		kprintf("No PS/2 mouse found...\n", mouse_id);
+	//vähän purkkaa
+	a1 = mouse_read();
+	do{
+		a = mouse_read();
+	} while(a==0xFA);
+	b = a;
+	a = a1;
+	mouse_id = mouse_read();
+	if ((a != MOUSE_ANS_ACKNOWLEDGE) || (b != MOUSE_ANS_SELF_TEST_PASSED)) {
+		kprintf("No working PS/2 mouse found\n");
 		return;
 	}
-	mouse_id = mouse_read();
-	if (!skippaa_super) {
+
+	if(mouse_id!=0x00){
+		kprintf("mouse_install: strange mouse id %i\n", mouse_id);
+	}
+
+	/*if (!skippaa_super) {
 		if (mouse_go_super() < 0) {
 			skippaa_super = 1;
 			goto alku;
 		}
-	}
-	mouse_write(MOUSE_CMD_SET_DEFAULTS);
+	}*/
+
+	//(reset hoitaa tämän)
+	/*mouse_write(MOUSE_CMD_SET_DEFAULTS);
 	if (mouse_read() != MOUSE_ANS_ACKNOWLEDGE) {
+		kprintf("mouse_install: failed to set defaults\n");
 		return;
-	}
-	mouse_write(MOUSE_CMD_SET_MODE_STREAM);
+	}*/
+
+	//(edellinen menee jo stream-moodiin)
+	/*mouse_write(MOUSE_CMD_SET_MODE_STREAM);
 	if (mouse_read() != MOUSE_ANS_ACKNOWLEDGE) {
+		kprintf("mouse_install: failed to set stream mode\n");
 		return;
-	}
-	mouse_cmd(0xA8);
-	mouse_cmd(0x20);
+	}*/
+
+	//jotain turhaa
+	/*ps2_write(0x20);
 	unsigned char status = mouse_read();
-	mouse_cmd(0x60);
-	mouse_write(status | 2);
-	mouse_cmd(0xd4);
+	ps2_write(0x60);
+	mouse_write(status | 2);*/
+
 	mouse_write(MOUSE_CMD_ENABLE);
 	if (mouse_read() != MOUSE_ANS_ACKNOWLEDGE) {
+		kprintf("mouse_install: failed to enable data reporting\n");
 		return;
 	}
 	install_irq_handler(12, (void *) mouse_handle);
-	kprintf("Mouse installed; id = %d\n", mouse_id);
+	kprintf("Mouse installed\n");
 }
+
