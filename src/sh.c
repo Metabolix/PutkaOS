@@ -78,7 +78,7 @@ void run_sh(void)
 			}
 			int hex = ch;
 			ch = ktoasc(ch);
-			if (ch == '\n' || hex == 0x9c) {
+			if (ch == '\n' || hex == KEY_NUM_ENTER) {
 				break;
 			}
 			if (!ch || ch == '\t') {
@@ -109,6 +109,9 @@ void run_sh(void)
 		// Check len
 		if (loc == -1) continue;
 
+		/* "Back up" buffer */
+		char *buf2 = buffer;
+
 		komento = komennot;
 		while (komento->komento) {
 			if (strrmsame(komento->komento, buffer)[0]) {
@@ -123,6 +126,7 @@ void run_sh(void)
 			}
 			++komento;
 		}
+		kprintf("Nyt?\n");
 		komento->suoritus(buffer);
 
 		ajettu: {}
