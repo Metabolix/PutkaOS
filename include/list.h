@@ -84,6 +84,22 @@ typedef struct { member* first; member* last; size_t num; } list;
 		free(i); l->num--; \
 	} else kprintf("Yritettiin poistaa nollaiteraattori\n");
 
+#define LIST_CLEAR(l)\
+{\
+	member *mem = l->first;\
+	for(;;){\
+		free(mem->data);\
+		if(mem==l->last){\
+			free(mem);\
+			break;\
+		}\
+		else{\
+			mem = (member*)mem->next;\
+			free(mem->prev);\
+		}\
+	}\
+	free(l);\
+}\
 
 #define LIST_NEXT(i) if (i) { if (i->next) i=(member*)i->next; }
 #define LIST_PREVIOUS(i) if(i) { if(i->prev) i=i->prev; } 
@@ -112,7 +128,7 @@ LIST_DELETE(lista,i);
 
 LIST_START(lista, i);
 
-int d; int items=LIST_NUM_OF_ITEMS(lista);
+nt d; int items=LIST_NUM_OF_ITEMS(lista);
 for (d=0; d<items; d++) {
 	printf("itemi: %d\n", LIST_MEMBER(i, int));
 	LIST_NEXT(i);
