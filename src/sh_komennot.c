@@ -30,6 +30,7 @@ struct sh_komento komentotaulu[] = {
 	{"mount", "mount laite liitospiste; liita laite pisteeseen", sh_mount},
 	{"remount", "remount laite liitospiste; korvaa vanha liitos pisteessa", sh_remount},
 	{"umount", "umount {laite | polku}; poista laite tai liitoskohta", sh_umount},
+	{"reboot", "reboot; kaynnista tietokone uudelleen", sh_reboot},
 	{0, 0, sh_ei_tunnistettu} /* Terminaattori */
 };
 struct sh_komento *komennot = komentotaulu;
@@ -374,6 +375,15 @@ void sh_inportb(char *buf)
 	port = sh_read_int(&buf);
 	byte = inportb(port);
 	kprintf("Port %d (%#x): got %d (%#04x)\n", port, port, byte, byte);
+}
+
+void sh_reboot(char *buf)
+{
+	outportb(0x64, 0x60);         
+	kwait(0, 500);
+	outportb(0x60, 0x14);         
+	kwait(0, 500);
+	outportb(0x64, 0xfe);         
 }
 
 void sh_ei_tunnistettu(char *buf)

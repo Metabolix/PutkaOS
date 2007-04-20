@@ -23,5 +23,6 @@ void sh_set_colour(char *buf);
 void sh_reset(char *buf);
 void sh_key_names(char *buf);
 void sh_history(char *buf);
+void sh_reboot(char *buf);
 
 #endif
