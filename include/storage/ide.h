@@ -30,8 +30,9 @@
 
 #define IDE_TIMEOUT 1000000 // mikrosekunteina, nyt 1 sec
 
-#define IDE_BYTES_PER_SECTOR 512
+#define ATA_BYTES_PER_SECTOR 512
 #define ATAPI_BYTES_PER_SECTOR 2048
+#define ATAPI_CONV_WORDS_TO_SECTORS(bc) ((bc) << (11 - 1))
 
 typedef struct ide_controller {
 	unsigned data;
@@ -86,7 +87,10 @@ int ata_safely_remove(ide_device_t *device);
 int atapi_send_packet(int device, uint_t bytecount, uint16_t * packet);
 int atapi_reset(int device);
 int atapi_start(int device);
-int atapi_read(int device, uint64_t sector, size_t count, uint16_t * buffer);
+size_t atapi_real_read(int device, uint32_t sector, size_t count, uint16_t * buffer);
+
+size_t atapi_read(ide_device_t *device, uint64_t sector, size_t count, void * buf);
+int atapi_read_one_sector (ide_device_t *device, uint64_t sector, void * buf);
 
 extern int ide_init(void);
 

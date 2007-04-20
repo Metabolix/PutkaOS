@@ -5,6 +5,7 @@
 #include <time.h>
 #include <string.h>
 #include <endian.h>
+#include <debugprint.h>
 
 #include <screen.h>
 
@@ -27,7 +28,7 @@ const BD_DEVICE ide_blockdev = {
 		(devopen_t) blockdev_fopen,
 		(devrm_t) ata_safely_remove
 	},
-	IDE_BYTES_PER_SECTOR,
+	ATA_BYTES_PER_SECTOR,
 	-1,
 	0,
 	(read_one_block_t)  ata_read_one_sector,
@@ -217,6 +218,12 @@ void ide_identify_device(uint_t controller, uint_t device)
 		} else {
 			ide_devices[device].blockdev.std.dev_type = DEV_TYPE_OTHER;
 		}
+
+		ide_devices[device].blockdev.read_blocks = (void*) atapi_read;
+		ide_devices[device].blockdev.read_one_block = (void*) atapi_read_one_sector;
+		ide_devices[device].blockdev.write_blocks = 0;
+		ide_devices[device].blockdev.write_one_block = 0;
+
 		// luetaan levyn tiedot
 		atapi_start(device);
 	} else {
@@ -301,7 +308,7 @@ size_t ata_rw_some (uint_t device, uint64_t sector, uint8_t count, char * buf, a
 	retval = 0;
 	for (i = 0; i < count; i++) {
 		if ((ide_wait(device, 0x08, 1) != 0)
-		|| (rw_next_sector(device, (uint16_t*)(buf + i * IDE_BYTES_PER_SECTOR)) != 0)) {
+		|| (rw_next_sector(device, (uint16_t*)(buf + i * ATA_BYTES_PER_SECTOR)) != 0)) {
 			return retval;
 		}
 		++retval;
@@ -323,8 +330,8 @@ size_t ata_rw (uint_t device, uint64_t sector, size_t count, char * buf, ata_rw_
 			return retval;
 		}
 
-		sector += 0xff * IDE_BYTES_PER_SECTOR;
-		buf += 0xff * IDE_BYTES_PER_SECTOR;
+		sector += 0xff * ATA_BYTES_PER_SECTOR;
+		buf += 0xff * ATA_BYTES_PER_SECTOR;
 		count -= 0xff;
 	}
 	retval += ata_rw_some(device, sector, count, (char*) buf, rw_next_sector);
@@ -377,7 +384,7 @@ int atapi_start(int device)
 	//ide_wait(device, IDE_DRV_DRQ, 1);
 	in_word = inportw(ide_ports[device >> 1].data);
 	num_sectors |= ((in_word & 0x0FF) << 8) | ((in_word & 0xFF00) >> 8);
-	
+
 
 	//ide_wait(device, IDE_DRV_DRQ, 1);
 	in_word = inportw(ide_ports[device >> 1].data);
@@ -390,6 +397,10 @@ int atapi_start(int device)
 
 	kprintf("Sector count: %d, Sector size: %d\n", num_sectors, sector_size);
 
+	ide_devices[device].blockdev.block_size = sector_size;
+	ide_devices[device].blockdev.block_count = num_sectors;
+	//ide_devices[device].blockdev.std.remove = atapi_safely_remove;
+
 	if ((num_sectors != 0) && (sector_size != 0)) {
 		ide_devices[device].media_available = 1;
 		return 0;
@@ -398,8 +409,9 @@ int atapi_start(int device)
 		return -1;
 	}
 
-	//ide_devices[device].blockdev.block_size = 
+	//ide_devices[device].blockdev.block_size =
 }
+
 int atapi_reset(int device)
 {
 	ide_wait(device, IDE_CTRL_BSY, 1);
@@ -425,7 +437,7 @@ int atapi_send_packet(int device, uint_t bytecount, uint16_t * packet)
 	outportb(ide_ports[device >> 1].driveHead, (device & 0x01) << 4); //laite 0 = 0x00, laite 1 olis 0x10
 	outportb(ide_ports[device >> 1].altComStat, 0x0A); //skipataan keskeytys
 	outportb(ide_ports[device >> 1].comStat, 0xA0); //THE COMMAND
-	
+
 	kwait(0, 1000);
 
 	while (inportb(ide_ports[device >> 1].comStat) & 0x80);
@@ -443,11 +455,15 @@ int atapi_send_packet(int device, uint_t bytecount, uint16_t * packet)
 	return 0;
 }
 
-int atapi_read(int device, uint64_t sector, size_t count, uint16_t * buffer)
+size_t atapi_real_read(int device, uint32_t sector, size_t count, uint16_t * buffer)
 {
 	uint16_t word_count = 0;
 	uint8_t status = 0;
-	int i = 0, read_words = 0;
+	int i = 0;
+	size_t read_words = 0;
+	size_t words_to_read;
+
+	words_to_read = count * (ATAPI_BYTES_PER_SECTOR >> 1);
 
 	if (!ide_devices[device].media_available) {
 		if (atapi_start(device) != 0) {
@@ -464,16 +480,18 @@ int atapi_read(int device, uint64_t sector, size_t count, uint16_t * buffer)
 
 	kwait(0, 1000);
 
-	unsigned char ATAPI_command[] = { 0xA8, 0,
-									(unsigned char)((sector & 0xFF000000) >> 24),
-									(unsigned char)((sector & 0x00FF0000) >> 16),
-									(unsigned char)((sector & 0x0000FF00) >> 8),
-									(unsigned char)(sector & 0x000000FF),
-									(unsigned char)((count & 0xFF000000) >> 24),
-									(unsigned char)((count & 0x00FF0000) >> 16),
-									(unsigned char)((count & 0x0000FF00) >> 8),
-									(unsigned char)(count & 0x000000FF),
-									0, 0 };
+	unsigned char ATAPI_command[] = {
+		0xA8, 0,
+		(unsigned char)(((sector) >> 24) & 0xff),
+		(unsigned char)(((sector) >> 16) & 0xff),
+		(unsigned char)(((sector) >>  8) & 0xff),
+		(unsigned char)(((sector) >>  0) & 0xff),
+		(unsigned char)(((count) >> 24) & 0xff),
+		(unsigned char)(((count) >> 16) & 0xff),
+		(unsigned char)(((count) >>  8) & 0xff),
+		(unsigned char)(((count) >>  0) & 0xff),
+		0, 0
+	};
 
 	atapi_send_packet(device, 0xFFFF, (uint16_t*)(ATAPI_command));
 
@@ -485,26 +503,22 @@ int atapi_read(int device, uint64_t sector, size_t count, uint16_t * buffer)
 		switch (status) {
 			case 0x03:
 				//done
-				if (read_words < count * (ATAPI_BYTES_PER_SECTOR >> 1)) {
-					kprintf("WARNING: Didn't get as much data as wanted...\n");
-					return -1;
+				if (read_words < words_to_read) {
+					DEBUGP("Didn't get as much data as wanted...\n");
+					return ATAPI_CONV_WORDS_TO_SECTORS(read_words);
 				}
-				//success
-				return 0;
-				break;
+				return count;
 			case 0x00:
 				//abort
-				kprintf("Command aborted.\n");
-				return -2;
-				break;
+				kprintf("atapi_read: Command aborted.\n");
+				return ATAPI_CONV_WORDS_TO_SECTORS(read_words);
 			default:
 				break;
 		}
 
 		while (!(inportb(ide_ports[device >> 1].altComStat) & 0x08)) {
 			if (inportb(ide_ports[device >> 1].altComStat) & 0x01) {
-				//virhe
-				return -1;
+				return ATAPI_CONV_WORDS_TO_SECTORS(read_words);
 			}
 		}
 
@@ -516,9 +530,17 @@ int atapi_read(int device, uint64_t sector, size_t count, uint16_t * buffer)
 			buffer[read_words + i] = inportw(ide_ports[device >> 1].data);
 		}
 
-		read_words+=word_count;
-
+		read_words += word_count;
 	}
 
 	return 0;
+}
+
+size_t atapi_read(ide_device_t *device, uint64_t sector, size_t count, void * buf)
+{
+	return atapi_real_read(device->devnum, sector, count, buf);
+}
+int atapi_read_one_sector (ide_device_t *device, uint64_t sector, void * buf)
+{
+	return (atapi_real_read(device->devnum, sector, 1, buf) == 1) ? 0 : -1;
 }

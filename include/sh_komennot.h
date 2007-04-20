@@ -12,17 +12,22 @@ void sh_umount(char *buf);
 
 void sh_cat(char *buf);
 void sh_ls(char *buf);
-void sh_help(char *buf);
+
 void sh_uptime(char *buf);
-void sh_exit(char *buf);
+
 void sh_outportb(char *buf);
 void sh_inportb(char *buf);
+
 void sh_ei_tunnistettu(char *buf);
 void sh_list_colours(char *buf);
 void sh_set_colour(char *buf);
 void sh_reset(char *buf);
-void sh_key_names(char *buf);
+void sh_help(char *buf);
+void sh_exit(char *buf);
 void sh_history(char *buf);
+
+void sh_key_names(char *buf);
+
 void sh_reboot(char *buf);
 
 #endif

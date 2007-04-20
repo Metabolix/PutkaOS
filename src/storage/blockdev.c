@@ -95,7 +95,8 @@ BD_FILE *blockdev_fopen(BD_DEVICE *phys, uint_t mode)
 	if (!phys ||
 	(phys->std.dev_class != DEV_CLASS_BLOCK && phys->std.dev_class != DEV_CLASS_OTHER) ||
 	phys->std.dev_type == DEV_TYPE_NONE ||
-	phys->std.dev_type == DEV_TYPE_ERROR) {
+	phys->std.dev_type == DEV_TYPE_ERROR ||
+	!phys->block_size) {
 		return 0;
 	}
 
