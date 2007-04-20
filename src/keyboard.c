@@ -375,6 +375,7 @@ int kb_get(void)
 			keyboard_handle();
 		}
 		sti();
+		asm("hlt");
 	}
 
 	return ret;
