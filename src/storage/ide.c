@@ -36,19 +36,30 @@ const BD_DEVICE ide_blockdev = {
 	(write_blocks_t) ata_write
 };
 
-int ide_wait_condition(uint_t device)
+// params[0] = device
+// params[1] = waitcode
+// params[2] = on_off
+int ide_wait_condition(uint_t * params)
 {
-	if (device < IDE_NUM_DEVICES) {
-		if (inportb(ide_ports[device >> 1].comStat) & 0x08) {
+	uint_t result;
+	if (params[0] < IDE_NUM_DEVICES) {
+		result = inportb(ide_ports[params[0] >> 1].comStat) & params[1];
+		if ( (params[2] && result) || (!params[2] && !result) ) {
 			return 0;
 		}
 	}
 	return -1;
 }
 
-int ide_wait(uint_t device)
+int ide_wait(uint_t device, uint_t waitcode, uint_t on_off)
 {
-	return kwait_until_0(0, IDE_TIMEOUT, (waitfunc_t) ide_wait_condition, (waitparam_t) device) ? IDE_ERROR_TIMED_OUT : 0;
+	uint_t params[3];
+	params[0] = device;
+	params[1] = waitcode;
+	params[2] = on_off;
+	if (kwait_until_0(0, IDE_TIMEOUT, (waitfunc_t) ide_wait_condition, (waitparam_t) (params)))
+		kprintf("WARNING, WAIT TIMED OUT!\n");
+	return 0;//? IDE_ERROR_TIMED_OUT : 0;
 }
 
 int ide_controller_exists(uint_t controller)
@@ -142,7 +153,7 @@ int ata_identify (uint_t device, void * buf)
 	outportb(ide_ports[device >> 1].cylinderHigh,    0x00);
 	ide_select_device(device);
 	outportb(ide_ports[device >> 1].comStat,         0xEC);
-	if (ide_wait(device)) {
+	if (ide_wait(device, 0x08, 1)) {
 		return IDE_ERROR_TIMED_OUT;
 	}
 	ata_read_next_sector(device, (uint16_t*)buf);
@@ -153,7 +164,7 @@ int atapi_identify (uint_t device, void * buf)
 {
 	ide_select_device(device);
 	outportb(ide_ports[device >> 1].comStat, 0xA1);
-	if (ide_wait(device)) {
+	if (ide_wait(device, 0x08, 1)) {
 		return IDE_ERROR_TIMED_OUT;
 	}
 	ata_read_next_sector(device, (uint16_t*)buf);
@@ -206,6 +217,8 @@ void ide_identify_device(uint_t controller, uint_t device)
 		} else {
 			ide_devices[device].blockdev.std.dev_type = DEV_TYPE_OTHER;
 		}
+		// luetaan levyn tiedot
+		atapi_start(device);
 	} else {
 		// on ATA, joten käytetään ATA-IDENTIFY:ä
 		ata_identify(device, buffer);
@@ -287,7 +300,7 @@ size_t ata_rw_some (uint_t device, uint64_t sector, uint8_t count, char * buf, a
 
 	retval = 0;
 	for (i = 0; i < count; i++) {
-		if ((ide_wait(device) != 0)
+		if ((ide_wait(device, 0x08, 1) != 0)
 		|| (rw_next_sector(device, (uint16_t*)(buf + i * IDE_BYTES_PER_SECTOR)) != 0)) {
 			return retval;
 		}
@@ -344,4 +357,168 @@ int ata_safely_remove(ide_device_t *device)
 		return -1; // Fail
 	}
 	return 0; // Success
+}
+
+int atapi_start(int device)
+{
+	uint16_t in_word;
+	uint_t num_sectors, sector_size;
+	// käynnistetään moottori?
+	atapi_send_packet(device, 0, (uint16_t*)ATAPI_PACKET_START);
+	// luetaan tiedot
+	atapi_send_packet(device, 0, (uint16_t*)ATAPI_PACKET_READCAPACITY);
+
+
+	//ide_wait(device, IDE_DRV_DRQ, 1);
+	in_word = inportw(ide_ports[device >> 1].data);
+	num_sectors = ((in_word & 0x0FF) << 24) | ((in_word & 0xFF00) << 8);
+
+
+	//ide_wait(device, IDE_DRV_DRQ, 1);
+	in_word = inportw(ide_ports[device >> 1].data);
+	num_sectors |= ((in_word & 0x0FF) << 8) | ((in_word & 0xFF00) >> 8);
+	
+
+	//ide_wait(device, IDE_DRV_DRQ, 1);
+	in_word = inportw(ide_ports[device >> 1].data);
+	sector_size = ((in_word & 0x0FF) << 24) | ((in_word & 0xFF00) << 8);
+
+
+	//ide_wait(device, IDE_DRV_DRQ, 1);
+	in_word = inportw(ide_ports[device >> 1].data);
+	sector_size |= ((in_word & 0x0FF) << 8) | ((in_word & 0xFF00) >> 8);
+
+	kprintf("Sector count: %d, Sector size: %d\n", num_sectors, sector_size);
+
+	if ((num_sectors != 0) && (sector_size != 0)) {
+		ide_devices[device].media_available = 1;
+		return 0;
+	} else {
+		ide_devices[device].media_available = 0;
+		return -1;
+	}
+
+	//ide_devices[device].blockdev.block_size = 
+}
+int atapi_reset(int device)
+{
+	ide_wait(device, IDE_CTRL_BSY, 1);
+	outportb(ide_ports[device >> 1].featErr, 0xCC);
+	outportb(ide_ports[device >> 1].comStat, 0xEF);
+	kwait(0, 1000);
+	ide_wait(device, IDE_CTRL_BSY, 1);
+	//itse reset
+	outportb(ide_ports[device >> 1].comStat, 0x08);
+	kwait(0, 1000);
+	ide_wait(device, IDE_CTRL_BSY, 1);
+
+	return 0;
+}
+
+int atapi_send_packet(int device, uint_t bytecount, uint16_t * packet)
+{
+	int i;
+
+	while (inportb(ide_ports[device >> 1].comStat) & 0x80);
+	while (!(inportb(ide_ports[device >> 1].comStat) & 0x40));
+
+	outportb(ide_ports[device >> 1].driveHead, (device & 0x01) << 4); //laite 0 = 0x00, laite 1 olis 0x10
+	outportb(ide_ports[device >> 1].altComStat, 0x0A); //skipataan keskeytys
+	outportb(ide_ports[device >> 1].comStat, 0xA0); //THE COMMAND
+	
+	kwait(0, 1000);
+
+	while (inportb(ide_ports[device >> 1].comStat) & 0x80);
+	while (!(inportb(ide_ports[device >> 1].comStat) & 0x08));
+
+	for (i = 0; i < 6; i++) {
+		outportw(ide_ports[device >> 1].data, packet[i]);
+		inportb(ide_ports[device >> 1].altComStat);
+	}
+
+	inportb(ide_ports[device >> 1].altComStat);
+
+	while (inportb(ide_ports[device >> 1].comStat) & 0x80);
+
+	return 0;
+}
+
+int atapi_read(int device, uint64_t sector, size_t count, uint16_t * buffer)
+{
+	uint16_t word_count = 0;
+	uint8_t status = 0;
+	int i = 0, read_words = 0;
+
+	if (!ide_devices[device].media_available) {
+		if (atapi_start(device) != 0) {
+			return -1;
+		}
+	}
+
+	while (inportb(ide_ports[device >> 1].altComStat) & 0x08) {
+		if (inportb(ide_ports[device >> 1].altComStat) & 0x01) {
+			//virhe
+			return -1;
+		}
+	}
+
+	kwait(0, 1000);
+
+	unsigned char ATAPI_command[] = { 0xA8, 0,
+									(unsigned char)((sector & 0xFF000000) >> 24),
+									(unsigned char)((sector & 0x00FF0000) >> 16),
+									(unsigned char)((sector & 0x0000FF00) >> 8),
+									(unsigned char)(sector & 0x000000FF),
+									(unsigned char)((count & 0xFF000000) >> 24),
+									(unsigned char)((count & 0x00FF0000) >> 16),
+									(unsigned char)((count & 0x0000FF00) >> 8),
+									(unsigned char)(count & 0x000000FF),
+									0, 0 };
+
+	atapi_send_packet(device, 0xFFFF, (uint16_t*)(ATAPI_command));
+
+	for (;;)
+	{
+		status = inportb(ide_ports[device >> 1].comStat) & 0x08;
+		status |= (inportb(ide_ports[device >> 1].sectorCount) & 0x03);
+
+		switch (status) {
+			case 0x03:
+				//done
+				if (read_words < count * (ATAPI_BYTES_PER_SECTOR >> 1)) {
+					kprintf("WARNING: Didn't get as much data as wanted...\n");
+					return -1;
+				}
+				//success
+				return 0;
+				break;
+			case 0x00:
+				//abort
+				kprintf("Command aborted.\n");
+				return -2;
+				break;
+			default:
+				break;
+		}
+
+		while (!(inportb(ide_ports[device >> 1].altComStat) & 0x08)) {
+			if (inportb(ide_ports[device >> 1].altComStat) & 0x01) {
+				//virhe
+				return -1;
+			}
+		}
+
+		word_count = inportb(ide_ports[device >> 1].cylinderLow);
+		word_count |= ((uint16_t)(inportb(ide_ports[device >> 1].cylinderHigh))) << 8;
+		word_count >>= 1;
+
+		for (i = 0; i < word_count; i++) {
+			buffer[read_words + i] = inportw(ide_ports[device >> 1].data);
+		}
+
+		read_words+=word_count;
+
+	}
+
+	return 0;
 }

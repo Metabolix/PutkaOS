@@ -31,6 +31,7 @@
 #define IDE_TIMEOUT 1000000 // mikrosekunteina, nyt 1 sec
 
 #define IDE_BYTES_PER_SECTOR 512
+#define ATAPI_BYTES_PER_SECTOR 2048
 
 typedef struct ide_controller {
 	unsigned data;
@@ -50,6 +51,7 @@ typedef struct ide_device {
 	int devnum;
 	unsigned char ide_type;
 	unsigned char removable;
+	unsigned char media_available;
 
 	char serial_number[21];
 	char firmware[9];
@@ -62,7 +64,7 @@ int ide_select_device(uint_t device);
 int ide_reset(uint_t controller);
 void ide_identify_device(uint_t controller, uint_t device);
 void ide_probe(void);
-int ide_wait (uint_t device);
+int ide_wait(uint_t device, uint_t waitcode, uint_t on_off);
 int ata_read_next_sector (uint_t device, uint16_t * buf);
 int ata_write_next_sector (uint_t device, uint16_t * buf);
 int ata_identify (uint_t device, void * buf);
@@ -81,6 +83,31 @@ int ata_write_one_sector (ide_device_t *device, uint64_t sector, void * buf);
 
 int ata_safely_remove(ide_device_t *device);
 
+int atapi_send_packet(int device, uint_t bytecount, uint16_t * packet);
+int atapi_reset(int device);
+int atapi_start(int device);
+int atapi_read(int device, uint64_t sector, size_t count, uint16_t * buffer);
+
 extern int ide_init(void);
+
+//pysäyttää levyn
+#define ATAPI_PACKET_STOP \
+ ((unsigned char[]) { 0x1B, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } )
+
+//laittaa levyn pyörimään ja mahdollistaa siten käytön
+#define ATAPI_PACKET_START \
+ ((unsigned char[]) { 0x1B, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0 } )
+
+//avaa aseman
+#define ATAPI_PACKET_EJECT \
+ ((unsigned char[]) { 0x1B, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0 } )
+
+//sulkee aseman
+#define ATAPI_PACKET_LOAD \
+ ((unsigned char[]) { 0x1B, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0 } )
+
+//lukee levyn sektorien määrän
+#define ATAPI_PACKET_READCAPACITY \
+ ((unsigned char[]) { 0x25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } )
 
 #endif
