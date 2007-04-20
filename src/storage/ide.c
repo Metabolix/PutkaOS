@@ -397,19 +397,19 @@ int atapi_start(int device)
 
 	kprintf("Sector count: %d, Sector size: %d\n", num_sectors, sector_size);
 
-	ide_devices[device].blockdev.block_size = sector_size;
-	ide_devices[device].blockdev.block_count = num_sectors;
 	//ide_devices[device].blockdev.std.remove = atapi_safely_remove;
+	//ide_devices[device].blockdev.block_size = sector_size;
 
-	if ((num_sectors != 0) && (sector_size != 0)) {
-		ide_devices[device].media_available = 1;
-		return 0;
-	} else {
+	if (!num_sectors || !sector_size) {
+		ide_devices[device].blockdev.block_size = 0;
+		ide_devices[device].blockdev.block_count = 0;
 		ide_devices[device].media_available = 0;
 		return -1;
 	}
-
-	//ide_devices[device].blockdev.block_size =
+	ide_devices[device].media_available = 1;
+	ide_devices[device].blockdev.block_size = ATAPI_BYTES_PER_SECTOR;
+	ide_devices[device].blockdev.block_count = num_sectors;
+	return 0;
 }
 
 int atapi_reset(int device)
@@ -495,8 +495,7 @@ size_t atapi_real_read(int device, uint32_t sector, size_t count, uint16_t * buf
 
 	atapi_send_packet(device, 0xFFFF, (uint16_t*)(ATAPI_command));
 
-	for (;;)
-	{
+	for (;;) {
 		status = inportb(ide_ports[device >> 1].comStat) & 0x08;
 		status |= (inportb(ide_ports[device >> 1].sectorCount) & 0x03);
 
@@ -512,8 +511,8 @@ size_t atapi_real_read(int device, uint32_t sector, size_t count, uint16_t * buf
 				//abort
 				kprintf("atapi_read: Command aborted.\n");
 				return ATAPI_CONV_WORDS_TO_SECTORS(read_words);
-			default:
-				break;
+			default: {}
+				// break;
 		}
 
 		while (!(inportb(ide_ports[device >> 1].altComStat) & 0x08)) {
@@ -533,6 +532,7 @@ size_t atapi_real_read(int device, uint32_t sector, size_t count, uint16_t * buf
 		read_words += word_count;
 	}
 
+	// Not reached
 	return 0;
 }
 
