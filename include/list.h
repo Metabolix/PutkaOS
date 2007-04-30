@@ -61,6 +61,8 @@ struct list_of_ ## nimi { \
 
 #define list_item(iter) ((iter)->tavara)
 
+#define list_loop(iter, list) for (iter = list_begin(list); iter != list_end(list); list_inc(iter))
+
 #define list_insert_after(iter, val) \
 	((!(iter) || !(iter)->list || !(iter)->next || (sizeof((iter)->tavara) != sizeof(val))) ? -1 : \
 	_list_insert_func( \

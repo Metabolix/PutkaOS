@@ -4,7 +4,6 @@
 #include <filesys/filesystem.h>
 #include <stdint.h>
 
-
 typedef enum {
 	DEV_CLASS_NONE = 0,
 	DEV_CLASS_OTHER = 1,
@@ -32,6 +31,9 @@ enum DEV_INSERT_ERROR {
 	DEV_ERR_FREE_ERRORCODE = -0x10000
 };
 
+struct device;
+struct devfs_dir;
+
 typedef struct device DEVICE;
 
 typedef FILE *(*devopen_t)(DEVICE *device, uint_t mode);
@@ -44,16 +46,6 @@ struct device {
 	size_t index; // device_insert sets this.
 	devopen_t devopen;
 	devrm_t remove;
-};
-
-struct device_list {
-	DEVICE *dev;
-	struct device_list *next;
-};
-
-struct devfs_dir {
-	DIR std;
-	struct device_list *devlist;
 };
 
 extern struct fs devfs;

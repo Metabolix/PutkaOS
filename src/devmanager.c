@@ -1,7 +1,17 @@
 #include <devmanager.h>
 #include <malloc.h>
 #include <string.h>
+#include <list.h>
 //#include <screen.h>
+
+LIST_TYPE(device, DEVICE*);
+
+list_of_device devlist;
+
+struct devfs_dir {
+	DIR std;
+	list_iter_of_device next;
+};
 
 struct fs devfs = {
 	0,0,
@@ -18,27 +28,24 @@ struct fs devfs = {
 };
 
 size_t free_index = 0;
-struct device_list devlist = {0, 0};
 
 FILE *dev_fopen(struct fs *this, const char * filename, uint_t mode)
 {
-	struct device_list *list;
 	DEVICE *dev;
+	list_iter_of_device i;
 
-	list = &devlist;
 	dev = 0;
-	while (list) {
-		if (list->dev && list->dev->name)
-		if (strcmp(filename, list->dev->name) == 0) {
-			dev = list->dev;
+	list_loop(i, devlist) {
+		if (list_item(i)->name)
+		if (strcmp(filename, list_item(i)->name) == 0) {
+			dev = list_item(i);
 			break;
 		}
-		list = list->next;
 	}
 	if (!dev || !dev->devopen) {
 		return 0;
 	}
-	return dev->devopen(list->dev, mode);
+	return dev->devopen(dev, mode);
 }
 
 struct devfs_dir *dev_dopen(struct fs *this, const char * dirname)
@@ -51,7 +58,7 @@ struct devfs_dir *dev_dopen(struct fs *this, const char * dirname)
 	struct devfs_dir *listing = kmalloc(sizeof(struct devfs_dir));
 	if (listing) {
 		listing->std.func = &devfs.dirfunc;
-		listing->devlist = &devlist;
+		listing->next = list_begin(devlist);
 		return listing;
 	}
 	return 0;
@@ -69,17 +76,12 @@ int dev_dclose(struct devfs_dir *listing)
 int dev_dread(struct devfs_dir *listing)
 {
 	DEVICE *ptr;
-	if (!listing) {
+	if (!listing || !list_next(listing->next)) {
 		return -1;
 	}
-	while (listing->devlist && !listing->devlist->dev) {
-		listing->devlist = listing->devlist->next;
-	}
-	if (!listing->devlist || !listing->devlist->dev) {
-		return -1;
-	}
-	ptr = listing->devlist->dev;
-	listing->devlist = listing->devlist->next;
+
+	ptr = list_item(listing->next);
+
 	/* Tiedot diriin... */
 	listing->std.name = (char*)ptr->name;
 	listing->std.size = 1; // Can we know it?
@@ -89,55 +91,40 @@ int dev_dread(struct devfs_dir *listing)
 	listing->std.accessed = 0;
 	listing->std.modified = 0;
 	listing->std.references = 1; // Only one...
+
+	list_inc(listing->next);
 	return 0;
 }
 
 int devmanager_init(void)
 {
+	list_init(devlist);
 	return 0;
 }
 
 int devmanager_uninit(void)
 {
-	struct device_list *list, *ptr;
-	list = &devlist;
-	while (list) {
-		if (list->dev) {
-			list->dev->remove(list->dev);
-		}
-		list = list->next;
+	list_iter_of_device i;
+	list_loop(i, devlist) {
+		list_item(i)->remove(list_item(i));
 	}
-	list = devlist.next;
-	while (list) {
-		ptr = list;
-		list = list->next;
-		kfree(ptr);
-	}
+	list_destroy(devlist);
 	return 0;
 }
 
 int device_insert(DEVICE *device)
 {
-	struct device_list *list;
+	list_iter_of_device i;
 
-	list = &devlist;
-	while (list) {
-		if (list->dev && list->dev->name)
-		if (strcmp(device->name, list->dev->name) == 0) {
+	list_loop(i, devlist) {
+		if (strcmp(device->name, list_item(i)->name) == 0) {
 			return DEV_ERR_EXISTS;
 		}
-		list = list->next;
 	}
 
-	list = &devlist;
-	while (list->next) {
-		if (!list->dev) break;
-		list = list->next;
+	if (!list_insert(list_end(devlist), device)) {
+		return -1;
 	}
-	if (!list->next) {
-		list->next = kcalloc(1, sizeof(struct device_list));
-	}
-	list->dev = device;
 	device->index = ++free_index;
 	//kprintf("Devmanager: Added device '%s' with index %d\n", device->name, device->index);
 	return 0;

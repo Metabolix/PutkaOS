@@ -12,6 +12,54 @@ struct printf_format_tag {
 	int modifier;
 } tag;
 
+#ifdef METABOLIX_SAATAA
+struct printf_lukutuloste {
+	int less_than_one;
+	int zeros;
+	int alkulen, loppulen;
+	char alku[32], loppu[32];
+} lukutuloste;
+
+struct printf_double {
+	unsigned long long sgn:1, exp:11, man:52;
+};
+
+static int sprintf_double(double num)
+{
+	int i = BUF_KOKO;
+	int sgn, exp;
+	unsigned long long man;
+
+	sgn = ((struct printf_double*)&num)->sgn ? -1 : 1;
+	exp = ((struct printf_double*)&num)->exp; exp -= 0x3ff;
+	man = ((struct printf_double*)&num)->man;
+
+#if 0
+a * 2^b = c * 10^d
+ln(a) + b*ln(2) = ln(c) + d*ln(10)
+
+a * 2^b = c * 10^d
+
+ln(a/c) + b*ln(2) = d*ln(10)
+ln(a/c)/ln(2) + b = d*(ln(10)/ln(2))
+ln(a/c)/ln(2) = (ln(10)/ln(2)) * d - b
+#endif
+
+	if (!num) {
+		sprintf_buf[0] = '0';
+		sprintf_buf[1] = 0;
+		return 1;
+	}
+	do {
+		sprintf_buf[--i] = (num % 10) + '0';
+		num /= 10;
+	} while (num);
+	memmove(sprintf_buf, sprintf_buf + i, BUF_KOKO - i);
+	sprintf_buf[BUF_KOKO - i] = 0;
+	return BUF_KOKO - i;
+}
+#endif
+
 static int sprintf_uint(unsigned int num)
 {
 	int i = BUF_KOKO;
