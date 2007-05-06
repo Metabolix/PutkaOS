@@ -1,3 +1,4 @@
+BITS 32
 global read_cmos
 
 read_cmos:

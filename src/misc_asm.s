@@ -1,3 +1,4 @@
+BITS 32
 global asm_sti
 global asm_cli
 global asm_hlt
