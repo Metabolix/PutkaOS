@@ -162,25 +162,7 @@ void timer_handler(void)
 }
 
 unsigned char cmos[128];
-void read_cmos(void);
-__asm__(
-"read_cmos:\n"
-"    xorl %ecx, %ecx\n"
-"    cli\n"
-"read_cmos_loop:\n"
-"    movb %cl, %al\n"
-"    outb %al, $0x70\n"
-"    nop\n"
-"    nop\n"
-"    nop\n"
-"    inb $0x71, %al\n"
-"    movb %al, cmos(,%ecx,1)\n"
-"    inc %ecx\n"
-"    cmp $0x80, %ecx\n"
-"    jne read_cmos_loop\n"
-"    sti\n"
-"    ret\n"
-);
+void read_cmos();
 
 unsigned char xD(unsigned char a) // 0x64 => 64 xD
 {
@@ -197,7 +179,7 @@ void timer_install(void)
 
 	memset(timers, 0, sizeof(struct timer) * MAX_TIMERS);
 
-	read_cmos();
+	read_cmos(cmos);
 	sys_time.tm_usec = 0;
 	sys_time.tm_sec = xD(cmos[0x00]);
 	sys_time.tm_min = xD(cmos[0x02]);
@@ -205,7 +187,7 @@ void timer_install(void)
 	sys_time.tm_mday = xD(cmos[0x07]);
 	sys_time.tm_mon = xD(cmos[0x08]) - 1;
 	sys_time.tm_year = xD(cmos[0x09]) + 100;
-	install_irq_handler(0, (void *)timer_handler);
+	install_irq_handler(0, (irq_handler_t)timer_handler);
 }
 
 void kwait(time_t sec, time_t usec)

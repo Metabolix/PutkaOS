@@ -687,7 +687,7 @@ fat16_dread_alku:
 		case (char)0xe5:
 			goto fat16_dread_alku;
 		case 0x05:
-			listing->direntry.basename[0] = 0xe5;
+			listing->direntry.basename[0] = (char)0xe5;
 	}
 	int i, j;
 	for (i = 8; i;) { --i;
@@ -748,14 +748,17 @@ typedef struct _DIR {
 	listing->std.size = listing->direntry.file_size;
 	struct tm tm;
 	tm.tm_usec = 0;
-	MK_STRUCT_TM(listing->direntry.create_date, listing->direntry.create_time, tm);
+	fat_mk_struct_tm(listing->direntry.create_date, listing->direntry.create_time, &tm);
 	tm.tm_sec += (listing->direntry.create_time_10ms + 50) / 100;
 	listing->std.created = mktime(&tm);
-	MK_STRUCT_TM(listing->direntry.modify_date, listing->direntry.modify_time, tm);
+
+	fat_mk_struct_tm(listing->direntry.modify_date, listing->direntry.modify_time, &tm);
 	listing->std.modified = mktime(&tm);
-	MK_STRUCT_TM(listing->direntry.access_date, listing->direntry.modify_time, tm);
+
+	fat_mk_struct_tm(listing->direntry.access_date, listing->direntry.modify_time, &tm);
 	tm.tm_sec = tm.tm_min = 0; tm.tm_hour = 12;
 	listing->std.accessed = mktime(&tm);
+
 	// TODO: owner, rights, references
 	return 0;
 }

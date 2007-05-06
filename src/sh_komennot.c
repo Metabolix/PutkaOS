@@ -295,7 +295,7 @@ void sh_list_colours(char *buf)
 
 void sh_exit(char *buf)
 {
-	char vari[256] = {0};
+	unsigned char vari[256] = {0};
 	vari[' '] = 0;
 	vari['.'] = 0x44;
 	vari['$'] = 0xdd;
@@ -379,11 +379,11 @@ void sh_inportb(char *buf)
 
 void sh_reboot(char *buf)
 {
-	outportb(0x64, 0x60);         
+	outportb(0x64, 0x60);
 	kwait(0, 500);
-	outportb(0x60, 0x14);         
+	outportb(0x60, 0x14);
 	kwait(0, 500);
-	outportb(0x64, 0xfe);         
+	outportb(0x64, 0xfe);
 }
 
 void sh_ei_tunnistettu(char *buf)

@@ -210,8 +210,8 @@ void putch_vt(int c, unsigned int vt_num)
 	if (vt[vt_num].cy >= 25) { /* scroll screen */
 		int amount = vt[vt_num].cy - 24;
 
-		memmove((void *)0xB8000, (void *)0xB8000 + amount * 160, (25 - amount) * 160);
-		memset((void *)0xB8000 + (25 - amount) * 160, 0, 160);
+		memmove((char *)0xB8000, (char *)0xB8000 + amount * 160, (25 - amount) * 160);
+		memset((char *)0xB8000 + (25 - amount) * 160, 0, 160);
 		scroll_buffer((char*)0xB8000 + (25 - amount) * 160, (25 - amount) * 160);
 		vt[vt_num].cy = 24;
 	}

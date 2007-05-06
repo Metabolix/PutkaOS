@@ -1,12 +1,13 @@
 
 CC=gcc
-CFLAGS=-Wall -ffreestanding -fno-stack-protector -nostdinc -I./include -s -m32
+CFLAGS=-Wall -ffreestanding -fno-stack-protector -nostdinc -I./include -s -m32 -std=c99
+#-pedantic -ansi -std=c99 -Werror
 CFLAGS_OPTI=
 
 ASM=nasm
 ASMFLAGS=-f elf
 
-ASM_SOURCES=start.s gdt_asm.s irq_asm.s isrs.s bit.s thread_asm.s io.s
+ASM_SOURCES=start.s gdt_asm.s irq_asm.s isrs.s bit.s thread_asm.s io.s read_cmos.s misc_asm.s
 
 C_SOURCES_STDROUTINES=string.c mem.c
 
@@ -23,7 +24,8 @@ C_SOURCES_FS_1=mount.c filesystem.c pseudofsdriver.c file.c dir.c fat.c fat16.c 
 C_SOURCES_FS=$(addprefix filesys/,$(C_SOURCES_FS_1))
 
 # Misc
-C_SOURCES_OTHER=gdt.c isr.c main.c panic.c idt.c irq.c keyboard.c screen.c regs.c devmanager.c spinlock.c lcdscreen.c mouse.c
+C_SOURCES_OTHER=gdt.c isr.c main.c panic.c idt.c irq.c keyboard.c screen.c regs.c devmanager.c spinlock.c lcdscreen.c
+#mouse.c
 C_SOURCES_OTHER_OPT=int64.c timer.c kprintf.c sh.c sh_komennot.c time.c endian.c list.c
 
 C_SOURCES=$(C_SOURCES_MEM) $(C_SOURCES_MULTITASK) $(C_SOURCES_STORAGE) $(C_SOURCES_OTHER)

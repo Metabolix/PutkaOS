@@ -18,11 +18,11 @@ enum HDD_PART_TYPES {
 	(x) == HDD_PART_LOGICAL_DOS)
 
 struct hdd_bootrec_entry {
-	uint32_t
+	unsigned
 		nulls :7,
 		status :1,
 		start_chs :24;
-	uint32_t
+	unsigned
 		type :8,
 		end_chs :24;
 	uint32_t

@@ -1,11 +1,12 @@
 #include <mem.h>
 #include <stddef.h>
 
-void *memchr(const void *s, int c, size_t n)
+void *memchr(const void *s1, int c, size_t n)
 {
+	const unsigned char * s = s1;
 	for(; n; --n, ++s) {
-		if (*(const unsigned char *)s == (unsigned char)c) {
-			return (void *)s;
+		if (*s == (unsigned char)c) {
+			return (void*)s;
 		}
 	}
 	return 0;
@@ -51,26 +52,26 @@ void *memcpy(void *dest, const void *src, size_t n)
 	return dest;
 }
 
-void *memmove(void *dest, const void *src, size_t n)
+void *memmove(void *dest0, const void *src0, size_t n)
 {
-	if (src == dest) {
-		return dest;
+	if (src0 == dest0) {
+		return dest0;
 	}
-	const unsigned char * source = (const unsigned char *)src;
-	unsigned char * des = dest;
+	const unsigned char * src = (const unsigned char *)src0;
+	unsigned char * dest = dest0;
 	if (src > dest) {
 		for(; n; n--) {
-			*(des++) = *(source++);
+			*(dest++) = *(src++);
 		}
-		return dest;
+		return dest0;
 	}
 
-	des += n;
+	dest += n;
 	src += n;
 	for(; n; n--) {
-		*(--des) = *(--source);
+		*(--dest) = *(--src);
 	}
-	return dest;
+	return dest0;
 }
 
 void *memset(void *s, int c, size_t n)

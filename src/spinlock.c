@@ -17,13 +17,13 @@ void spinl_spin(struct spinlock * spinl) {
 void spinl_lock(struct spinlock * spinl) {
 	for(;;) { /* Until we get the lock */
 		spinl_spin(spinl); /* Someone could catch the lock still after this... */
-		cli(); /* I think that we need these here, because 2 threads could try to lock on same time think that they (both) succeeded (It is possible?) */
-		if(!spinl_locked(spinl)) {
+		asm_cli(); /* I think that we need these here, because 2 threads could try to lock on same time think that they (both) succeeded (It is possible?) */
+		if (!spinl_locked(spinl)) {
 			spinl->count = 1;
-			sti();
+			asm_sti();
 			break;
 		}
-		sti();
+		asm_sti();
 	}
 }
 

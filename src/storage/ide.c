@@ -219,8 +219,8 @@ void ide_identify_device(uint_t controller, uint_t device)
 			ide_devices[device].blockdev.std.dev_type = DEV_TYPE_OTHER;
 		}
 
-		ide_devices[device].blockdev.read_blocks = (void*) atapi_read;
-		ide_devices[device].blockdev.read_one_block = (void*) atapi_read_one_sector;
+		ide_devices[device].blockdev.read_blocks = (read_blocks_t) atapi_read;
+		ide_devices[device].blockdev.read_one_block = (read_one_block_t) atapi_read_one_sector;
 		ide_devices[device].blockdev.write_blocks = 0;
 		ide_devices[device].blockdev.write_one_block = 0;
 

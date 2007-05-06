@@ -18,7 +18,7 @@
 #include <thread.h>
 #include <devmanager.h>
 #include <string.h>
-#include <mouse.h>
+//#include <mouse.h>
 #include <filesys/mount.h>
 #include <storage/ide.h>
 #include <storage/floppy.h>
@@ -55,7 +55,7 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 	timer_install();
 	malloc_init();
 	keyboard_install();
-	mouse_install();
+	//mouse_install();
 
 	devmanager_init();
 	install_floppy();
@@ -67,7 +67,7 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 	kprintf("Going to unmask irqs\n");
 	outportb(0x21,0x0); /* Don't mask any IRQ */
 	outportb(0xa1,0x0);
-	asm __volatile__("sti"); /* Allow interrupts */
+	asm_sti(); /* Allow interrupts */
 
 	reset_floppy();
 	mount_init(mboot_device, mboot_cmdline);

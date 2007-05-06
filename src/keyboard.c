@@ -370,12 +370,12 @@ int kb_get(void)
 	vt[curr_vt].kb_buf_start %= KB_BUFFER_SIZE;
 
 	if (kb_buf_full) {
-		cli();
+		asm_cli();
 		while (kb_buf_full) {
 			keyboard_handle();
 		}
-		sti();
-		asm("hlt");
+		asm_sti();
+		//asm_hlt();
 	}
 
 	return ret;
@@ -383,7 +383,7 @@ int kb_get(void)
 
 void keyboard_install(void)
 {
-	install_irq_handler(1, (void *) keyboard_handle);
+	install_irq_handler(1, (irq_handler_t) keyboard_handle);
 	inportb(0x60); /* There might be something in the buffer */
 	*x86_modstatus &= ~(x86_MOD_SCRL | x86_MOD_NUML | x86_MOD_CAPSL);
 	*x86_modstatus |= x86_MOD_INSMODE;

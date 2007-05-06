@@ -3,6 +3,7 @@
 #include <string.h>
 #include <panic.h>
 #include <screen.h>
+#include <putkaos.h>
 
 struct process_t processes[K_MAX_PROCESSES];
 struct thread_t threads[K_MAX_THREADS];
@@ -26,13 +27,7 @@ const struct regs_t initial_regs = {
 /**
  * function kernel_idle_loop - hlt & jmp
 **/
-
 extern void kernel_idle_loop(void);
-__asm__(
-"kernel_idle_loop:\n"
-"    hlt\n"
-"    jmp kernel_idle_loop\n"
-);
 
 /**
  * function thread_ending - this is where "ret" leads from a thread entry
@@ -154,7 +149,7 @@ void start_threading(void)
 	if (active_thread_ptr) {
 		panic("start_threading: already started!\n");
 	}
-	asm("cli");
+	asm_cli();
 	active_process_ptr = processes + active_process;
 	active_thread_ptr = threads + active_thread;
 

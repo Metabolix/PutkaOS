@@ -7,6 +7,7 @@
 #include <bit.h>
 #include <timer.h>
 #include <panic.h>
+#include <putkaos.h>
 
 floppy_parameters floppy_params;
 int cylinder, status_0;
@@ -123,7 +124,7 @@ void install_floppy(void)
 		fd_devices[1].std.dev_type = DEV_TYPE_NONE;
 	}
 
-	install_irq_handler(6, (void*)floppy_handler);
+	install_irq_handler(6, (irq_handler_t)floppy_handler);
 }
 
 void reset_floppy(void)
@@ -205,7 +206,7 @@ void calibrate_drive(unsigned int drive)
 }
 
 void init_dma_floppy(unsigned long buffer, size_t len, int write) {
-	asm("cli");
+	asm_cli();
 	outportb(0x0a, 0x06);      /* mask DMA channel 2 */
 	reset_flipflop_dma();
 	outportb(0x4, buffer & 0xFF);
@@ -217,7 +218,7 @@ void init_dma_floppy(unsigned long buffer, size_t len, int write) {
 	outportb(0x81, buffer >> 16);
 	outportb(0x0b, (write ? 0x48: 0x44) + 2);  /* single transfer, write or read, channel 2 */
 	outportb(0x0a, 0x02);          /* unmask DMA channel 2 */
-	asm("sti");
+	asm_sti();
 }
 
 void motor_on(unsigned int drive) {

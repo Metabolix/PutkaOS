@@ -12,8 +12,6 @@ struct fat16_ext_header {
 	char fs_type[8];
 } __attribute__((packed));
 
-#define fat12_ext_header fat16_ext_header
-
 struct fat32_ext_header {
 	unsigned long sectors_per_fat;
 	unsigned short fat_flags;
@@ -49,38 +47,9 @@ struct fat_header {
 	union {
 		struct fat32_ext_header fat32;
 		struct fat16_ext_header fat16;
-		struct fat12_ext_header fat12;
-	};
+		struct fat16_ext_header fat12;
+	} head;
 } __attribute__((packed));
-
-union fat_time {
-	unsigned short i;
-	struct {
-		unsigned short
-			sec_per_2: 5,
-			min: 6,
-			hour: 5;
-	};
-};
-
-union fat_date {
-	unsigned short i;
-	struct {
-		unsigned short
-			day: 5,
-			month: 4,
-			year: 7;
-	};
-};
-
-#define MK_STRUCT_TM(date, time, tm) { \
-	tm.tm_sec = (int)time.sec_per_2 * 2; \
-	tm.tm_min = (int)time.min; \
-	tm.tm_hour = (int)time.hour; \
-	tm.tm_mday = (int)date.day; \
-	tm.tm_mon = (int)date.month - 1; \
-	tm.tm_year = (int)date.year + 80; \
-}
 
 struct fat_direntry {
 	char basename[8];
@@ -88,15 +57,15 @@ struct fat_direntry {
 	unsigned char attributes;
 	unsigned char reserved;
 	unsigned char create_time_10ms;
-	union fat_time create_time;
-	union fat_date create_date;
-	union fat_date access_date;
+	unsigned short create_time;
+	unsigned short create_date;
+	unsigned short access_date;
 	union {
 		unsigned short ea_index;
 		unsigned short first_cluster_hiword;
-	};
-	union fat_time modify_time;
-	union fat_date modify_date;
+	} uni;
+	unsigned short modify_time;
+	unsigned short modify_date;
 	unsigned short first_cluster;
 	unsigned long file_size;
 } __attribute__((packed));
@@ -135,7 +104,8 @@ enum FAT_FILE_ATTRIBUTES {
 
 extern struct fs *fat_mount(FILE *device, uint_t mode);
 
-// Huom, yksikään ei ole extern
+// Sisäiset
+extern void fat_mk_struct_tm(unsigned short dateshort, unsigned short timeshort, struct tm *tm);
 void *fat32_mount(FILE *device, uint_t mode, const struct fat_header *fat_header);
 
 #endif

@@ -27,7 +27,7 @@ struct fat16_fs {
 	fat16_fat_t (*get_fat)(struct fat16_fs *fs, fat16_fat_t cluster);
 	fat16_fat_t (*set_next_cluster)(struct fat16_fs *fs, fat16_fat_t cluster);
 	int (*write_fat)(struct fat16_fs *fs);
-	fat16_fat_t fat12_fat[0];
+	fat16_fat_t fat12_fat[];
 };
 
 struct fat16_dir {

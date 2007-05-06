@@ -6,7 +6,7 @@
 #include <regs.h>
 #include <putkaos.h>
 
-#define io_wait() asm("nop")
+#define io_wait() asm_nop()
 
 irq_handler_t irq_handlers[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 volatile char irq_wait[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -35,6 +35,7 @@ void irq_remap(unsigned char offset1, unsigned char offset2)
 	print("IRQs remapped\n");
 }
 
+/*
 void asm_wait_irq(unsigned int irq);
 __asm__(
 "asm_wait_irq:\n"
@@ -49,6 +50,8 @@ __asm__(
 "asm_wait_irq_ret:\n"
 "    ret\n"
 );
+*/
+#define asm_wait_irq(x) asm_hlt_until_true((char*)&irq_wait[x])
 
 void wait_irq(unsigned int irq)
 {

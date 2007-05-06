@@ -1,5 +1,6 @@
 BITS 32
 global start_idle_thread
+global kernel_idle_loop
 
 start_idle_thread:
 	mov ebx, [esp+4]
@@ -17,3 +18,7 @@ start_idle_thread:
 	sti
 	iret
 
+
+kernel_idle_loop:
+	hlt
+	jmp kernel_idle_loop
