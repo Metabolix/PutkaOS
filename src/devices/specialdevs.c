@@ -21,6 +21,14 @@ struct device {
 #undef MKSPECIALDEV
 
 /*
+* Removing them needs nothing special
+**/
+#define MKSPECIALDEV(name) \
+	SPECIAL_RMFUNC(name) { return 0; }
+#include <devices/specialdevs_list.h>
+#undef MKSPECIALDEV
+
+/*
 * List devices
 **/
 DEVICE specialdev[] = {

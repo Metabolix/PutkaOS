@@ -6,7 +6,7 @@
 
 MKSPECIALDEV( null )
 MKSPECIALDEV( zero )
+MKSPECIALDEV( urandom )
 //MKSPECIALDEV( random )
-//MKSPECIALDEV( urandom )
 
 #endif
