@@ -1,7 +1,7 @@
 
 CC=gcc
-CFLAGS=-Wall -ffreestanding -fno-stack-protector -nostdinc -I./include -s -m32 -std=c99
-#-pedantic -ansi -std=c99 -Werror
+CFLAGS=-Wall -ffreestanding -fno-stack-protector -nostdinc -I./include -s -m32 -pedantic -std=c99
+#-pedantic -std=c99 -Werror
 CFLAGS_OPTI=
 
 ASM=nasm
@@ -16,19 +16,23 @@ C_SOURCES_MEM=memory.c malloc.c
 C_SOURCES_MULTITASK=thread.c process.c
 
 # Storage
-C_SOURCES_STORAGE_1=blockdev.c floppy.c ide.c hdd.c
-C_SOURCES_STORAGE=$(addprefix storage/,$(C_SOURCES_STORAGE_1))
+C_SOURCES_BLOCKDEV_1=blockdev.c floppy.c ide.c hdd.c
+C_SOURCES_BLOCKDEV=$(addprefix block/,$(C_SOURCES_BLOCKDEV_1))
+
+# Storage
+C_SOURCES_DEVICES_1=devmanager.c $(C_SOURCES_BLOCKDEV)
+C_SOURCES_DEVICES=$(addprefix devices/,$(C_SOURCES_DEVICES_1))
 
 # File system
 C_SOURCES_FS_1=mount.c filesystem.c pseudofsdriver.c file.c dir.c fat.c fat16.c ext2.c
 C_SOURCES_FS=$(addprefix filesys/,$(C_SOURCES_FS_1))
 
 # Misc
-C_SOURCES_OTHER=gdt.c isr.c main.c panic.c idt.c irq.c keyboard.c screen.c regs.c devmanager.c spinlock.c lcdscreen.c
+C_SOURCES_OTHER=gdt.c isr.c main.c panic.c idt.c irq.c keyboard.c screen.c regs.c spinlock.c lcdscreen.c
 #mouse.c
 C_SOURCES_OTHER_OPT=int64.c timer.c kprintf.c sh.c sh_komennot.c time.c endian.c list.c
 
-C_SOURCES=$(C_SOURCES_MEM) $(C_SOURCES_MULTITASK) $(C_SOURCES_STORAGE) $(C_SOURCES_OTHER)
+C_SOURCES=$(C_SOURCES_MEM) $(C_SOURCES_MULTITASK) $(C_SOURCES_DEVICES) $(C_SOURCES_OTHER)
 C_SOURCES_OPTIMIZE=$(C_SOURCES_OTHER_OPT) $(C_SOURCES_STDROUTINES) $(C_SOURCES_FS)
 
 ASM_SRC=$(addprefix src/,$(ASM_SOURCES))
