@@ -1,0 +1,4 @@
+MKSPECIALDEV( null )
+MKSPECIALDEV( zero )
+//MKSPECIALDEV( random )
+//MKSPECIALDEV( urandom )

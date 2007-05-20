@@ -1,6 +1,6 @@
-#include <storage/hdd.h>
-#include <storage/ide.h>
-#include <storage/blockdev.h>
+#include <devices/blockdev/hdd.h>
+#include <devices/blockdev/ide.h>
+#include <devices/blockdev/blockdev.h>
 #include <debugprint.h>
 #include <panic.h>
 #include <string.h>

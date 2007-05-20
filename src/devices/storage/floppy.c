@@ -1,5 +1,5 @@
-#include <storage/floppy.h>
-#include <storage/blockdev.h>
+#include <devices/blockdev/floppy.h>
+#include <devices/blockdev/blockdev.h>
 #include <mem.h>
 #include <io.h>
 #include <irq.h>

@@ -1,5 +1,5 @@
-#include <storage/ide.h>
-#include <storage/hdd.h>
+#include <devices/blockdev/ide.h>
+#include <devices/blockdev/hdd.h>
 #include <io.h>
 #include <timer.h>
 #include <time.h>

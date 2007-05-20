@@ -2,8 +2,8 @@
 #define _IDE_H 1
 
 #include <stdint.h>
-#include <devmanager.h>
-#include <storage/blockdev.h>
+#include <devices/devmanager.h>
+#include <devices/blockdev/blockdev.h>
 
 #define IDE_ERROR_INVALID_PARAMETER -1
 #define IDE_ERROR_TIMED_OUT -2

@@ -16,12 +16,12 @@
 #include <sh.h>
 #include <lcdscreen.h>
 #include <thread.h>
-#include <devmanager.h>
+#include <devices/devmanager.h>
 #include <string.h>
 //#include <mouse.h>
 #include <filesys/mount.h>
-#include <storage/ide.h>
-#include <storage/floppy.h>
+#include <devices/blockdev/ide.h>
+#include <devices/blockdev/floppy.h>
 
 void testattava_koodi();
 

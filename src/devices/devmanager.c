@@ -1,4 +1,5 @@
-#include <devmanager.h>
+#include <devices/devmanager.h>
+#include <devices/specialdevs.h>
 #include <malloc.h>
 #include <string.h>
 #include <list.h>
@@ -99,6 +100,7 @@ int dev_dread(struct devfs_dir *listing)
 int devmanager_init(void)
 {
 	list_init(devlist);
+	init_special_devices();
 	return 0;
 }
 
@@ -123,7 +125,7 @@ int device_insert(DEVICE *device)
 	}
 
 	if (!list_insert(list_end(devlist), device)) {
-		return -1;
+		return DEV_ERR_TOTAL_FAILURE;
 	}
 	device->index = ++free_index;
 	//kprintf("Devmanager: Added device '%s' with index %d\n", device->name, device->index);

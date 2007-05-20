@@ -1,8 +1,8 @@
 #ifndef _HDD_H
 #define _HDD_H 1
 
-#include <storage/blockdev.h>
-#include <storage/ide.h>
+#include <devices/blockdev/blockdev.h>
+#include <devices/blockdev/ide.h>
 #include <stdint.h>
 
 enum HDD_PART_TYPES {

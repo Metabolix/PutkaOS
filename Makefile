@@ -17,10 +17,10 @@ C_SOURCES_MULTITASK=thread.c process.c
 
 # Storage
 C_SOURCES_BLOCKDEV_1=blockdev.c floppy.c ide.c hdd.c
-C_SOURCES_BLOCKDEV=$(addprefix block/,$(C_SOURCES_BLOCKDEV_1))
+C_SOURCES_BLOCKDEV=$(addprefix blockdev/,$(C_SOURCES_BLOCKDEV_1))
 
 # Storage
-C_SOURCES_DEVICES_1=devmanager.c $(C_SOURCES_BLOCKDEV)
+C_SOURCES_DEVICES_1=devmanager.c specialdevs.c specialdevs_func.c $(C_SOURCES_BLOCKDEV)
 C_SOURCES_DEVICES=$(addprefix devices/,$(C_SOURCES_DEVICES_1))
 
 # File system
