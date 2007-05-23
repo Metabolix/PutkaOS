@@ -22,6 +22,7 @@
 #include <filesys/mount.h>
 #include <devices/blockdev/ide.h>
 #include <devices/blockdev/floppy.h>
+#include <devices/ports/serial.h>
 
 void testattava_koodi();
 
@@ -60,6 +61,7 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 	devmanager_init();
 	install_floppy();
 	vts_init();
+	init_serial();
 	threading_init();
 
 	ide_init();

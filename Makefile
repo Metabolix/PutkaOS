@@ -22,7 +22,7 @@ C_SRC_BLOCKDEV_OPT_1=blockdev.c
 C_SRC_BLOCKDEV_OPT=$(addprefix blockdev/,$(C_SRC_BLOCKDEV_OPT_1))
 
 # Storage
-C_SRC_DEVICES_1=devmanager.c $(C_SRC_BLOCKDEV)
+C_SRC_DEVICES_1=devmanager.c ports/serial.c $(C_SRC_BLOCKDEV)
 C_SRC_DEVICES=$(addprefix devices/,$(C_SRC_DEVICES_1))
 C_SRC_DEVICES_OPT_1=specialdevs.c specialdevs_func.c $(C_SRC_BLOCKDEV_OPT)
 C_SRC_DEVICES_OPT=$(addprefix devices/,$(C_SRC_DEVICES_OPT_1))
