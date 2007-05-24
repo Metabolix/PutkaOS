@@ -70,9 +70,9 @@ int sh_read_int(char **bufptr)
 	return retval;
 }
 
-void sh_printmount(const char *dev_name, const char *absolute_path, const char *relative_path, int level)
+void sh_printmount(const char *fs_name, const char *dev_name, const char *absolute_path, const char *relative_path, int level)
 {
-	kprintf("%s  @ %s\n", dev_name, absolute_path);
+	kprintf("%s @ %s (%s)\n", dev_name, absolute_path, fs_name);
 }
 
 void sh_lsmount(char*a)

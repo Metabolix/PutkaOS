@@ -15,6 +15,7 @@ struct devfs_dir {
 };
 
 struct fs devfs = {
+	"devfs",
 	0,0,
 	{
 		(fopen_t) dev_fopen,

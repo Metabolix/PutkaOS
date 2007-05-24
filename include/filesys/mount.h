@@ -34,9 +34,8 @@ extern int mount_replace(const char * device_filename, const char * mountpoint, 
 extern int mount_something(const char * device_filename, const char * mountpoint, uint_t flags);
 extern int umount_something(const char * device_or_point);
 
-typedef void (*mount_foreach_func_t)(const char *dev_name, const char *absolute_path, const char *relative_path, int level);
+typedef void (*mount_foreach_func_t)(const char *fs_name, const char *dev_name, const char *absolute_path, const char *relative_path, int level);
 extern int mount_count(void);
-extern int mount_list(const char **list);
 extern int mount_foreach(mount_foreach_func_t f);
 
 extern const struct mount *mount_etsi_kohta(const char ** filename_ptr);

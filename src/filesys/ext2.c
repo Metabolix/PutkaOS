@@ -8,25 +8,26 @@
 
 
 struct ext2_fs ext2_op = {
-        {
-                (fs_mount_t)  ext2_mount,
-                (fs_umount_t) ext2_umount,
-                {
-                        (fopen_t)     ext2_fopen,
-                        (fclose_t)    ext2_fclose,
-                        (fread_t)     ext2_fread,
-                        (fwrite_t)    ext2_fwrite,
-                        (fflush_t)    ext2_fflush,
-                        (fgetpos_t)   ext2_fgetpos,
-                        (fsetpos_t)   ext2_fsetpos
-                },
-                {
-                        (dmake_t)     ext2_dmake,
-                        (dopen_t)     ext2_dopen,
-                        (dclose_t)    ext2_dclose,
-                        (dread_t)     ext2_dread
-                }
-        },
+	{
+		"ext2",
+		(fs_mount_t)  ext2_mount,
+		(fs_umount_t) ext2_umount,
+		{
+			(fopen_t)     ext2_fopen,
+			(fclose_t)    ext2_fclose,
+			(fread_t)     ext2_fread,
+			(fwrite_t)    ext2_fwrite,
+			(fflush_t)    ext2_fflush,
+			(fgetpos_t)   ext2_fgetpos,
+			(fsetpos_t)   ext2_fsetpos
+		},
+		{
+			(dmake_t)     ext2_dmake,
+			(dopen_t)     ext2_dopen,
+			(dclose_t)    ext2_dclose,
+			(dread_t)     ext2_dread
+		}
+	},
 	0,
 	0,
 	0,
@@ -127,7 +128,7 @@ struct fs *ext2_mount(FILE *device, uint_t mode) {
 	memcpy(&ext2_fs->std, &ext2_op, sizeof(struct fs));
 	ext2_fs->super_block = kmalloc(sizeof(struct ext2_super_block));
 	ext2_fs->device = device;
-	
+
 	fseek(device, 1024, SEEK_SET);
 	if(fread(ext2_fs->super_block, 512, 2, device) < 2) {
 		kprintf("Couldn't read superblock!\n");
@@ -167,7 +168,7 @@ int ext2_umount(struct ext2_fs *this) {
 	return 0;
 }
 /* looks for entry at end of the filename, returns inode number */
-int ext2_search_entry(struct ext2_fs * ext2, const char * filename) 
+int ext2_search_entry(struct ext2_fs * ext2, const char * filename)
 {
 	char entry[EXT2_NAME_LEN + 1];
 	unsigned int chars;
@@ -179,10 +180,10 @@ int ext2_search_entry(struct ext2_fs * ext2, const char * filename)
 	unsigned int cur_block = 0;
 	char * block = kmalloc(ext2->block_size);
 	int first = 1;
-	
+
 	if(filename[0] == 0)
 		return EXT2_ROOT_INO;
-	
+
 	while(filename[0] == '/' || first || filename[0]) { /* while something to parse */
 		roll:
 		first = 0;
@@ -308,8 +309,8 @@ int ext2_fsetpos(struct ext2_file *stream, const fpos_t *pos) {
 	return 0;
 }
 
-int ext2_fflush(struct ext2_file *stream) { 
-	return fflush(stream->fs->device); 
+int ext2_fflush(struct ext2_file *stream) {
+	return fflush(stream->fs->device);
 }
 
 long ext2_ftell(struct ext2_file *stream) {
@@ -339,11 +340,11 @@ int ext2_dmake(struct ext2_fs * this, const char * dirname, uint_t owned, uint_t
 	return -1;
 }
 
-DIR *ext2_dopen(struct ext2_fs * this, const char * dirname) 
+DIR *ext2_dopen(struct ext2_fs * this, const char * dirname)
 {
 	struct ext2_dir * dir;
 	struct ext2_inode inode;
-	
+
 	int inode_n = ext2_search_entry(this, dirname);
 	if(!inode_n) {
 		return 0;
@@ -357,7 +358,7 @@ DIR *ext2_dopen(struct ext2_fs * this, const char * dirname)
 	dir = kmalloc(sizeof(struct ext2_dir));
 	if(!dir)
 		return 0;
-	
+
 	dir->directory_inode = inode_n;
 	dir->inode = kmalloc(sizeof(struct ext2_inode));
 	if(!dir->inode)

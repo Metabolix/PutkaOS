@@ -4,6 +4,7 @@
 /* Esimerkiksi */
 struct pfs_fs pfs = {
 	{
+		"pseudofs",
 		(fs_mount_t)  pfs_mount,
 		(fs_umount_t) pfs_umount,
 		{

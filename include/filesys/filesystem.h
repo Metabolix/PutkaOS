@@ -48,6 +48,7 @@ struct dirfunc {
 };
 
 struct fs {
+	const char *name;
 	fs_mount_t fs_mount;
 	fs_umount_t fs_umount;
 	struct filefunc filefunc;
@@ -56,5 +57,6 @@ struct fs {
 
 extern struct fs *fs_mount(FILE *dev, uint_t mode);
 extern int fs_add_driver(fs_mount_t mount_function);
+extern int fs_init(void);
 
 #endif

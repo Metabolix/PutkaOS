@@ -58,6 +58,7 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 	keyboard_install();
 	//mouse_install();
 
+	fs_init();
 	devmanager_init();
 	floppy_init();
 	vts_init();

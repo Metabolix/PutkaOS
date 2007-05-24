@@ -3,24 +3,22 @@
 #include <filesys/filesystem.h>
 #include <filesys/ext2.h>
 #include <malloc.h>
+#include <string.h>
+#include <list.h>
 
-#define MAX_FS_DRIVERS 16
+#define MAX_NAME_LEN 15
 
-fs_mount_t list_of_fs_mount[MAX_FS_DRIVERS] = {
-	(fs_mount_t) ext2_mount,
-	(fs_mount_t) fat_mount,
-	(fs_mount_t) pfs_mount,
-	0 /* Terminator */
-};
+LIST_TYPE(fs_driver, fs_mount_t);
+list_of_fs_driver fs_driver_list;
 
 struct fs *fs_mount(FILE *dev, uint_t mode)
 {
-	int i;
 	struct fs *retval;
+	list_iter_of_fs_driver iter;
 
 	/* Valitaan listasta oikea juttu */
-	for (i = 0; i < MAX_FS_DRIVERS && list_of_fs_mount[i]; ++i) {
-		if ((retval = list_of_fs_mount[i](dev, mode))) {
+	list_loop(iter, fs_driver_list) {
+		if ((retval = list_item(iter)(dev, mode))) {
 			return retval;
 		}
 	}
@@ -29,12 +27,11 @@ struct fs *fs_mount(FILE *dev, uint_t mode)
 
 int fs_add_driver(fs_mount_t mount_function)
 {
-	int i;
-	for (i = 0; i < MAX_FS_DRIVERS; ++i) {
-		if (!list_of_fs_mount[i]) {
-			list_of_fs_mount[i] = mount_function;
-			return 0;
-		}
-	}
-	return -1;
+	return list_insert(list_end(fs_driver_list), mount_function);
+}
+
+int fs_init(void)
+{
+	list_init(fs_driver_list);
+	return fs_add_driver(ext2_mount) + fs_add_driver(fat_mount);
 }

@@ -504,26 +504,11 @@ int mount_count(void)
 	return mount_count_;
 }
 
-const char **mount_list_temp;
-static void mount_list_foreach_func(const char *a, const char *b, const char *c, int d)
-{
-	*mount_list_temp = a;
-	++mount_list_temp;
-	*mount_list_temp = b;
-	++mount_list_temp;
-}
-
-int mount_list(const char **list)
-{
-	mount_list_temp = list;
-	return mount_foreach(mount_list_foreach_func);
-}
-
 static int mount_foreach_rek(mount_foreach_func_t f, struct mount *mnt, int level)
 {
 	struct mount *last;
 	int ret = 1;
-	f(mnt->dev_name, mnt->absolute_path, mnt->relative_path, level);
+	f(mnt->fs->name, mnt->dev_name, mnt->absolute_path, mnt->relative_path, level);
 	if (!mnt->subtree_size) {
 		return ret;
 	}

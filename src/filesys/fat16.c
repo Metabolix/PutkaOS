@@ -6,6 +6,7 @@
 #include <debugprint.h>
 
 struct fs fat16_fs = {
+	"fat/msdos",
 	(fs_mount_t)  fat_mount,
 	(fs_umount_t) fat16_umount,
 	{

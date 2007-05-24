@@ -79,7 +79,7 @@ int blockdev_fflush(BD_FILE *device)
 {
 	if (device->has_read && device->has_written) {
 		if (device->phys->write_one_block(device->phys, device->phys->first_block_num + device->block_in_dev, device->buffer)) {
-			kprintf("blockdev_fflush: kirjoitus laitteeseen %s kohtaan %#010x ei onnistunut.\n", device->phys->std.name, device->block_in_dev);
+			kprintf("blockdev_fflush: failure: device %s block %#010x\n", device->phys->std.name, device->block_in_dev);
 			return -1;
 		}
 		device->has_written = 0;
@@ -203,12 +203,12 @@ size_t blockdev_fread(void *buffer, size_t size, size_t count, BD_FILE *device)
 	device->has_read = 0;
 	while (kokonaisia_paloja) {
 		if (device->phys->read_one_block(device->phys, device->block_in_dev, buf)) {
-			kprintf("dread: luku laittesta %s kohdasta %#010x ei onnistunut.\n", device->phys->std.name, device->block_in_dev);
+			kprintf("blockdev_fread: failure: device %s block %#010x\n", device->phys->std.name, device->block_in_dev);
 			RETURN POS_MUUTOS / size;
 		}
 		++device->block_in_dev;
 		if (device->block_in_dev >= device->phys->block_count) {
-			kprintf("dread: levy loppui.\n");
+			kprintf("blockdev_fread: eof (%s)\n", device->phys->std.name);
 			RETURN POS_MUUTOS / size;
 		}
 		buf += device->phys->block_size;
@@ -218,7 +218,7 @@ size_t blockdev_fread(void *buffer, size_t size, size_t count, BD_FILE *device)
 	lue = tavuja_yhteensa - POS_MUUTOS;
 	if (lue) {
 		if (blockdev_getblock(device)) {
-			kprintf("dread: luku laittesta %s kohdasta %#010x ei onnistunut.\n", device->phys->std.name, device->block_in_dev);
+			kprintf("blockdev_fread: failure: device %s block %#010x\n", device->phys->std.name, device->block_in_dev);
 			RETURN POS_MUUTOS / size;
 		}
 		memcpy(buf, device->buffer, lue);
@@ -290,12 +290,12 @@ size_t blockdev_fwrite(const void *buffer, size_t size, size_t count, BD_FILE *d
 
 	while (kokonaisia_paloja) {
 		if (device->phys->write_one_block(device->phys, device->block_in_dev, buf)) {
-			kprintf("dwrite: kirjoitus laitteeseen %s kohtaan %#010x ei onnistunut.\n", device->phys->std.name, device->block_in_dev);
+			kprintf("blockdev_fwrite: failure: device %s block %#010x\n", device->phys->std.name, device->block_in_dev);
 			RETURN POS_MUUTOS / size;
 		}
 		++device->block_in_dev;
 		if (device->block_in_dev >= device->phys->block_count) {
-			kprintf("dwrite: tila loppui.\n");
+			kprintf("blockdev_fwrite: eof (%s)\n", device->phys->std.name);
 			RETURN POS_MUUTOS / size;
 		}
 		buf += device->phys->block_size;
@@ -306,7 +306,7 @@ size_t blockdev_fwrite(const void *buffer, size_t size, size_t count, BD_FILE *d
 	kirjoita = tavuja_yhteensa - POS_MUUTOS;
 	if (kirjoita) {
 		if (blockdev_getblock(device)) {
-			kprintf("dwrite: luku laittesta %s kohdasta %#010x ei onnistunut.\n", device->phys->std.name, device->block_in_dev);
+			kprintf("blockdev_fwrite: failure: device %s block %#010x\n", device->phys->std.name, device->block_in_dev);
 			RETURN POS_MUUTOS / size;
 		}
 		memcpy(device->buffer, buf, kirjoita);
