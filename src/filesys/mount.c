@@ -27,7 +27,6 @@ struct mount root = {
 	0,
 	0, 0
 };
-size_t mount_count_ = 0;
 
 /**
  * Etsii kohdan, johon laite on liitetty
@@ -166,7 +165,6 @@ int mount_init(unsigned long mboot_device, const char *mboot_cmdline)
 	root.subtree->fs = &devfs;
 	strcpy(root.subtree->dev_name, "devman");
 	strcpy(root.subtree->absolute_path, "/dev");
-	mount_count_ = 1;
 
 	/* Sitten / */
 	flags = FILE_MODE_READ | FILE_MODE_WRITE;
@@ -202,7 +200,6 @@ int mount_init(unsigned long mboot_device, const char *mboot_cmdline)
 	root.absolute_path[0] = '/';
 	root.absolute_path[1] = 0;
 
-	mount_count_ = 2;
 	return 0;
 }
 
@@ -501,14 +498,17 @@ const struct mount *mount_etsi_kohta(const char ** filename_ptr)
 **/
 int mount_count(void)
 {
-	return mount_count_;
+	return mount_foreach(0);
 }
 
+/**
+ * Rekursiofunktio, sama toimitus kaikille pisteille (vain nimet!)
+**/
 static int mount_foreach_rek(mount_foreach_func_t f, struct mount *mnt, int level)
 {
 	struct mount *last;
 	int ret = 1;
-	f(mnt->fs->name, mnt->dev_name, mnt->absolute_path, mnt->relative_path, level);
+	if (f) f(mnt->fs->name, mnt->dev_name, mnt->absolute_path, mnt->relative_path, level);
 	if (!mnt->subtree_size) {
 		return ret;
 	}
@@ -519,6 +519,9 @@ static int mount_foreach_rek(mount_foreach_func_t f, struct mount *mnt, int leve
 	return ret;
 }
 
+/**
+ * Ulospäin näkyvä funktio ylemmän rekursion kutsumiseen
+**/
 int mount_foreach(mount_foreach_func_t f)
 {
 	return mount_foreach_rek(f, &root, 0);
