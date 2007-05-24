@@ -1,6 +1,6 @@
 #ifndef _SERIAL_H
 #define _SERIAL_H
 
-extern int init_serial(void);
+extern int serial_init(void);
 
 #endif

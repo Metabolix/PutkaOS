@@ -5,7 +5,7 @@
 
 FILE *fopen_intflags(const char * filename, uint_t intmode)
 {
-	const struct mountpoint *mnt;
+	const struct mount *mnt;
 
 	if (!filename || !(mnt = mount_etsi_kohta(&filename)) || !mnt->fs || !mnt->fs->filefunc.fopen) {
 		return 0;
@@ -15,7 +15,7 @@ FILE *fopen_intflags(const char * filename, uint_t intmode)
 
 FILE *fopen(const char * filename, const char * mode)
 {
-	const struct mountpoint *mnt;
+	const struct mount *mnt;
 	uint_t intmode = 0;
 	if (!filename || !mode) {
 		return 0;

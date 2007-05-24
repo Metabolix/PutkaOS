@@ -3,7 +3,7 @@
 
 DIR *dopen(const char * dirname)
 {
-	const struct mountpoint *mnt;
+	const struct mount *mnt;
 	const char *newdirname = dirname;
 	mnt = mount_etsi_kohta(&newdirname);
 	if (!mnt || !mnt->fs || !mnt->fs->dirfunc.dopen) {
@@ -14,7 +14,7 @@ DIR *dopen(const char * dirname)
 
 int dmake(const char * dirname, uint_t owner, uint_t rights)
 {
-	const struct mountpoint *mnt;
+	const struct mount *mnt;
 	const char *newdirname = dirname;
 	mnt = mount_etsi_kohta(&newdirname);
 	if (!mnt || !mnt->fs || !mnt->fs->dirfunc.dopen) {

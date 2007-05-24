@@ -100,7 +100,7 @@ int dev_dread(struct devfs_dir *listing)
 int devmanager_init(void)
 {
 	list_init(devlist);
-	init_special_devices();
+	special_devices_init();
 	return 0;
 }
 
@@ -124,7 +124,7 @@ int device_insert(DEVICE *device)
 		}
 	}
 
-	if (!list_insert(list_end(devlist), device)) {
+	if (list_insert(list_end(devlist), device)) {
 		return DEV_ERR_TOTAL_FAILURE;
 	}
 	device->index = ++free_index;

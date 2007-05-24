@@ -1,7 +1,8 @@
 #ifndef _FLOPPY_H
-#define _FLOPPY_H
+#define _FLOPPY_H 1
 
 #include <stddef.h>
+#include <stdint.h>
 #include <timer.h>
 #include <devices/blockdev/blockdev.h>
 
@@ -31,46 +32,30 @@
 
 #define MAX_DRIVES 2
 #define FLOPPY_IRQ 6
-struct fd {
-	unsigned char motor;
-	unsigned char type;
-	unsigned char track;
-	unsigned char status;
+struct floppy {
+	BD_DEVICE blockdev;
+	uint_t num;
+	uint8_t motor, type, track, status;
 	timer_id_t motor_off_timer;
 };
 
-typedef struct {
-	unsigned char steprate_headunload;
-	unsigned char headload_ndma;
-	unsigned char motor_delay_off; /*specified in clock ticks*/
-	unsigned char bytes_per_sector;
-	unsigned char sectors_per_track;
-	unsigned char gap_length;
-	unsigned char data_length; /*used only when bytes per sector == 0*/
-	unsigned char format_gap_length;
-	unsigned char filler;
-	unsigned char head_settle_time; /*specified in milliseconds*/
-	unsigned char motor_start_time; /*specified in 1/8 seconds*/
-}__attribute__ ((packed)) floppy_parameters;
+struct floppy_parameters {
+	uint8_t steprate_headunload;
+	uint8_t headload_ndma;
+	uint8_t motor_delay_off; /*specified in clock ticks*/
+	uint8_t bytes_per_sector;
+	uint8_t sectors_per_track;
+	uint8_t gap_length;
+	uint8_t data_length; /*used only when bytes per sector == 0*/
+	uint8_t format_gap_length;
+	uint8_t filler;
+	uint8_t head_settle_time; /*specified in milliseconds*/
+	uint8_t motor_start_time; /*specified in 1/8 seconds*/
+}__attribute__ ((packed));
 
 #define DISK_PARAMETER_ADDRESS 0x000fefc7
 
-extern void install_floppy(void);
-
-void reset_floppy(void);
-void wait_floppy_data(void);
-void configure_drive(void);
-void send_command(unsigned char command);
-void wait_floppy(void);
-void sense_interrupt(void);
-void calibrate_drive(unsigned int drive);
-int seek_track(unsigned int drive, unsigned int track);
-void reset_flipflop_dma(void);
-void init_dma_floppy(unsigned long buffer, size_t len, int write);
-int read_sector(unsigned int drive, unsigned char sector, unsigned char head, unsigned char cylinder, unsigned long buffer);
-int write_sector(unsigned int drive, unsigned char sector, unsigned char head, unsigned char cylinder, unsigned long buffer);
-int read_one_block(BD_DEVICE *self, uint64_t num, void * buf);
-int write_one_block(BD_DEVICE *self, uint64_t num, const void * buf);
-void motor_off(unsigned int drive);
+extern void floppy_init(void);
+extern void floppy_reset(void);
 
 #endif

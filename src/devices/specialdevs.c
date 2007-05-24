@@ -44,7 +44,7 @@ DEVICE specialdev[] = {
 };
 const int num_specialdevices = sizeof(specialdev) / sizeof(DEVICE);
 
-void init_special_devices(void)
+void special_devices_init(void)
 {
 	int i;
 	for (i = 0; i < num_specialdevices; ++i) {

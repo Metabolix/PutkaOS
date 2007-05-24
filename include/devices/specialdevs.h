@@ -13,6 +13,6 @@
 	extern SPECIAL_OPENFUNC(name); \
 	extern SPECIAL_RMFUNC(name);
 
-extern void init_special_devices(void);
+extern void special_devices_init(void);
 
 #endif

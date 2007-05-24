@@ -59,19 +59,19 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 	//mouse_install();
 
 	devmanager_init();
-	install_floppy();
+	floppy_init();
 	vts_init();
-	init_serial();
+	serial_init();
 	threading_init();
 
 	ide_init();
 
 	kprintf("Going to unmask irqs\n");
-	outportb(0x21,0x0); /* Don't mask any IRQ */
-	outportb(0xa1,0x0);
+	outportb(0x21, 0); /* Don't mask any IRQ */
+	outportb(0xa1, 0);
 	asm_sti(); /* Allow interrupts */
 
-	reset_floppy();
+	//floppy_reset();
 	mount_init(mboot_device, mboot_cmdline);
 	print("testattava_koodi();\n");
 	testattava_koodi();

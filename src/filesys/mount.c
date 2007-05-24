@@ -9,33 +9,34 @@
 #include <string.h>
 
 /*
- * Internals
- */
+* Internals
+**/
 static const char *parse_mboot_device_root(unsigned long mboot_device);
 static const char *parse_mboot_cmdline_root(const char *str);
-static struct mountpoint *etsi_laite_rek(const char * device_name, struct mountpoint *mnt);
-static struct mountpoint *etsi_kohta(const char ** filename_ptr);
-static int umount_array(struct mountpoint *array, size_t size);
-static int umount_point(struct mountpoint *mnt, struct mountpoint *ret);
+static struct mount *etsi_laite_rek(const char * device_name, struct mount *mnt);
+static struct mount *etsi_kohta(const char ** filename_ptr);
+static int umount_array(struct mount *array, size_t size);
+static int umount(struct mount *mnt, struct mount *ret);
 
 #define MAKE_NULL(b, a); {if (a) { b(a); (a) = 0; }}
 
 char tyhja_string[1] = "";
-struct mountpoint root = {
+struct mount root = {
 	tyhja_string, "/", tyhja_string,
 	0, 0,
 	0,
 	0, 0
 };
+size_t mount_count_ = 0;
 
 /**
  * Etsii kohdan, johon laite on liitetty
  * (static)
 **/
-struct mountpoint *etsi_laite_rek(const char * device_name, struct mountpoint *mnt)
+struct mount *etsi_laite_rek(const char * device_name, struct mount *mnt)
 {
 	int i;
-	struct mountpoint *retval;
+	struct mount *retval;
 	if (strcmp(mnt->dev_name, device_name) == 0) {
 		return mnt;
 	}
@@ -55,12 +56,12 @@ struct mountpoint *etsi_laite_rek(const char * device_name, struct mountpoint *m
  * f("/mnt/piste/joku/file"); => return mountpoint("/mnt/piste"), filename_ptr = "joku/file"
  * (static)
 **/
-struct mountpoint *etsi_kohta(const char ** filename_ptr)
+struct mount *etsi_kohta(const char ** filename_ptr)
 {
 	int i, j;
 	const char *filename = *filename_ptr;
 	const char *newfilename;
-	struct mountpoint *mnt = &root;
+	struct mount *mnt = &root;
 
 	if (filename[0] == '/') {
 		++filename;
@@ -151,7 +152,7 @@ int mount_init(unsigned long mboot_device, const char *mboot_cmdline)
 
 	/* Ensin /dev */
 	root.subtree_size = 1;
-	root.subtree = kcalloc(1, sizeof(struct mountpoint));
+	root.subtree = kcalloc(1, sizeof(struct mount));
 	if (!root.subtree) {
 		panic("mount: Out of kernel memory!\n");
 	}
@@ -165,6 +166,7 @@ int mount_init(unsigned long mboot_device, const char *mboot_cmdline)
 	root.subtree->fs = &devfs;
 	strcpy(root.subtree->dev_name, "devman");
 	strcpy(root.subtree->absolute_path, "/dev");
+	mount_count_ = 1;
 
 	/* Sitten / */
 	flags = FILE_MODE_READ | FILE_MODE_WRITE;
@@ -200,6 +202,7 @@ int mount_init(unsigned long mboot_device, const char *mboot_cmdline)
 	root.absolute_path[0] = '/';
 	root.absolute_path[1] = 0;
 
+	mount_count_ = 2;
 	return 0;
 }
 
@@ -208,7 +211,7 @@ int mount_init(unsigned long mboot_device, const char *mboot_cmdline)
  * Käytetään vain mount_uninitissa!
  * (static)
 **/
-int umount_array(struct mountpoint *array, size_t size)
+int umount_array(struct mount *array, size_t size)
 {
 	int i = 0;
 	if (array) while (size) {
@@ -219,7 +222,7 @@ int umount_array(struct mountpoint *array, size_t size)
 			MAKE_NULL(kfree, array[size].subtree);
 			array[size].subtree_size = 0;
 
-			if (umount_point(array + size, 0)) {
+			if (umount(array + size, 0)) {
 				i = -1;
 			}
 		}
@@ -266,12 +269,12 @@ elsen_yli_2:
 int mount_something(const char * device_filename, const char * mountpoint, uint_t flags)
 {
 	const char * point_rel;
-	struct mountpoint uusi = {
+	struct mount uusi = {
 		0, 0, 0,
 		0, 0,
 		0, 0
 	};
-	struct mountpoint *point_mnt;
+	struct mount *point_mnt;
 	int mnt_len, rel_len, dev_len;
 	int keno_lopussa;
 
@@ -322,7 +325,7 @@ int mount_something(const char * device_filename, const char * mountpoint, uint_
 
 	uusi.parent = point_mnt;
 	++uusi.parent->subtree_size;
-	uusi.parent->subtree = krealloc(uusi.parent->subtree, uusi.parent->subtree_size * sizeof(struct mountpoint));
+	uusi.parent->subtree = krealloc(uusi.parent->subtree, uusi.parent->subtree_size * sizeof(struct mount));
 	uusi.parent->subtree[uusi.parent->subtree_size - 1] = uusi;
 
 	return 0;
@@ -335,8 +338,8 @@ int mount_replace(const char * device_filename, const char * mountpoint, uint_t 
 {
 	const char * point_rel;
 	const char * device_rel;
-	struct mountpoint uusi;
-	struct mountpoint *point_mnt, *device_mnt;
+	struct mount uusi;
+	struct mount *point_mnt, *device_mnt;
 	int mnt_len, rel_len, dev_len;
 	int keno_lopussa;
 
@@ -417,7 +420,7 @@ int mount_replace(const char * device_filename, const char * mountpoint, uint_t 
 /**
  * Irrottaa liitospisteen
 **/
-int umount_point(struct mountpoint *mnt, struct mountpoint *ret)
+int umount(struct mount *mnt, struct mount *ret)
 {
 	int i;
 
@@ -468,18 +471,18 @@ int umount_point(struct mountpoint *mnt, struct mountpoint *ret)
 **/
 int umount_something(const char * device_or_point)
 {
-	struct mountpoint *mnt;
+	struct mount *mnt;
 	const char *filename;
 
 	mnt = etsi_laite_rek(device_or_point, &root);
 	if (mnt) {
-		return umount_point(mnt, 0);
+		return umount(mnt, 0);
 	}
 
 	filename = device_or_point;
 	mnt = etsi_kohta(&filename);
 	if (mnt && filename[0] == 0) {
-		return umount_point(mnt, 0);
+		return umount(mnt, 0);
 	}
 	kprintf("umount: %s isn't a point or a device\n", device_or_point);
 	return MOUNT_ERR_TOTAL_FAILURE;
@@ -488,7 +491,50 @@ int umount_something(const char * device_or_point)
 /**
  * Etsii tiedostonimen perusteella lähimmän liitospisteen ja muuttaa osoitinta niin, että siinä on tiedostonimen loppuosa
 **/
-const struct mountpoint *mount_etsi_kohta(const char ** filename_ptr)
+const struct mount *mount_etsi_kohta(const char ** filename_ptr)
 {
 	return etsi_kohta(filename_ptr);
+}
+
+/**
+ * Pisteiden lukumäärä
+**/
+int mount_count(void)
+{
+	return mount_count_;
+}
+
+const char **mount_list_temp;
+static void mount_list_foreach_func(const char *a, const char *b, const char *c, int d)
+{
+	*mount_list_temp = a;
+	++mount_list_temp;
+	*mount_list_temp = b;
+	++mount_list_temp;
+}
+
+int mount_list(const char **list)
+{
+	mount_list_temp = list;
+	return mount_foreach(mount_list_foreach_func);
+}
+
+static int mount_foreach_rek(mount_foreach_func_t f, struct mount *mnt, int level)
+{
+	struct mount *last;
+	int ret = 1;
+	f(mnt->dev_name, mnt->absolute_path, mnt->relative_path, level);
+	if (!mnt->subtree_size) {
+		return ret;
+	}
+	last = mnt->subtree + mnt->subtree_size;
+	for (mnt = mnt->subtree; mnt != last; ++mnt) {
+		ret += mount_foreach_rek(f, mnt, level + 1);
+	}
+	return ret;
+}
+
+int mount_foreach(mount_foreach_func_t f)
+{
+	return mount_foreach_rek(f, &root, 0);
 }

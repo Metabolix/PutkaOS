@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <screen.h>
 
-int init_serial(void)
+int serial_init(void)
 {
 	int i;
 	uint16_t *ports = (void*) 0x400;

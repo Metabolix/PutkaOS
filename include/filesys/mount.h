@@ -5,13 +5,13 @@
 #include <filesys/file.h>
 #include <filesys/dir.h>
 
-struct mountpoint {
+struct mount {
 	char *dev_name;
 	char *absolute_path;
 	char *relative_path;
 	size_t subtree_size;
-	struct mountpoint *subtree;
-	struct mountpoint *parent;
+	struct mount *subtree;
+	struct mount *parent;
 
 	FILE *dev;
 	struct fs *fs;
@@ -34,6 +34,11 @@ extern int mount_replace(const char * device_filename, const char * mountpoint, 
 extern int mount_something(const char * device_filename, const char * mountpoint, uint_t flags);
 extern int umount_something(const char * device_or_point);
 
-extern const struct mountpoint *mount_etsi_kohta(const char ** filename_ptr);
+typedef void (*mount_foreach_func_t)(const char *dev_name, const char *absolute_path, const char *relative_path, int level);
+extern int mount_count(void);
+extern int mount_list(const char **list);
+extern int mount_foreach(mount_foreach_func_t f);
+
+extern const struct mount *mount_etsi_kohta(const char ** filename_ptr);
 
 #endif

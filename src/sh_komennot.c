@@ -8,6 +8,7 @@
 
 #include <sh_komennot.h>
 void sh_hexcat(char *name);
+void sh_lsmount(char*a);
 
 struct sh_komento komentotaulu[] = {
 	{"?", "Apua", sh_help},
@@ -27,6 +28,7 @@ struct sh_komento komentotaulu[] = {
 	{"hexcat", "hexcat polku; tulosta tiedoston sisalto tavuittain heksana", sh_hexcat},
 	{"mountro", "mountro laite liitospiste; liita laite pisteeseen (vain luku)", sh_mount_ro},
 	{"remountro", "remountro laite liitospiste; korvaa vanha liitos pisteessa (vain luku)", sh_remount_ro},
+	{"lsmount", "Listaa liitokset", sh_lsmount},
 	{"mount", "mount laite liitospiste; liita laite pisteeseen", sh_mount},
 	{"remount", "remount laite liitospiste; korvaa vanha liitos pisteessa", sh_remount},
 	{"umount", "umount {laite | polku}; poista laite tai liitoskohta", sh_umount},
@@ -66,6 +68,16 @@ int sh_read_int(char **bufptr)
 	}
 	*bufptr = buf;
 	return retval;
+}
+
+void sh_printmount(const char *dev_name, const char *absolute_path, const char *relative_path, int level)
+{
+	kprintf("%s  @ %s\n", dev_name, absolute_path);
+}
+
+void sh_lsmount(char*a)
+{
+	mount_foreach(sh_printmount);
 }
 
 void sh_mount(char *dev_point)
