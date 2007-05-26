@@ -132,3 +132,71 @@ int device_insert(DEVICE *device)
 	//kprintf("Devmanager: Added device '%s' with index %d\n", device->name, device->index);
 	return 0;
 }
+
+int device_fill_remove(DEVICE * device) {
+		int ret = device->real_remove(device);
+		kfree((void*)device->name);
+		return ret;
+}
+
+#define IS_NUM(a) (a >= '0' && a <= '9')
+
+int device_fill(DEVICE *devices, dev_class_t class, dev_type_t type, const char *devname, devopen_t devopen, devrm_t remove, unsigned char count) {
+	char * name = strdup(devname);
+	char * new_name;
+	int name_len = strlen(name) - 1;
+	int nums = 1;
+	int inserted = 0;
+
+	if(!IS_NUM(name[name_len])) {
+		kfree(name);
+		return -1;
+	}
+
+	if(IS_NUM(name[name_len]) && IS_NUM(name[name_len - 1])) {
+		//int number =  (name[name_len - 1] - '0') * 10 - name[name_len] - '0';
+		nums++;
+		name_len--;
+	}
+
+
+	while(count--)  {
+		devices->dev_class = class;
+		devices->dev_type = type;
+		devices->devopen = devopen;
+		devices->remove = device_fill_remove;
+		devices->real_remove = remove;
+		devices->name = name;
+
+		if(!device_insert(devices))
+			inserted++;
+
+		devices++;
+
+		if(name[name_len + nums - 1] < '9') {
+			//new_name = strdup(name);
+			new_name = kmalloc(name_len + nums + 1);
+			strncpy(new_name, name, name_len + nums + 1);
+			new_name[name_len + nums - 1]++;
+			name = new_name;
+		} else if(name[name_len + nums - 1] == '9') {
+			if(nums == 1)
+				nums++;
+				
+			if(name[name_len + nums - 1] == '9' && name[name_len + nums - 2] == '9')
+				return inserted;
+
+			new_name = kmalloc(name_len + nums + 1);
+			strncpy(new_name, name, name_len + nums + 1);
+			name = new_name;
+			if(name[name_len + nums - 2] == '9')
+				name[name_len + nums - 2] = '1';
+			else
+				name[name_len + nums - 2]++;
+			name[name_len + nums - 1] = '0';
+		}
+	}
+
+	return inserted;
+}
+#undef IS_NUM
