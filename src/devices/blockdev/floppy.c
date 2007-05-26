@@ -282,7 +282,7 @@ void floppy_motor_off(uint_t drive)
 	floppy_motors &= ~(1 << drive);
 	floppy_drives[drive].motor = 0;
 	outportb(FLOPPY_FIRST + DIGITAL_OUTPUT_REGISTER, 0xC | floppy_motors << 4);
-	kprintf("FDD: Motor %u off\n", drive);
+	//kprintf("FDD: Motor %u off\n", drive);
 }
 
 int floppy_seek_track(uint_t drive, uint_t track)
