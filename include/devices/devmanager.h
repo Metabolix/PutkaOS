@@ -18,6 +18,7 @@ typedef enum {
 	DEV_TYPE_HARDDISK = 3,
 	DEV_TYPE_CDROM = 4,
 	DEV_TYPE_HARDDISK_REMOVABLE = 5,
+	DEV_TYPE_VT = 6,
 	DEV_TYPE_ERROR = -1
 } dev_type_t;
 
@@ -46,12 +47,14 @@ struct device {
 	size_t index; // device_insert sets this.
 	devopen_t devopen;
 	devrm_t remove;
+	devrm_t real_remove;
 };
 
 extern struct fs devfs;
 extern int devmanager_init(void);
 extern int device_insert(struct device *device);
 extern int devmanager_uninit(void);
+extern int device_fill(DEVICE *devices, dev_class_t class, dev_type_t type, const char *devname, devopen_t devopen, devrm_t remove, unsigned char count);
 
 /*
  * Internals
