@@ -54,7 +54,7 @@ extern struct fs devfs;
 extern int devmanager_init(void);
 extern int device_insert(struct device *device);
 extern int devmanager_uninit(void);
-extern int device_fill(DEVICE *devices, dev_class_t class, dev_type_t type, const char *devname, devopen_t devopen, devrm_t remove, unsigned char count);
+extern int device_fill(DEVICE *devices, dev_class_t class, dev_type_t type, const char *devname, devopen_t devopen, devrm_t remove, size_t count);
 
 /*
  * Internals

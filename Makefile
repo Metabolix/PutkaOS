@@ -9,7 +9,7 @@ ASMFLAGS=-f elf
 
 ASM_SRC=start.s gdt_asm.s irq_asm.s isrs.s bit.s thread_asm.s io.s read_cmos.s misc_asm.s
 
-C_SRC_STDROUTINES=string.c mem.c
+C_SRC_STDROUTINES=string.c mem.c ctype.c
 
 C_SRC_MEM=memory.c malloc.c
 
