@@ -47,14 +47,19 @@ struct device {
 	size_t index; // device_insert sets this.
 	devopen_t devopen;
 	devrm_t remove;
+#if 0
 	devrm_t real_remove;
+#endif
 };
 
 extern struct fs devfs;
 extern int devmanager_init(void);
 extern int device_insert(struct device *device);
 extern int devmanager_uninit(void);
+
+#if 0
 extern int device_fill(DEVICE *devices, dev_class_t class, dev_type_t type, const char *devname, devopen_t devopen, devrm_t remove, size_t count);
+#endif
 
 /*
  * Internals

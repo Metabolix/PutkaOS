@@ -134,13 +134,15 @@ int device_insert(DEVICE *device)
 	return 0;
 }
 
+#if 0
 int device_fill_remove(DEVICE * device) {
 		int ret = device->real_remove(device);
 		kfree((void*)device->name);
 		return ret;
 }
 
-int device_fill(DEVICE *devices, dev_class_t class, dev_type_t type, const char *devname, devopen_t devopen, devrm_t remove, size_t count) {
+int device_fill(DEVICE *devices, dev_class_t class, dev_type_t type, const char *devname, devopen_t devopen, devrm_t remove, size_t count)
+{
 	char * name = strdup(devname);
 	char * new_name;
 	int name_len = strlen(name) - 1;
@@ -201,4 +203,4 @@ int device_fill(DEVICE *devices, dev_class_t class, dev_type_t type, const char 
 
 	return inserted;
 }
-#undef IS_NUM
+#endif

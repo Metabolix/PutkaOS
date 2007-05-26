@@ -1,0 +1,14 @@
+- grep -R TODO *
+
+- ext2 kirjoitustuki
+- FAT16 kirjoitustuki (direntryjen päivitys)
+- FAT32
+- kernel call interface
+- moniajo (riippunee kernel call interfacesta)
+  - prosessin lataus, aloitus ja lopetus
+  - sivutaulutus
+- signaalit prosesseille
+- rinnakkaisporttiajuri (tiedostona?)
+- sarjaporttiajuri (tiedostona; yksi tiedosto portille ja toinen asetuksille, vai pitäisikö porttitiedostoon ensin kirjoittaa asetukset aina avatessa?)
+- TCP/IP-pino
+- fprintf/sprintf (porttaus kprintf:stä tms;)

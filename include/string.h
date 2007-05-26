@@ -15,17 +15,15 @@ extern size_t   strlen(const char *);
 extern char    *strncat(char *, const char *, size_t);
 extern int      strncmp(const char *, const char *, size_t);
 extern char    *strncpy(char *, const char *, size_t);
-/*
-extern char    *strpbrk(const char *, const char *);
-extern char    *strrchr(const char *, int);
-extern size_t   strspn(const char *, const char *);
-*/
+
+// extern char    *strpbrk(const char *, const char *);
+// extern char    *strrchr(const char *, int);
+// extern size_t   strspn(const char *, const char *);
+
 extern char    *strstr(const char *, const char *);
-/*
-extern char    *strtok(char *, const char *);
-extern char    *strtok_r(char *, const char *, char **);
-extern size_t   strxfrm(char *, const char *, size_t);
-*/
+
+// extern char    *strtok(char *, const char *);
+// extern size_t   strxfrm(char *, const char *, size_t);
 
 /*
  * Non-standard

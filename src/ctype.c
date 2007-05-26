@@ -75,7 +75,7 @@ int isblank(int c)
 
 int iscntrl(int c)
 {
-	return c < 0x20;
+	return !isgraph(c);
 	// return ctype_check_list(iscntrl_list, c);
 }
 
