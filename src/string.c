@@ -75,18 +75,16 @@ size_t strcspn(const char *s1, const char *s2)
 	return retval;
 }
 
-/*
 char *strdup(const char *s)
 {
 	size_t len = strlen(s);
-	char *retval = malloc(len + 1);
+	char *retval = kmalloc(len + 1);
 	if (!retval) {
 		return 0;
 	}
 	memcpy(retval, s, len + 1);
-	return s;
+	return retval;
 }
-*/
 
 size_t strlen(const char *s)
 {
