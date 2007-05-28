@@ -44,6 +44,7 @@ extern int fsetpos(FILE *stream, const fpos_t *pos);
 
 extern long ftell(FILE *stream);
 extern int fseek(FILE *stream, long int offset, int origin);
+int fprintf(FILE * restrict f, const char * restrict fmt, ...);
 /*
 extern int remove(const char *filename);
 extern int rename(const char *old, const char *new);

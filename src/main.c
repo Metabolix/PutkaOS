@@ -32,6 +32,8 @@ const char versio[] = "v0.002";
 multiboot_info_t mbt_real;
 multiboot_info_t *mbt = &mbt_real;
 
+extern int sprintf(char * restrict str, const char * restrict fmt, ...);
+
 void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 {
 	mbt_real = *param_mbt;
@@ -84,6 +86,10 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 
 void testattava_koodi()
 {
+	char tavaraa[128];
+	sprintf(tavaraa, "%d %x %o", 123, 0x123fac, 012345670);
+	print(tavaraa);
+	print("\n");
 #if 0
 	int x = 0, y = 0;
 	struct mouse_state state;

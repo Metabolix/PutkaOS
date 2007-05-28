@@ -7,7 +7,7 @@ CFLAGS_OPTI=
 ASM=nasm
 ASMFLAGS=-f elf
 
-ASM_SRC=start.s gdt_asm.s irq_asm.s isrs.s bit.s thread_asm.s io.s read_cmos.s misc_asm.s
+ASM_SRC=start.s gdt_asm.s irq_asm.s isrs.s bit.s thread_asm.s io.s read_cmos.s misc_asm.s math_asm.s sprintf_asm.s
 
 C_SRC_STDROUTINES=string.c mem.c ctype.c
 
@@ -34,7 +34,7 @@ C_SRC_FS=$(addprefix filesys/,$(C_SRC_FS_1))
 # Misc
 C_SRC_OTHER=gdt.c isr.c main.c panic.c idt.c irq.c keyboard.c screen.c regs.c spinlock.c lcdscreen.c
 #mouse.c
-C_SRC_OTHER_OPT=int64.c timer.c kprintf.c sh.c sh_komennot.c time.c endian.c list.c
+C_SRC_OTHER_OPT=int64.c timer.c kprintf.c sh.c sh_komennot.c time.c endian.c list.c fprintf.c sprintf.c math.c
 
 C_SRC=$(C_SRC_MEM) $(C_SRC_MULTITASK) $(C_SRC_DEVICES) $(C_SRC_OTHER)
 C_SRC_OPT=$(C_SRC_OTHER_OPT) $(C_SRC_STDROUTINES) $(C_SRC_FS) $(C_SRC_DEVICES_OPT)
