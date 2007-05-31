@@ -3,7 +3,6 @@
 #include <string.h>
 #include <putkaos.h>
 #include <stdint.h>
-#include <math.h>
 
 typedef uint32_t wint_t;
 
@@ -286,50 +285,41 @@ c = f / 10^d
 		return fprintf_fzero(f, tag, -1);
 	}
 
-	int sgn = 1;
-	if (val < 0) {
-		sgn = -1;
-		val = -val;
-	}
-
-	int expo = (int) log10l(val);
-	uint64_t man64 = (uint64_t)(val / powl(10, expo - 16));
-
-/*
-	int eka = 1;
-	while (man64) {
-		uint32_t man32 = man64;
-		const uint64_t divisor = 1000000000;
-
-		if (man32 == man64) {
-			man64 = 0;
-		} else {
-			uint64_t man32_64;
-			man64 = uint64_div_rem(man64, divisor, &man32_64);
-			man32 = man32_64;
-		}
-	}
-	// TODO
-	// Looppaa tuota, saa 32-bittiseksi sen luvun, helpompi muuttaa
-*/
-
-	const uint32_t max_len = 32;
-	char buf[max_len], str[max_len*2 + 1];
+	// TODO: jotain kunnollista. ;)
+	const uint32_t max_len = 128;
+	char buf[max_len], str[max_len];
 	char *ptr;
 
-	ptr = fmt_uint_64(buf + max_len, man64);
+	str[0] = 0;
+	if (val < 0) {
+		val = -val;
+		strcat(str, "-");
+	}
+
+	int ep = 0;
+	while (val >= 10.0) {
+		++ep;
+		val /= 10.0;
+	}
+	while (val < 1.0) {
+		--ep;
+		val *= 10.0;
+	}
+
+	ptr = fmt_uint_32(buf + max_len, (10000 * val) + 0.5);
 	--ptr;
 	ptr[0] = ptr[1];
 	ptr[1] = '.';
 	strcpy(str, ptr);
 
-	ptr = fmt_int_32(buf + max_len, expo);
-	--ptr;
-	ptr[0] = 'e';
+	if (ep) {
+		ptr = fmt_int_32(buf + max_len, ep);
+		--ptr;
+		ptr[0] = 'e';
+		strcat(str, ptr);
+	}
 
-	strcat(str, ptr);
-
-	return fprintf_stub(f, str);
+	return fwrite(str, 1, strlen(str), f);
 }
 static int fprintf_double(FILE *f, struct printf_format_tag *tag, double val)
 {
@@ -576,6 +566,7 @@ int fprintf(FILE * restrict f, const char * restrict fmt, ...)
 			fmt = strptr + 2;
 			continue;
 		}
+		numbytes += fwrite(fmt, 1, strptr - fmt, f);
 
 		// fmt = "%...?"
 		fmt = strptr;
