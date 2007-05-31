@@ -197,11 +197,15 @@ int ext2_search_entry(struct ext2_fs * ext2, const char * filename)
 
 		last_inode = inode_n;
 		chars = 0;
+
+		if(!filename[0]) {
+			break;
+		}
+
 		while(filename[0] && filename[0] != '/') {
 			entry[chars++] = filename[0];
 			filename++;
 		}
-		filename++;
 		entry[chars] = 0;
 
 		entry_len = strlen(entry);
