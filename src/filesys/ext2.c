@@ -184,13 +184,13 @@ int ext2_search_entry(struct ext2_fs * ext2, const char * filename)
 	if(filename[0] == 0)
 		return EXT2_ROOT_INO;
 
-	while(filename[0] == '/' || first || filename[0]) { /* while something to parse */
+	while(first || filename[0]) { /* while something to parse */
 		roll:
 		first = 0;
 		if(last_inode == inode_n || inode_n == 0) {
 			if(inode_n == 0)
 				inode_n = last_inode;
-			if(filename[0] == '/' || !filename[0])
+			if(!filename[0])
 				break;
 			goto error;
 		}
@@ -206,6 +206,8 @@ int ext2_search_entry(struct ext2_fs * ext2, const char * filename)
 			entry[chars++] = filename[0];
 			filename++;
 		}
+		if(filename[0] == '/')
+			filename++;
 		entry[chars] = 0;
 
 		entry_len = strlen(entry);
