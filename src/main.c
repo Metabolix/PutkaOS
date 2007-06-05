@@ -66,7 +66,7 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 	vts_init();
 	serial_init();
 	threading_init();
-
+	init_syscalls();
 	ide_init();
 
 	kprintf("Going to unmask irqs\n");
@@ -89,7 +89,21 @@ void testattava_koodi()
 	char tavaraa[128];
 	sprintf(tavaraa, "%d %x %o", 123, 0x123fac, 012345670);
 	print(tavaraa);
-	print("\n");
+	putch('\n');
+#if 0
+	FILE *file = fopen("/aja", "r");
+	if(file) {
+		fseek(file, 0, SEEK_END);
+		int size = ftell(file);
+		char * pointer = malloc(size);
+		fseek(file, 0, SEEK_SET);
+		fread(pointer, size, 1, file);
+		fclose(file);
+		new_process(pointer, 0, 0, 1, size);
+	} else {
+		print("Couldn't read program from filesystem!\n");
+	}
+#endif
 #if 0
 	int x = 0, y = 0;
 	struct mouse_state state;

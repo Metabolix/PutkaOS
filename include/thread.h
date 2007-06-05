@@ -5,9 +5,16 @@
 #include <stdint.h>
 #include <stddef.h>
 
-typedef void (*t_entry)(void);
+typedef void (*entry_t)(void);
 typedef unsigned int thread_id_t;
 typedef unsigned int process_id_t;
+
+typedef enum {
+	pstate_none = 0,
+	pstate_running = 1,
+	pstate_sleeping = 2
+	
+} process_state_t;
 
 /**
  * struct thread_t - for thread information
@@ -22,20 +29,21 @@ struct thread_t {
 	unsigned short ss, reserved_01;
 	uint_t stack;
 	process_id_t process;
-	int running;
+	process_state_t state;
 };
 
 /**
  * struct process_t - for process information
  * @num_threads: number of threads
- * @is_running: is process running
+ * @state: running or sleeping
  *
  * Badly unready
 **/
 struct process_t {
 	size_t num_threads;
 	thread_id_t main_thread;
-	int running;
+	process_state_t state;
+	int ** pd;
 	int vt_num; /* < 0 if no vt */
 };
 
@@ -57,8 +65,8 @@ extern struct thread_t * active_thread_ptr;
 extern size_t num_processes;
 extern size_t num_threads;
 
-extern process_id_t new_process(t_entry entry, void * initial_stack, size_t initial_stack_size);
-extern thread_id_t new_thread(t_entry entry, void * initial_stack, size_t initial_stack_size);
+extern process_id_t new_process(entry_t entry, void * initial_stack, size_t initial_stack_size, int user, int psize);
+extern thread_id_t new_thread(entry_t entry, void * initial_stack, size_t initial_stack_size);
 extern void kill_thread(thread_id_t thread);
 extern void next_thread(void);
 

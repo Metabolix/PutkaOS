@@ -41,20 +41,23 @@ void thread_ending(void)
 		kernel_idle_loop();
 	}
 	kprintf("Thread %i ending...\n", active_thread);
-	kprintf("num_threads = %d, --\n", num_threads);
-	kprintf("processes[threads[active_thread].process].num_threads = %d, --\n", processes[threads[active_thread].process].num_threads); for(;;);
-	--num_threads;
+	kprintf("num_threads = %d, threads[active_thread].process = %d--\n", num_threads, threads[active_thread].process);
+	kprintf("processes[threads[active_thread].process].num_threads = %d, --\n", processes[threads[active_thread].process].num_threads);
 	--processes[threads[active_thread].process].num_threads;
+	--num_threads;
+	threads[active_thread].process = 0;
+	threads[active_thread].state = pstate_none; /* Remove this when we continue with this function */
+	for(;;);
+
 	if (processes[threads[active_thread].process].num_threads == 0) {
 		process_ending();
 	} else if (active_thread == processes[threads[active_thread].process].main_thread) {
 		process_ending();
 	}
 
-	threads[active_thread].process = 0;
-	kfree((void*)threads[active_thread].stack);
+	//kfree((void*)threads[active_thread].stack);
 	threads[active_thread].stack = 0;
-	threads[active_thread].running = 0;
+	threads[active_thread].state = pstate_none;
 	// TODO: Lista loppuneista säikeistä, että voidaan vapauttaa niiden pinot aina välillä... Eli ei vapauteta täällä.
 	panic("Thread ended - What do we do now?");
 }
@@ -80,7 +83,7 @@ thread_id_t find_running_thread(void)
 	static thread_id_t running_thread;
 	thread_id_t alk_running_thread = running_thread;
 	do {
-		if (threads[running_thread].running) {
+		if (threads[running_thread].state == pstate_running) {
 			alk_running_thread = running_thread;
 			running_thread = (running_thread + 1) & (K_MAX_THREADS - 1);
 			return alk_running_thread;
@@ -90,7 +93,7 @@ thread_id_t find_running_thread(void)
 	return NO_THREAD;
 }
 
-thread_id_t new_thread(t_entry entry, void * initial_stack, size_t initial_stack_size)
+thread_id_t new_thread(entry_t entry, void * initial_stack, size_t initial_stack_size)
 {
 	thread_id_t thread;
 	char *esp;
@@ -109,8 +112,8 @@ thread_id_t new_thread(t_entry entry, void * initial_stack, size_t initial_stack
 	memcpy(esp, initial_stack, initial_stack_size);
 	if (initial_stack) kprintf("initial_stack = %p\n", *(void**)initial_stack);
 
-	esp -= sizeof(t_entry);
-	*(t_entry*)esp = thread_ending;
+	esp -= sizeof(entry_t);
+	*(entry_t*)esp = thread_ending;
 
 	threads[thread].esp = ((struct regs_t*)esp) - 1;
 	memcpy(threads[thread].esp, &initial_regs, sizeof(struct regs_t));
@@ -119,7 +122,7 @@ thread_id_t new_thread(t_entry entry, void * initial_stack, size_t initial_stack
 	threads[thread].esp->ebp = threads[thread].stack + K_THREAD_STACK_SIZE;
 	threads[thread].ss = threads[thread].esp->ss;
 	threads[thread].process = active_process;
-	threads[thread].running = 1;
+	threads[thread].state = pstate_running;
 
 	++num_threads;
 	return thread;
@@ -135,7 +138,7 @@ void threading_init(void)
 {
 	memset(processes, 0, sizeof(processes));
 	memset(threads, 0, sizeof(threads));
-	if ((active_process = new_process(kernel_idle_loop, 0, 0))
+	if ((active_process = new_process(kernel_idle_loop, 0, 0, 0, 0))
 	|| (active_thread = processes[active_process].main_thread)) {
 		kprintf("threading_init: active_thread = %d, active_process = %d\n",
 			active_thread, active_process);
@@ -164,4 +167,8 @@ void next_thread(void)
 	}
 	do { active_thread = find_running_thread(); } while (active_thread == 0);
 	active_thread_ptr = threads + active_thread;
+	active_process = active_thread_ptr->process;
+	active_process_ptr = processes + active_process;
+	if(processes[active_thread_ptr->process].pd)
+		__asm__("movl %0, %%cr3" : : "r"(processes[active_thread_ptr->process].pd)); 
 }

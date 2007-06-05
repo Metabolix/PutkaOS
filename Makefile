@@ -32,7 +32,7 @@ C_SRC_FS_1=mount.c filesystem.c pseudofsdriver.c file.c dir.c fat.c fat16.c ext2
 C_SRC_FS=$(addprefix filesys/,$(C_SRC_FS_1))
 
 # Misc
-C_SRC_OTHER=gdt.c isr.c main.c panic.c idt.c irq.c keyboard.c screen.c regs.c spinlock.c lcdscreen.c
+C_SRC_OTHER=gdt.c isr.c main.c panic.c idt.c irq.c keyboard.c screen.c regs.c spinlock.c lcdscreen.c syscall.c
 #mouse.c
 C_SRC_OTHER_OPT=int64.c timer.c kprintf.c sh.c sh_komennot.c time.c endian.c list.c fprintf.c sprintf.c math.c
 

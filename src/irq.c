@@ -153,6 +153,6 @@ void irq_handler(struct regs_t *regs) /* NOTICE: This should be called only from
 		outportb(0x20, 0x20);
 		irq_wait[regs->int_no] = 0;
 	}
-	irq_handling = 0;
 	next_thread();
+	irq_handling = 0;
 }
