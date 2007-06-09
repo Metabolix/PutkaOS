@@ -405,7 +405,8 @@ int ext2_dread(struct ext2_dir * listing) {
 				memcpy(listing->std.name, dir->name, dir->name_len);
 				listing->std.name[dir->name_len] = 0;
 				listing->std.size = inode.i_size;
-				listing->std.owner = inode.i_uid;
+				listing->std.uid = inode.i_uid;
+				listing->std.gid = inode.i_gid;
 				listing->std.rights = inode.i_mode & 0777;
 				listing->std.created = inode.i_ctime;
 				listing->std.accessed = inode.i_atime;

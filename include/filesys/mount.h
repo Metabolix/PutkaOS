@@ -4,6 +4,7 @@
 #include <filesys/filesystem.h>
 #include <filesys/file.h>
 #include <filesys/dir.h>
+#include <filesys/mount_err.h>
 
 struct mount {
 	char *dev_name;
@@ -15,17 +16,6 @@ struct mount {
 
 	FILE *dev;
 	struct fs *fs;
-};
-
-enum MOUNT_ERR {
-	MOUNT_ERR_TOTAL_FAILURE = -1,
-	MOUNT_ERR_MOUNTED_SUBPOINTS = -2,
-	MOUNT_ERR_BUSY = -3,
-	MOUNT_ERR_ALREADY_MOUNTED = -4,
-	MOUNT_ERR_DEVICE_ERROR = -5,
-	MOUNT_ERR_FILESYS_ERROR = -6,
-
-	MOUNT_ERR_FREE_ERRORCODE = -0x10000 // ;)
 };
 
 extern int mount_init(unsigned long mboot_device, const char *mboot_cmdline);

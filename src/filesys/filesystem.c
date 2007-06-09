@@ -1,7 +1,8 @@
 #include <filesys/pseudofsdriver.h>
-#include <filesys/fat.h>
 #include <filesys/filesystem.h>
+#include <filesys/fat.h>
 #include <filesys/ext2.h>
+#include <filesys/minix.h>
 #include <malloc.h>
 #include <string.h>
 #include <list.h>
@@ -33,5 +34,42 @@ int fs_add_driver(fs_mount_t mount_function)
 int fs_init(void)
 {
 	list_init(fs_driver_list);
-	return fs_add_driver(ext2_mount) + fs_add_driver(fat_mount);
+	return 0
+		+ fs_add_driver(minix_mount)
+		+ fs_add_driver(ext2_mount)
+		+ fs_add_driver(fat_mount);
+}
+
+
+
+int fclose_none(FILE *stream)
+{
+	return 0;
+}
+
+size_t fread_none(void *buf, size_t size, size_t count, FILE *stream)
+{
+	return size * count;
+}
+
+size_t fwrite_none(void *buf, size_t size, size_t count, FILE *stream)
+{
+	return size * count;
+}
+
+int fflush_none(FILE *stream)
+{
+	return 0;
+}
+
+int fgetpos_copypos(FILE *stream, fpos_t *pos)
+{
+	*pos = stream->pos;
+	return 0;
+}
+
+int fsetpos_copypos(FILE *stream, const fpos_t *pos)
+{
+	stream->pos = *pos;
+	return 0;
 }

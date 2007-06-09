@@ -64,20 +64,23 @@ size_t urandom_fread(void *buf, size_t size, size_t count, FILE *stream)
 	return count;
 }
 
-FILE *special_devopen(void)
+FILE *special_devopen(struct filefunc **ff_ptr)
 {
-	FILE * ret = kcalloc(sizeof(FILE) + sizeof(struct filefunc), 1);
-	ret->func = (struct filefunc *) (ret + 1);
-	ret->func->fflush = special_fflush;
-	ret->func->fclose = special_fclose;
-	ret->func->fgetpos = special_fgetpos;
-	ret->func->fsetpos = special_fsetpos;
+	struct filefunc *ff;
+	FILE *ret = kcalloc(sizeof(FILE) + sizeof(struct filefunc), 1);
+	ret->func = ff = (struct filefunc *) (ret + 1);
+	ff->fflush = special_fflush;
+	ff->fclose = special_fclose;
+	ff->fgetpos = special_fgetpos;
+	ff->fsetpos = special_fsetpos;
+	*ff_ptr = ff;
 	return ret;
 }
 
 #define SPECIAL_OPENFUNC_TEMPLATE( stuff ) \
 { \
-	FILE * ret = special_devopen(); \
+	struct filefunc *ff; \
+	FILE *ret = special_devopen(&ff); \
 	if (!ret) return 0; \
 	{ stuff } \
 	return ret; \
@@ -85,15 +88,15 @@ FILE *special_devopen(void)
 
 SPECIAL_OPENFUNC( null ) SPECIAL_OPENFUNC_TEMPLATE
 (
-	ret->func->fwrite = null_fwrite;
+	ff->fwrite = null_fwrite;
 )
 
 SPECIAL_OPENFUNC( zero ) SPECIAL_OPENFUNC_TEMPLATE
 (
-	ret->func->fread = zero_fread;
+	ff->fread = zero_fread;
 )
 
 SPECIAL_OPENFUNC( urandom ) SPECIAL_OPENFUNC_TEMPLATE
 (
-	ret->func->fread = urandom_fread;
+	ff->fread = urandom_fread;
 )

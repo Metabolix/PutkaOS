@@ -3,20 +3,32 @@
 
 #define DEF_WITH_1_PARAMS(type, name) \
 	extern type name (type x)
+#define DEF_WITH_1_PARAMS_AND_IPTR(type, name) \
+	extern type name (type x, int *c)
 #define DEF_WITH_2_PARAMS(type, name) \
 	extern type name (type x, type y)
 
 #define DEF_ALL(name, num) \
 	DEF_WITH_ ## num ## _PARAMS (double, name); \
 	DEF_WITH_ ## num ## _PARAMS (float, name ## f); \
-	DEF_WITH_ ## num ## _PARAMS (long double, name ## l); \
+	DEF_WITH_ ## num ## _PARAMS (long double, name ## l);
 
+#define DEF_ALL_AND_IPTR(name, num) \
+	DEF_WITH_ ## num ## _PARAMS_AND_IPTR (double, name); \
+	DEF_WITH_ ## num ## _PARAMS_AND_IPTR (float, name ## f); \
+	DEF_WITH_ ## num ## _PARAMS_AND_IPTR (long double, name ## l);
+
+
+DEF_ALL(exp2, 1)
 DEF_ALL(log10, 1)
 DEF_ALL(pow, 2)
+DEF_ALL_AND_IPTR(frexp, 1)
 
 #undef DEF_WITH_1_PARAMS
+#undef DEF_WITH_1_PARAMS_AND_IPTR
 #undef DEF_WITH_2_PARAMS
 #undef DEF_ALL
+#undef DEF_ALL_AND_IPTR
 
 /*
 float_t   FP_INFINITE  FP_FAST_FMAL

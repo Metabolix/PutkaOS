@@ -9,12 +9,12 @@
 typedef struct _DIR {
 	char *name;
 	fpos_t size;
-	uint_t owner;
+	uint_t uid, gid;
 	uint_t rights;
 	time_t created, accessed, modified;
 	uint_t references;
 
-	struct dirfunc *func;
+	const struct dirfunc *func;
 } DIR;
 
 extern int dmake(const char * dirname, uint_t owner, uint_t rights);

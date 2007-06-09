@@ -12,7 +12,7 @@ typedef struct _FILE {
 	fpos_t size;
 	short errno, eof;
 
-	struct filefunc *func;
+	const struct filefunc *func;
 } FILE;
 
 //#define _IOFBF 1

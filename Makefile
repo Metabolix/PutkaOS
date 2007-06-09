@@ -1,6 +1,11 @@
 
 CC=gcc
-CFLAGS=-Wall -ffreestanding -fno-stack-protector -nostdinc -I./include -s -m32 -pedantic -std=c99
+CFLAGS_41=-V 4.1 -fno-stack-protector
+CFLAGS_40=-V 4.0
+CFLAGS_34=-V 3.4
+CFLAGS_ALL=-Wall -ffreestanding -nostdinc -I./include -s -m32 -pedantic -std=c99
+CFLAGS=$(CFLAGS_41) $(CFLAGS_ALL)
+
 #-pedantic -std=c99 -Werror
 CFLAGS_OPTI=
 
@@ -28,7 +33,7 @@ C_SRC_DEVICES_OPT_1=specialdevs.c specialdevs_func.c $(C_SRC_BLOCKDEV_OPT)
 C_SRC_DEVICES_OPT=$(addprefix devices/,$(C_SRC_DEVICES_OPT_1))
 
 # File system
-C_SRC_FS_1=mount.c filesystem.c pseudofsdriver.c file.c dir.c fat.c fat16.c ext2.c
+C_SRC_FS_1=mount.c filesystem.c pseudofsdriver.c file.c dir.c fat.c fat16.c ext2.c minix.c
 C_SRC_FS=$(addprefix filesys/,$(C_SRC_FS_1))
 
 # Misc

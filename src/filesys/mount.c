@@ -297,10 +297,7 @@ int mount_something(const char * device_filename, const char * mountpoint, uint_
 		kprintf("mount: (%s) => (%s): Couldn't open device.\n", device_filename, mountpoint);
 		return MOUNT_ERR_DEVICE_ERROR;
 	}
-	if (!(flags & FILE_MODE_WRITE)) {
-		uusi.dev->func->fwrite = 0;
-		// TODO: Flagit xD
-	}
+	// TODO: Flagit
 
 	uusi.fs = fs_mount(uusi.dev, flags);
 	if (!uusi.fs) {
@@ -374,10 +371,7 @@ int mount_replace(const char * device_filename, const char * mountpoint, uint_t 
 		kprintf("mount_replace: (%s) => (%s): Couldn't open device.\n", device_filename, mountpoint);
 		return MOUNT_ERR_DEVICE_ERROR;
 	}
-	if (!(flags & FILE_MODE_WRITE)) {
-		uusi.dev->func->fwrite = 0;
-		// TODO: Flagit xD
-	}
+	// TODO: Flagit
 
 	uusi.fs = fs_mount(uusi.dev, flags);
 	if (!uusi.fs) {

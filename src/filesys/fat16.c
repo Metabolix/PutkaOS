@@ -240,12 +240,12 @@ int fat16_invalid_filename(const char *filename)
 	return 0;
 }
 
-void *fat16_fopen(struct fat16_fs *this, const char * filename, uint_t mode)
+struct fat16_file *fat16_fopen(struct fat16_fs *this, const char * filename, uint_t mode)
 {
 	return fat16_fopen_all(this, filename, mode, 0);
 }
 
-void *fat16_fopen_all(struct fat16_fs *this, const char * filename, uint_t mode, int accept_dir)
+struct fat16_file *fat16_fopen_all(struct fat16_fs *this, const char * filename, uint_t mode, int accept_dir)
 {
 	if (!filename) {
 		return 0;
@@ -260,6 +260,7 @@ void *fat16_fopen_all(struct fat16_fs *this, const char * filename, uint_t mode,
 	}
 	*/
 
+	struct filefunc *filefunc_ptr;
 	struct fat16_file *retval;
 	fpos_t pos;
 	int i;
@@ -283,10 +284,10 @@ void *fat16_fopen_all(struct fat16_fs *this, const char * filename, uint_t mode,
 			return 0;
 		}
 		retval->fs = this;
-		retval->std.func = (struct filefunc *)(retval + 1);
-		memcpy(retval->std.func, &this->std.filefunc, sizeof(struct filefunc));
-		retval->std.func->fread = (fread_t)fat16_fread_rootdir;
-		retval->std.func->fwrite = (fwrite_t)fat16_fwrite_rootdir;
+		retval->std.func = filefunc_ptr = (struct filefunc *)(retval + 1);
+		memcpy(filefunc_ptr, &this->std.filefunc, sizeof(struct filefunc));
+		filefunc_ptr->fread = (fread_t)fat16_fread_rootdir;
+		filefunc_ptr->fwrite = (fwrite_t)fat16_fwrite_rootdir;
 		retval->file_size = this->header.max_rootdir_entries * sizeof(struct fat_direntry);
 		return retval;
 	}
@@ -764,3 +765,8 @@ typedef struct _DIR {
 	return 0;
 }
 
+int fat16_rename(const char *old, const char *new)
+{
+	// TODO
+	return -1;
+}

@@ -72,8 +72,8 @@ int fat12_write_fat(struct fat16_fs *fs);
 
 int fat16_umount(struct fat16_fs *this);
 
-void *fat16_fopen_all(struct fat16_fs *this, const char * filename, uint_t mode, int accept_dir);
-void *fat16_fopen(struct fat16_fs *this, const char * filename, uint_t mode);
+struct fat16_file *fat16_fopen_all(struct fat16_fs *this, const char * filename, uint_t mode, int accept_dir);
+struct fat16_file *fat16_fopen(struct fat16_fs *this, const char * filename, uint_t mode);
 int fat16_fclose(struct fat16_file *stream);
 
 int fat16_fread_next_cluster(struct fat16_file *stream);

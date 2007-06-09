@@ -44,7 +44,7 @@ int pfs_umount(struct pfs_fs *this)
 	return 0;
 }
 
-void *pfs_fopen(struct pfs_fs *this, const char * filename, uint_t mode)
+struct pfs_file *pfs_fopen(struct pfs_fs *this, const char * filename, uint_t mode)
 {
 	return 0; /* Virhe ;) */
 
