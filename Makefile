@@ -56,16 +56,21 @@ OBJS=$(ASM_OBJS) $(C_OBJS)
 LDFLAGS=--oformat=elf32-i386 -melf_i386
 
 all: $(ASM_OBJS) $(C_OBJS) $(C_OBJS_OPT)
-	ld -T link.ld $(LDFLAGS) -o ./kernel $(ASM_OBJS) $(C_OBJS) $(C_OBJS_OPT)
+	@echo Linking kernel...
+	@ld -T link.ld $(LDFLAGS) -o ./kernel $(ASM_OBJS) $(C_OBJS) $(C_OBJS_OPT)
+	@echo Kernel linked!
 
 $(ASM_OBJS): %.o: %.s
-	$(ASM) $(ASMFLAGS) $< -o $@
+	@echo [ASM] $@
+	@$(ASM) $(ASMFLAGS) $< -o $@
 
 $(C_OBJS): %.o: %.c
-	$(CC) $(CFLAGS) $< -c -o $@
+	@echo [CC] $@
+	@$(CC) $(CFLAGS) $< -c -o $@
 
 $(C_OBJS_OPT): %.o: %.c
-	$(CC) $(CFLAGS) $(CFLAGS_OPT) $< -c -o $@
+	@echo [CC] $@
+	@$(CC) $(CFLAGS) $(CFLAGS_OPT) $< -c -o $@
 
 clean:
 	rm -f $(ASM_OBJS) $(C_OBJS) $(C_OBJS_OPT)
