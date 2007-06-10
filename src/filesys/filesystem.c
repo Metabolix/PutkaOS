@@ -7,8 +7,6 @@
 #include <string.h>
 #include <list.h>
 
-#define MAX_NAME_LEN 15
-
 LIST_TYPE(fs_driver, fs_mount_t);
 list_of_fs_driver fs_driver_list;
 
@@ -59,12 +57,6 @@ size_t fwrite_none(void *buf, size_t size, size_t count, FILE *stream)
 
 int fflush_none(FILE *stream)
 {
-	return 0;
-}
-
-int fgetpos_copypos(FILE *stream, fpos_t *pos)
-{
-	*pos = stream->pos;
 	return 0;
 }
 

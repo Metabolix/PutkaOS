@@ -35,9 +35,8 @@ int pfs_fclose(struct pfs_file *stream);
 size_t pfs_fread(void *buf, size_t size, size_t count, struct pfs_file *stream);
 size_t pfs_fwrite(void *buf, size_t size, size_t count, struct pfs_file *stream);
 
-int pfs_fflush(FILE *stream);
+int pfs_fflush(struct pfs_file *stream);
 
-int pfs_fgetpos(struct pfs_file *stream, fpos_t *pos);
 int pfs_fsetpos(struct pfs_file *stream, const fpos_t *pos);
 
 int pfs_dmake(struct pfs_fs *this, const char * dirname, uint_t owner, uint_t rights);

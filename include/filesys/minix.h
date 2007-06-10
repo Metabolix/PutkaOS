@@ -21,7 +21,7 @@ struct minix_inode {
 	uint8_t gid, num_refs;
 	union {
 		struct {
-			uint16_t std[7], ext1, ext2;
+			uint16_t std[7], indir, dbl_indir;
 		} zones;
 		struct {
 			uint8_t minor, major;
@@ -106,8 +106,10 @@ struct minix_fs {
 struct minix_file {
 	FILE std;
 
+	FILE *dev;
 	void (*freefunc)(void*);
-	uint32_t pos;
+	uint32_t pos, size;
+	uint32_t dev_zones_pos, dev_zone_map_pos;
 	struct minix_fs *fs;
 	uint16_t inode_n;
 	struct minix_inode *inode;
@@ -132,10 +134,9 @@ int minix_fclose(struct minix_file *stream);
 size_t minix_fread(void *buf, size_t size, size_t count, struct minix_file *stream);
 size_t minix_fwrite(void *buf, size_t size, size_t count, struct minix_file *stream);
 
-int minix_fflush(FILE *stream);
+int minix_fflush(struct minix_file *stream);
 
-int minix_fgetpos(struct minix_file *stream, fpos_t *pos);
-int minix_fsetpos(struct minix_file *stream, const fpos_t *pos);
+//int minix_fsetpos(struct minix_file *stream, const fpos_t *pos);
 
 int minix_dmake(struct minix_fs *this, const char * dirname, uint_t owner, uint_t rights);
 struct minix_dir *minix_dopen(struct minix_fs *this, const char * dirname);

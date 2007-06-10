@@ -10,6 +10,8 @@ enum MODE_FLAGS {
 	FILE_MODE_WRITE = 2,
 	FILE_MODE_APPEND = 4,
 	FILE_MODE_CLEAR = 8,
+
+	FILE_MODE_ALL = 0x0f // NOTICE: This _must_ be kept to date!
 };
 
 struct fs;
@@ -22,7 +24,6 @@ typedef int (*fclose_t)(FILE *stream);
 typedef size_t (*fread_t)(void *buf, size_t size, size_t count, FILE *stream);
 typedef size_t (*fwrite_t)(const void *buf, size_t size, size_t count, FILE *stream);
 typedef int (*fflush_t)(FILE *stream);
-typedef int (*fgetpos_t)(FILE *stream, fpos_t *pos);
 typedef int (*fsetpos_t)(FILE *stream, const fpos_t *pos);
 
 typedef int (*dmake_t)(struct fs *this, const char * dirname, uint_t owner, uint_t rights);
@@ -36,7 +37,6 @@ struct filefunc {
 	fread_t fread;
 	fwrite_t fwrite;
 	fflush_t fflush;
-	fgetpos_t fgetpos;
 	fsetpos_t fsetpos;
 };
 
@@ -67,7 +67,6 @@ extern size_t fwrite_none(void *buf, size_t size, size_t count, FILE *stream);
 
 extern int fflush_none(FILE *stream);
 
-extern int fgetpos_copypos(FILE *stream, fpos_t *pos);
 extern int fsetpos_copypos(FILE *stream, const fpos_t *pos);
 
 //extern int success_dmake(struct fs *this, const char * dirname, uint_t owner, uint_t rights);

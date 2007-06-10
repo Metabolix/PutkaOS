@@ -145,7 +145,7 @@ struct ext2_group_desc
 #define EXT2_COMPRBLK_FL		0x00000200 /* One or more compressed clusters */
 #define EXT2_NOCOMP_FL			0x00000400 /* Don't compress */
 #define EXT2_ECOMPR_FL			0x00000800 /* Compression error */
-/* End compression flags --- maybe not all used */	
+/* End compression flags --- maybe not all used */
 #define EXT2_BTREE_FL			0x00001000 /* btree format dir */
 #define EXT2_INDEX_FL			0x00001000 /* hash-indexed directory */
 #define EXT2_IMAGIC_FL			0x00002000 /* AFS directory */
@@ -320,7 +320,7 @@ struct ext2_super_block {
 	 * the incompatible feature set is that if there is a bit set
 	 * in the incompatible feature set that the kernel doesn't
 	 * know about, it should refuse to mount the filesystem.
-	 * 
+	 *
 	 * e2fsck's requirements are more strict; if it doesn't know
 	 * about a feature in either the compatible or incompatible
 	 * feature set, it must abort and not try to meddle with
@@ -446,7 +446,7 @@ struct ext2_super_block {
 #define EXT2_DEFM_ACL		0x0008
 #define EXT2_DEFM_UID16		0x0010
     /* Not used by ext2, but reserved for use by ext3 */
-#define EXT3_DEFM_JMODE		0x0060 
+#define EXT3_DEFM_JMODE		0x0060
 #define EXT3_DEFM_JMODE_DATA	0x0020
 #define EXT3_DEFM_JMODE_ORDERED	0x0040
 #define EXT3_DEFM_JMODE_WBACK	0x0060
@@ -506,7 +506,7 @@ enum {
 
 struct ext2_fs {
 	struct fs std;
-	
+
 	struct ext2_super_block * super_block;
 	struct ext2_group_desc * group_desc;
 	unsigned int group_desc_n;
@@ -548,7 +548,6 @@ int ext2_fflush(struct ext2_file *stream);
 long ext2_ftell(struct ext2_file *stream);
 int ext2_fseek(struct ext2_file *stream, long int offset, int origin);
 
-int ext2_fgetpos(struct ext2_file *stream, fpos_t *pos);
 int ext2_fsetpos(struct ext2_file *stream, const fpos_t *pos);
 
 int ext2_dmake(struct ext2_fs * this, const char * dirname, uint_t owned, uint_t rights);

@@ -19,7 +19,6 @@ struct filefunc blockdev_func = {
 	(fread_t)   blockdev_fread,
 	(fwrite_t)  blockdev_fwrite,
 	(fflush_t)  blockdev_fflush,
-	(fgetpos_t) blockdev_fgetpos,
 	(fsetpos_t) blockdev_fsetpos
 };
 
@@ -28,12 +27,6 @@ void blockdev_update_pos(BD_FILE *device)
 	device->std.pos =
 		+ device->pos_in_block
 		+ device->block_in_dev * device->phys->block_size;
-}
-
-int blockdev_fgetpos(BD_FILE *device, fpos_t *pos)
-{
-	*pos = device->std.pos;
-	return 0;
 }
 
 int blockdev_fsetpos(BD_FILE *device, const fpos_t *pos)

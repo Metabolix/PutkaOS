@@ -13,7 +13,6 @@ struct pfs_fs pfs = {
 			(fread_t)     pfs_fread,
 			(fwrite_t)    pfs_fwrite,
 			(fflush_t)    pfs_fflush,
-			(fgetpos_t)   pfs_fgetpos,
 			(fsetpos_t)   pfs_fsetpos
 		},
 		{
@@ -70,14 +69,9 @@ size_t pfs_fwrite(void *buf, size_t size, size_t count, struct pfs_file *stream)
 {
 	return 0;
 }
-int pfs_fflush(FILE *stream)
+int pfs_fflush(struct pfs_file *stream)
 {
 	return EOF;
-}
-int pfs_fgetpos(struct pfs_file *stream, fpos_t *pos)
-{
-	*pos = 0;
-	return 0;
 }
 int pfs_fsetpos(struct pfs_file *stream, const fpos_t *pos)
 {

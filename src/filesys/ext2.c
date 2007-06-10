@@ -18,7 +18,6 @@ struct ext2_fs ext2_op = {
 			(fread_t)     ext2_fread,
 			(fwrite_t)    ext2_fwrite,
 			(fflush_t)    ext2_fflush,
-			(fgetpos_t)   ext2_fgetpos,
 			(fsetpos_t)   ext2_fsetpos
 		},
 		{
@@ -300,11 +299,6 @@ size_t ext2_fread(void *buf, size_t size, size_t count, struct ext2_file *stream
 }
 
 size_t ext2_fwrite(void *buf, size_t size, size_t count, struct ext2_file *stream) {
-	return 0;
-}
-
-int ext2_fgetpos(struct ext2_file *stream, fpos_t *pos) {
-	*pos = stream->std.pos;
 	return 0;
 }
 

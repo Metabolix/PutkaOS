@@ -15,7 +15,6 @@ struct fs fat16_fs = {
 		(fread_t)     fat16_fread,
 		(fwrite_t)    fat16_fwrite,
 		(fflush_t)    fat16_fflush,
-		(fgetpos_t)   fat16_fgetpos,
 		(fsetpos_t)   fat16_fsetpos
 	},
 	{
@@ -595,12 +594,6 @@ size_t fat16_freadwrite(
 int fat16_fflush(struct fat16_file *stream)
 {
 	return fflush(stream->fs->device);
-}
-
-int fat16_fgetpos(struct fat16_file *stream, fpos_t *pos)
-{
-	*pos = stream->std.pos;
-	return 0;
 }
 
 int fat16_fsetpos(struct fat16_file *stream, const fpos_t *pos)

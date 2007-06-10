@@ -14,11 +14,6 @@ int special_fflush(FILE *stream)
 {
 	return 0;
 }
-int special_fgetpos(FILE *stream, fpos_t *pos)
-{
-	*pos = stream->pos;
-	return 0;
-}
 int special_fsetpos(FILE *stream, const fpos_t *pos)
 {
 	stream->pos = *pos;
@@ -71,7 +66,6 @@ FILE *special_devopen(struct filefunc **ff_ptr)
 	ret->func = ff = (struct filefunc *) (ret + 1);
 	ff->fflush = special_fflush;
 	ff->fclose = special_fclose;
-	ff->fgetpos = special_fgetpos;
 	ff->fsetpos = special_fsetpos;
 	*ff_ptr = ff;
 	return ret;

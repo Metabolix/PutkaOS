@@ -3,14 +3,24 @@
 #include <string.h>
 #include <stdint.h>
 
+struct filefunc nil_filefunc = {0};
+
 FILE *fopen_intflags(const char * filename, uint_t intmode)
 {
 	const struct mount *mnt;
 
-	if (!filename || !(mnt = mount_etsi_kohta(&filename)) || !mnt->fs || !mnt->fs->filefunc.fopen) {
-		return 0;
+	if (filename)
+	if (intmode & (FILE_MODE_READ | FILE_MODE_WRITE))
+	if (!(intmode & ~FILE_MODE_ALL))
+	if ((mnt = mount_etsi_kohta(&filename)))
+	if (mnt->fs)
+	if (mnt->fs->filefunc.fopen) {
+		FILE *f = mnt->fs->filefunc.fopen(mnt->fs, filename, intmode);
+		if (!f) return f;
+		if (!f->func) f->func = &nil_filefunc;
+		if (f->mode == 0) f->mode = intmode;
 	}
-	return mnt->fs->filefunc.fopen(mnt->fs, filename, intmode);
+	return 0;
 }
 
 FILE *fopen(const char * filename, const char * mode)
@@ -42,7 +52,7 @@ FILE *fopen(const char * filename, const char * mode)
 
 int fclose(FILE *stream)
 {
-	if (stream && stream->func && stream->func->fclose) {
+	if (stream && stream->func->fclose) {
 		return stream->func->fclose(stream);
 	}
 	return -1;
@@ -50,7 +60,9 @@ int fclose(FILE *stream)
 
 size_t fread(void *buf, size_t size, size_t count, FILE *stream)
 {
-	if (stream && stream->func && stream->func->fread) {
+	if (!stream) return 0;
+	if (size == 0 || count == 0) return 0;
+	if (stream->func->fread) {
 		return stream->func->fread(buf, size, count, stream);
 	}
 	return 0;
@@ -58,7 +70,14 @@ size_t fread(void *buf, size_t size, size_t count, FILE *stream)
 
 size_t fwrite(const void *buf, size_t size, size_t count, FILE *stream)
 {
-	if (stream && stream->func && stream->func->fwrite) {
+	if (!stream) return 0;
+	if (size == 0 || count == 0) return 0;
+	if (stream->mode & FILE_MODE_APPEND) {
+		if (fsetpos(stream, &stream->size)) {
+			return 0;
+		}
+	}
+	if (stream->func->fwrite) {
 		return stream->func->fwrite(buf, size, count, stream);
 	}
 	return 0;
@@ -66,8 +85,9 @@ size_t fwrite(const void *buf, size_t size, size_t count, FILE *stream)
 
 int fgetpos(FILE *stream, fpos_t *pos)
 {
-	if (stream && stream->func && stream->func->fgetpos) {
-		return stream->func->fgetpos(stream, pos);
+	if (stream) {
+		*pos = stream->pos;
+		return 0;
 	}
 	memset(pos, 0, sizeof(fpos_t));
 	return EOF;
@@ -75,7 +95,7 @@ int fgetpos(FILE *stream, fpos_t *pos)
 
 int fsetpos(FILE *stream, const fpos_t *pos)
 {
-	if (stream && stream->func && stream->func->fsetpos) {
+	if (stream && stream->func->fsetpos) {
 		return stream->func->fsetpos(stream, pos);
 	}
 	return EOF;
@@ -92,10 +112,7 @@ int fseek(FILE *stream, long int offset, int origin)
 			pos = stream->size - offset;
 			break;
 		case SEEK_CUR:
-			if (fgetpos(stream, &pos)) {
-				return EOF;
-			}
-			pos += offset;
+			pos = stream->pos + offset;
 			break;
 		default:
 			return EOF;
@@ -105,16 +122,15 @@ int fseek(FILE *stream, long int offset, int origin)
 
 long ftell(FILE *stream)
 {
-	fpos_t pos;
-	if (fgetpos(stream, &pos)) {
+	if (!stream) {
 		return -1L;
 	}
-	return (long)(pos & INT32_MAX);
+	return (long)(stream->pos & INT32_MAX);
 }
 
 int fflush(FILE *stream)
 {
-	if (stream && stream->func && stream->func->fflush) {
+	if (stream && stream->func->fflush) {
 		return stream->func->fflush(stream);
 	}
 	return EOF;
