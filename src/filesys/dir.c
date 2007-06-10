@@ -18,7 +18,7 @@ int dmake(const char * dirname, uint_t owner, uint_t rights)
 	const char *newdirname = dirname;
 	mnt = mount_etsi_kohta(&newdirname);
 	if (!mnt || !mnt->fs || !mnt->fs->dirfunc.dopen) {
-		return 0;
+		return EOF;
 	}
 	return mnt->fs->dirfunc.dmake(mnt->fs, newdirname, owner, rights);
 }
@@ -26,7 +26,7 @@ int dmake(const char * dirname, uint_t owner, uint_t rights)
 int dread(DIR *listing)
 {
 	if (!listing || !listing->func || !listing->func->dread) {
-		return 0;
+		return EOF;
 	}
 	return listing->func->dread(listing);
 }
@@ -34,7 +34,7 @@ int dread(DIR *listing)
 int dclose(DIR *listing)
 {
 	if (!listing || !listing->func || !listing->func->dclose) {
-		return 0;
+		return EOF;
 	}
 	return listing->func->dclose(listing);
 }

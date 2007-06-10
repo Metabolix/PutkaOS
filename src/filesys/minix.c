@@ -11,6 +11,7 @@ def_ceil(ceil_uint32, uint32_t)
 
 static int minix_check_filename(const char *filename, int maxlen, int *parts);
 static struct minix_file *minix_fopen_all(struct minix_fs *this, const char * filename, uint_t mode, _1x2_t file_or_dir);
+static size_t minix_get_zones(struct minix_file *this, size_t zone0, size_t zone1, uint16_t *zonelist, int write);
 
 const struct fs minix_fs = {
 	"minix",
@@ -113,11 +114,29 @@ struct fs *minix_mount(FILE *device, uint_t mode)
 	fs.pos_inodes = fs.pos_zone_map + fs.super.num_zone_map_zones * MINIX_FS_ZONE_SIZE;
 	fs.pos_data = fs.pos_inodes + ceil_uint32((uint32_t)fs.super.num_inodes * sizeof(struct minix_inode), MINIX_FS_ZONE_SIZE);
 
-	if ((this = kmalloc(sizeof(struct minix_fs)))) {
-		memcpy(this, &fs, sizeof(struct minix_fs));
-		list_init(this->open_inodes);
-	}
+	const size_t inode_map_size = fs.super.num_inodes / 8 + 1;
+	const size_t zone_map_size = fs.super.num_blocks / 8 + 1;
+	const size_t maps_size = inode_map_size + zone_map_size;
+	//fs.pos_inodes - fs.pos_inode_map;
+	if (!(this = kmalloc(sizeof(struct minix_fs) + maps_size))) goto failure;
+
+	memcpy(this, &fs, sizeof(struct minix_fs));
+	this->inode_map = (uint8_t*)(this + 1);
+	this->zone_map = this->inode_map + inode_map_size;
+	this->end_map = this->zone_map + zone_map_size;
+
+	if (fsetpos(fs.dev, &fs.pos_inode_map)) goto failure;
+	if (fread(this->inode_map, inode_map_size, 1, fs.dev) != 1) goto failure;
+
+	if (fsetpos(fs.dev, &fs.pos_zone_map)) goto failure;
+	if (fread(this->zone_map, zone_map_size, 1, fs.dev) != 1) goto failure;
+	list_init(this->open_inodes);
+
 	return (struct fs *)this;
+failure:
+	if (!this) return 0;
+	kfree(this);
+	return 0;
 }
 
 int minix_umount(struct minix_fs *this)
@@ -179,25 +198,50 @@ loytyi:
 static uint16_t minix_alloc_inode(struct minix_fs *this, uint16_t type)
 {
 	// TODO: Rights, uid, gid, modified, num_refs
-	struct minix_inode inode = {
-		.flags = 0777 | (type << 12),
-		.uid = 0,
-		.size = 0,
-		.modified = 0,
-		.gid = 0,
-		.num_refs = 1,
-		.u.zones.std = {0},
-		.u.zones.indir = 0,
-		.u.zones.dbl_indir = 0
+	struct minix_list_inode inoli = {
+		.inode = {
+			.flags = 0777 | (type << 12),
+			.uid = 0,
+			.size = 0,
+			.modified = 0,
+			.gid = 0,
+			.num_refs = 1,
+			.u.zones.std = {0},
+			.u.zones.indir = 0,
+			.u.zones.dbl_indir = 0
+		},
+		.num_refs = 0,
 	};
-	// TODO: Find space for this, mark inode_map, add to the list (with zero refs)
-	return 0;
+	uint8_t *ptr;
+	int i;
+	for (ptr = this->inode_map; ptr != this->zone_map; ++ptr) {
+		if (*ptr != 0xff) {
+			break;
+		}
+	}
+	if (ptr == this->zone_map) {
+		return 0;
+	}
+	for (i = 0; i < 8; ++i) {
+		if ((*ptr & (1 << i)) == 0) {
+			break;
+		}
+	}
+	*ptr |= 1 << i;
+	inoli.inode_n = 8 * (ptr - this->inode_map) + i;
+	list_insert(list_end(this->open_inodes), inoli);
+	return inoli.inode_n;
 }
 
 static int minix_free_inode(struct minix_fs *this, uint16_t inode)
 {
-	// TODO
-	return -1;
+	uint8_t *ptr;
+	int i;
+
+	ptr = this->inode_map + inode / 8;
+	i = inode & 7;
+	*ptr &= *ptr ^ (1 << i);
+	return 0;
 }
 
 static struct minix_file *minix_fopen_all(struct minix_fs *this, const char * filename, uint_t mode, _1x2_t file_or_dir)
@@ -336,10 +380,70 @@ int minix_fclose(struct minix_file *stream)
 	return 0;
 }
 
-static int minix_get_zones(struct minix_file *stream, size_t numzones, uint16_t *zonelist, int write)
+static size_t minix_get_zones(struct minix_file *this, size_t zone0, size_t zone1, uint16_t *zonelist, int write)
 {
 	// TODO
-	return 0;
+	size_t i = 0, j, k;
+	size_t zone;
+	fpos_t pos;
+	uint16_t indir[512], dbl_indir[512];
+
+	const size_t end_a = (zone1 < 6) ? zone1 : 6;
+	const size_t end_b = (zone1 < 6 + 512) ? zone1 : (6 + 512);
+	const size_t end_c = zone1;
+
+	zone = zone0;
+
+	if (zone > end_b) goto read_dbl_indir;
+	if (zone > end_a) goto read_indir;
+
+	for (; zone <= end_a; ++zone, ++i) {
+		zonelist[i] = this->inode->u.zones.std[zone];
+	}
+	if (zone > zone1) {
+		return i;
+	}
+
+read_indir:
+	{
+		const size_t count_b = 1 + end_b - zone;
+
+		pos = this->inode->u.zones.indir * MINIX_FS_ZONE_SIZE;
+		pos -= MINIX_FS_ZONE_SIZE;
+		pos += zone * sizeof(uint16_t);
+		if (fsetpos(this->dev, &pos)) return i;
+		if (fread(indir, sizeof(uint16_t), count_b, this->dev) != count_b) return i;
+
+		for (j = 0; zone <= end_b; ++zone, ++i, ++j) {
+			zonelist[i] = indir[j];
+		}
+		if (zone > zone1) {
+			return i;
+		}
+	}
+
+read_dbl_indir:
+	{
+		pos = this->inode->u.zones.dbl_indir * MINIX_FS_ZONE_SIZE;
+		pos -= MINIX_FS_ZONE_SIZE;
+		if (fsetpos(this->dev, &pos)) return i;
+		if (fread(dbl_indir, sizeof(uint16_t), 512, this->dev) != 512) return i;
+
+		while (zone <= end_c) {
+			k = zone - 6 - 512;
+
+			pos = dbl_indir[k / 512] * MINIX_FS_ZONE_SIZE;
+			pos -= MINIX_FS_ZONE_SIZE;
+			if (fsetpos(this->dev, &pos)) return i;
+			if (fread(indir, sizeof(uint16_t), 512, this->dev) != 512) return i;
+
+			for (j = k % 512; j < 512 && zone <= end_c; ++zone, ++i, ++j) {
+				zonelist[i] = indir[j];
+			}
+		}
+	}
+
+	return i;
 }
 
 size_t minix_freadwrite(char *buf, size_t size, size_t count, struct minix_file *stream, fread_t ffunction, int write)
@@ -351,16 +455,17 @@ size_t minix_freadwrite(char *buf, size_t size, size_t count, struct minix_file 
 	const size_t byte_count = pos1 - pos0;
 	const size_t zone0 = pos0 / MINIX_FS_ZONE_SIZE;
 	const size_t zone1 = (pos1 - 1) / MINIX_FS_ZONE_SIZE;
-	const size_t numzones = 1 + zone1 - zone0;
+	const size_t numzones_c = 1 + zone1 - zone0;
 	fpos_t pos;
 	size_t zone;
-	uint16_t zonelist[numzones];
+	uint16_t zonelist[numzones_c];
 	size_t done_size, pos_in_zone;
 
-	minix_get_zones(stream, numzones, zonelist, write);
+	const size_t numzones = minix_get_zones(stream, zone0, zone1, zonelist, write);
 
 	if (numzones == 1) {
 		pos = zonelist[0] * MINIX_FS_ZONE_SIZE;
+		pos -= MINIX_FS_ZONE_SIZE;
 		if (fsetpos(stream->dev, &pos)) {
 			goto return_etc;
 		}
@@ -374,6 +479,7 @@ size_t minix_freadwrite(char *buf, size_t size, size_t count, struct minix_file 
 	pos_in_zone = stream->pos % MINIX_FS_ZONE_SIZE;
 	if (pos_in_zone) {
 		pos = zonelist[zone] * MINIX_FS_ZONE_SIZE + pos_in_zone;
+		pos -= MINIX_FS_ZONE_SIZE;
 		if (fsetpos(stream->dev, &pos)) {
 			goto return_etc;
 		}
@@ -390,6 +496,7 @@ size_t minix_freadwrite(char *buf, size_t size, size_t count, struct minix_file 
 
 	for (; zone < numzones - 1; ++zone) {
 		pos = zonelist[zone] * MINIX_FS_ZONE_SIZE;
+		pos -= MINIX_FS_ZONE_SIZE;
 		if (fsetpos(stream->dev, &pos)) {
 			goto return_etc;
 		}
@@ -403,6 +510,7 @@ size_t minix_freadwrite(char *buf, size_t size, size_t count, struct minix_file 
 	}
 
 	pos = zonelist[zone] * MINIX_FS_ZONE_SIZE;
+	pos -= MINIX_FS_ZONE_SIZE;
 	if (fsetpos(stream->dev, &pos)) {
 		goto return_etc;
 	}
@@ -419,12 +527,12 @@ return_etc:
 
 size_t minix_fread(void *buf, size_t size, size_t count, struct minix_file *stream)
 {
-	return minix_freadwrite(buf, size, count, stream, (fread_t) fread, 0);
+	return minix_freadwrite((char *)buf, size, count, stream, (fread_t) fread, 0);
 }
 
-size_t minix_fwrite(void *buf, size_t size, size_t count, struct minix_file *stream)
+size_t minix_fwrite(const void *buf, size_t size, size_t count, struct minix_file *stream)
 {
-	return minix_freadwrite(buf, size, count, stream, (fread_t) fwrite, 1);
+	return minix_freadwrite((char *)buf, size, count, stream, (fread_t) fwrite, 1);
 }
 
 int minix_fflush(struct minix_file *stream)
@@ -449,24 +557,22 @@ struct minix_dir *minix_dopen(struct minix_fs *this, const char * dirname)
 
 	if ((retval = kcalloc(sizeof(struct minix_dir), 1))) {
 		retval->file = file;
+		retval->std.func = &file->fs->std.dirfunc;
 	}
 	return retval;
 }
 
 int minix_dread(struct minix_dir *listing)
 {
-alku:
-	if (minix_fread(&listing->direntry, MINIX_FS_DIRENTRY_SIZE, 1, listing->file) != 1) {
+	do if (minix_fread(&listing->direntry, MINIX_FS_DIRENTRY_SIZE, 1, listing->file) != 1) {
 		return EOF;
-	}
-	if (!listing->direntry.real.inode) {
-		goto alku;
-	}
+	} while (!listing->direntry.real.inode);
 
 	fpos_t pos = listing->file->fs->pos_inodes + (listing->direntry.real.inode - 1) * MINIS_FS_INODE_SIZE;
-	if (fsetpos(listing->file->fs->dev, &pos)) return 0;
-	if (fread(&listing->inode, MINIS_FS_INODE_SIZE, 1, listing->file->fs->dev) != 1) return 0;
+	if (fsetpos(listing->file->fs->dev, &pos)) return EOF;
+	if (fread(&listing->inode, MINIS_FS_INODE_SIZE, 1, listing->file->fs->dev) != 1) return EOF;
 
+	DEBUGF("listing: %p ;;; name: %p = %s\n", listing, listing->direntry.real.name, listing->direntry.real.name);
 	listing->std = (DIR) {
 		.name = listing->direntry.real.name,
 		.size = listing->inode.size,

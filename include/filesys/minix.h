@@ -101,6 +101,10 @@ struct minix_fs {
 
 	uint32_t open_inodes_refcount;
 	list_of_minix_list_inode open_inodes;
+
+	uint8_t *inode_map;
+	uint8_t *zone_map;
+	uint8_t *end_map;
 };
 
 struct minix_file {
@@ -132,7 +136,7 @@ struct minix_file *minix_fopen(struct minix_fs *this, const char * filename, uin
 int minix_fclose(struct minix_file *stream);
 
 size_t minix_fread(void *buf, size_t size, size_t count, struct minix_file *stream);
-size_t minix_fwrite(void *buf, size_t size, size_t count, struct minix_file *stream);
+size_t minix_fwrite(const void *buf, size_t size, size_t count, struct minix_file *stream);
 
 int minix_fflush(struct minix_file *stream);
 

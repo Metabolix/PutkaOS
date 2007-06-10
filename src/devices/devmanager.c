@@ -16,17 +16,16 @@ struct devfs_dir {
 };
 
 struct fs devfs = {
-	"devfs",
-	0,0,
-	{
-		(fopen_t) dev_fopen,
-		0, 0,0,0,0,0
+	.name = "devfs",
+	.fs_mount = 0,
+	.fs_umount = 0,
+	.filefunc = {
+		.fopen = (fopen_t) dev_fopen,
 	},
-	{
-		0,
-		(dopen_t) dev_dopen,
-		(dclose_t) dev_dclose,
-		(dclose_t) dev_dread
+	.dirfunc = {
+		.dopen = (dopen_t) dev_dopen,
+		.dclose = (dclose_t) dev_dclose,
+		.dread = (dread_t) dev_dread
 	}
 };
 
