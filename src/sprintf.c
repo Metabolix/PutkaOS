@@ -23,17 +23,15 @@ size_t sprintf_fwrite(const char *buf, size_t size, size_t count, struct sprintf
 	return i;
 }
 
-struct filefunc strfilefunc = {
-	0, 0, 0, (fwrite_t) sprintf_fwrite, 0, 0, 0
-};
-FILE strfile = {
-	0, 0, 0, 0, &strfilefunc
+const struct filefunc strfilefunc = {
+	.fwrite = (fwrite_t) sprintf_fwrite,
+	//0, 0, 0, (fwrite_t) sprintf_fwrite, 0, 0, 0
 };
 
 struct sprintf_file *sprintf_start(char *buf, void *retpos)
 {
-	struct sprintf_file *retval = kmalloc(sizeof(struct sprintf_file));
-	retval->std = strfile;
+	struct sprintf_file *retval = kcalloc(sizeof(struct sprintf_file), 1);
+	retval->std.func = &strfilefunc;
 	retval->buf = buf;
 	retval->ret = retpos;
 	return retval;
