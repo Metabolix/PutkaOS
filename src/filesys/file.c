@@ -19,23 +19,17 @@ FILE *fopen_intflags(const char * filename, uint_t intmode)
 		if (!f) return f;
 		if (!f->func) f->func = &nil_filefunc;
 		if (f->mode == 0) f->mode = intmode;
+		return f;
 	}
 	return 0;
 }
 
 FILE *fopen(const char * filename, const char * mode)
 {
-	const struct mount *mnt;
 	uint_t intmode = 0;
 	if (!filename || !mode) {
 		return 0;
 	}
-	mnt = mount_etsi_kohta(&filename);
-
-	if (!mnt || !mnt->fs || !mnt->fs->filefunc.fopen) {
-		return 0;
-	}
-	/* parsitaan mode */
 	for (intmode = 0; *mode; ++mode) {
 		if (*mode == 'r') {
 			intmode |= FILE_MODE_READ;
@@ -47,7 +41,7 @@ FILE *fopen(const char * filename, const char * mode)
 			intmode |= FILE_MODE_WRITE | FILE_MODE_READ;
 		}
 	}
-	return mnt->fs->filefunc.fopen(mnt->fs, filename, intmode);
+	return fopen_intflags(filename, intmode);
 }
 
 int fclose(FILE *stream)
