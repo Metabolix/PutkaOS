@@ -4,18 +4,17 @@ CFLAGS_41=-V 4.1 -fno-stack-protector
 CFLAGS_40=-V 4.0
 CFLAGS_34=-V 3.4
 CFLAGS_ALL=-Wall -ffreestanding -nostdinc -I./include -s -m32 -pedantic -std=c99
-CFLAGS=$(CFLAGS_ALL)
-
-DIRS=devices/{,blockdev,ports} filesys
-DIR_PREFIX=build/{c,asm}/
-
 #-pedantic -std=c99 -Werror
+
+CFLAGS=$(CFLAGS_ALL)
 CFLAGS_OPTI=
+
+DIRS=devices devices/blockdev devices/ports filesys
 
 ASM=nasm
 ASMFLAGS=-f elf
 
-ASM_SRC=start.s gdt_asm.s irq_asm.s isrs.s bit.s thread_asm.s io.s read_cmos.s misc_asm.s math_asm.s sprintf_asm.s
+ASM_SRC=start.asm gdt.asm irq.asm isrs.asm bit.asm thread.asm io.asm read_cmos.asm misc.asm math.asm sprintf.asm build_tweaks.asm
 
 CO_SRC_STDROUTINES=string.c mem.c ctype.c
 CO_SRC_MEM=memory.c malloc.c
@@ -46,38 +45,36 @@ CO_SRC_OTHER=int64.c timer.c kprintf.c sh.c sh_komennot.c time.c endian.c list.c
 C_SRC=$(C_SRC_MEM) $(C_SRC_MULTITASK) $(C_SRC_DEVICES) $(C_SRC_OTHER)
 CO_SRC=$(CO_SRC_MEM) $(CO_SRC_OTHER) $(CO_SRC_STDROUTINES) $(CO_SRC_FS) $(CO_SRC_DEVICES)
 
-ASM_SOURCES=$(addprefix build/asm/,$(ASM_SRC))
-C_SOURCES=$(addprefix build/c/,$(C_SRC))
-CO_SOURCES=$(addprefix build/c/,$(CO_SRC))
-
-ASM_OBJS=$(ASM_SOURCES:.s=.o)
-C_OBJS=$(C_SOURCES:.c=.o)
-CO_OBJS=$(CO_SOURCES:.c=.o)
+# file.c => build/file.c.o
+ASM_OBJS=$(addsuffix .o,$(addprefix build/,$(ASM_SRC)))
+C_OBJS=$(addsuffix .o,$(addprefix build/,$(C_SRC)))
+CO_OBJS=$(addsuffix .o,$(addprefix build/,$(CO_SRC)))
 
 OBJS=$(ASM_OBJS) $(C_OBJS) $(CO_OBJS)
 
 LDFLAGS=--oformat=elf32-i386 -melf_i386
 
-all: builddirs $(ASM_OBJS) $(C_OBJS) $(CO_OBJS)
+all: builddirs $(OBJS)
 	@echo Linking kernel...
-	@ld -T link.ld $(LDFLAGS) -o ./kernel $(ASM_OBJS) $(CO_OBJS) $(C_OBJS)
+	@ld -T link.ld $(LDFLAGS) -o ./kernel $(OBJS)
 	@echo Kernel linked!
 
 builddirs:
-	@mkdir -p $(addprefix $(DIR_PREFIX),$(DIRS)) || echo "mkdir failed!"
+	@mkdir -p build $(addprefix build/,$(DIRS)) || echo "mkdir failed!"
+
 #$(ASM_OBJS): builddirs
 #$(C_OBJS): builddirs
 #$(CO_OBJS): builddirs
 
-$(ASM_OBJS): build/asm/%.o: src/%.s
+$(ASM_OBJS): build/%.o: src/%
 	@echo [ASM] $@
 	@$(ASM) $(ASMFLAGS) $< -o $@
 
-$(C_OBJS): build/c/%.o: src/%.c
+$(C_OBJS): build/%.o: src/%
 	@echo [CC] $@
 	@$(CC) $(CFLAGS) $< -c -o $@
 
-$(CO_OBJS): build/c/%.o: src/%.c
+$(CO_OBJS): build/%.o: src/%
 	@echo [CC] $@
 	@$(CC) $(CFLAGS) $(COFLAGS) $< -c -o $@
 
