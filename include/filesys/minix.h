@@ -5,6 +5,9 @@
 #include <list.h>
 #include <stdint.h>
 
+#define MINIX_STD_ZONES (7)
+#define MINIX_INDIR_ZONES (512)
+
 struct minix_inode {
 	uint16_t flags;
 	/*
@@ -21,7 +24,7 @@ struct minix_inode {
 	uint8_t gid, num_refs;
 	union {
 		struct {
-			uint16_t std[7], indir, dbl_indir;
+			uint16_t std[MINIX_STD_ZONES], indir, dbl_indir;
 		} zones;
 		struct {
 			uint8_t minor, major;

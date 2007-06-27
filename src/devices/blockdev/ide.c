@@ -20,21 +20,22 @@ ide_device_t ide_devices[IDE_NUM_DEVICES];
 uint_t used_controllers;
 
 const BD_DEVICE ide_blockdev = {
-	{
-		0,
-		DEV_CLASS_BLOCK,
-		DEV_TYPE_ERROR,
-		-1,
-		(devopen_t) blockdev_fopen,
-		(devrm_t) ata_safely_remove
+	.std = {
+		.name = 0,
+		.dev_class = DEV_CLASS_BLOCK,
+		.dev_type = DEV_TYPE_ERROR,
+		.index = -1,
+		.devopen = (devopen_t) blockdev_fopen,
+		.remove = (devrm_t) ata_safely_remove
 	},
-	ATA_BYTES_PER_SECTOR,
-	-1,
-	0,
-	(read_one_block_t)  ata_read_one_sector,
-	(write_one_block_t) ata_write_one_sector,
-	(read_blocks_t)  ata_read,
-	(write_blocks_t) ata_write
+
+	.block_size = ATA_BYTES_PER_SECTOR,
+	.block_count = -1,
+	.first_block_num = 0,
+	.read_one_block = (read_one_block_t)  ata_read_one_sector,
+	.write_one_block = (write_one_block_t) ata_write_one_sector,
+	.read_blocks = (read_blocks_t)  ata_read,
+	.write_blocks = (write_blocks_t) ata_write
 };
 
 // params[0] = device

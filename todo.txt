@@ -1,5 +1,7 @@
-- grep -R TODO *
+- grep -iR TODO *
+- grep -iR stub *
 
+- ide(-ata)-ajurin kirjoitus ei tunnu toimivan!
 - ext2 kirjoitustuki
 - FAT16 kirjoitustuki (direntryjen päivitys)
 - FAT32
@@ -11,4 +13,4 @@
 - rinnakkaisporttiajuri (tiedostona?)
 - sarjaporttiajuri (tiedostona; yksi tiedosto portille ja toinen asetuksille, vai pitäisikö porttitiedostoon ensin kirjoittaa asetukset aina avatessa?)
 - TCP/IP-pino
-- fprintf/sprintf (porttaus kprintf:stä tms;)
+- fprintf: funktioita! TODO-kohtia js stubeja varmaan sata.
