@@ -5,25 +5,6 @@
 
 struct filefunc nil_filefunc = {0};
 
-FILE *fopen_intflags(const char * filename, uint_t intmode)
-{
-	const struct mount *mnt;
-
-	if (filename)
-	if (intmode & (FILE_MODE_READ | FILE_MODE_WRITE))
-	if (!(intmode & ~FILE_MODE_ALL))
-	if ((mnt = mount_etsi_kohta(&filename)))
-	if (mnt->fs)
-	if (mnt->fs->filefunc.fopen) {
-		FILE *f = mnt->fs->filefunc.fopen(mnt->fs, filename, intmode);
-		if (!f) return f;
-		if (!f->func) f->func = &nil_filefunc;
-		if (f->mode == 0) f->mode = intmode;
-		return f;
-	}
-	return 0;
-}
-
 FILE *fopen(const char * filename, const char * mode)
 {
 	uint_t intmode = 0;
@@ -42,6 +23,25 @@ FILE *fopen(const char * filename, const char * mode)
 		}
 	}
 	return fopen_intflags(filename, intmode);
+}
+
+FILE *fopen_intflags(const char * filename, uint_t intmode)
+{
+	const struct mount *mnt;
+
+	if (filename)
+	if (intmode & (FILE_MODE_READ | FILE_MODE_WRITE))
+	if (!(intmode & ~FILE_MODE_ALL))
+	if ((mnt = mount_etsi_kohta(&filename)))
+	if (mnt->fs)
+	if (mnt->fs->filefunc.fopen) {
+		FILE *f = mnt->fs->filefunc.fopen(mnt->fs, filename, intmode);
+		if (!f) return f;
+		if (!f->func) f->func = &nil_filefunc;
+		if (f->mode == 0) f->mode = intmode;
+		return f;
+	}
+	return 0;
 }
 
 int fclose(FILE *stream)
@@ -95,6 +95,14 @@ int fsetpos(FILE *stream, const fpos_t *pos)
 	return EOF;
 }
 
+int fflush(FILE *stream)
+{
+	if (stream && stream->func->fflush) {
+		return stream->func->fflush(stream);
+	}
+	return EOF;
+}
+
 int fseek(FILE *stream, long int offset, int origin)
 {
 	fpos_t pos;
@@ -116,16 +124,9 @@ int fseek(FILE *stream, long int offset, int origin)
 
 long ftell(FILE *stream)
 {
-	if (!stream) {
+	fpos_t pos;
+	if (fgetpos(stream, &pos)) {
 		return -1L;
 	}
-	return (long)(stream->pos & INT32_MAX);
-}
-
-int fflush(FILE *stream)
-{
-	if (stream && stream->func->fflush) {
-		return stream->func->fflush(stream);
-	}
-	return EOF;
+	return (long)(pos & INT32_MAX);
 }

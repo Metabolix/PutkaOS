@@ -522,7 +522,7 @@ static const char *fprintf_flags(const char *fmt, struct printf_format_tag *tag)
 }
 
 #include <screen.h>
-int fprintf(FILE * restrict f, const char * restrict fmt, ...)
+int vfprintf(FILE * restrict f, const char * restrict fmt, va_list args)
 {
 	int retval = 0, numbytes = 0;
 	const char *strptr;
@@ -551,8 +551,6 @@ int fprintf(FILE * restrict f, const char * restrict fmt, ...)
 	union types_t types;
 	struct printf_format_tag rtag, * const tag = &rtag;
 
-	va_list args;
-	va_start(args, fmt);
 	while (*fmt) {
 		for (strptr = fmt; *strptr && *strptr != '%'; ++strptr);
 		if (!strptr[0]) {
@@ -867,7 +865,6 @@ int fprintf(FILE * restrict f, const char * restrict fmt, ...)
 		++strptr;
 		fmt = strptr;
 	}
-	va_end(args);
 
 	return retval;
 }

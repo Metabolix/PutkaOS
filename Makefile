@@ -3,7 +3,7 @@ CC=gcc
 CFLAGS_41=-V 4.1 -fno-stack-protector
 CFLAGS_40=-V 4.0
 CFLAGS_34=-V 3.4
-CFLAGS_ALL=-Wall -ffreestanding -nostdinc -I./include -s -m32 -pedantic -std=c99
+CFLAGS_ALL=-Wall -ffreestanding -nostdinc -I./include -g -m32 -pedantic -std=c99
 #-pedantic -std=c99 -Werror
 
 CFLAGS=$(CFLAGS_ALL)
@@ -14,7 +14,7 @@ DIRS=devices devices/blockdev devices/ports filesys
 ASM=nasm
 ASMFLAGS=-f elf
 
-ASM_SRC=start.asm gdt.asm irq.asm isrs.asm bit.asm thread.asm io.asm read_cmos.asm misc.asm math.asm sprintf.asm build_tweaks.asm
+ASM_SRC=start.asm gdt.asm irq.asm isrs.asm bit.asm thread.asm io.asm read_cmos.asm misc.asm math.asm build_tweaks.asm
 
 CO_SRC_STDROUTINES=string.c mem.c ctype.c
 CO_SRC_MEM=memory.c malloc.c
@@ -40,7 +40,7 @@ CO_SRC_FS=$(addprefix filesys/,$(CO_SRC_FS_1))
 # Misc
 C_SRC_OTHER=gdt.c isr.c main.c panic.c idt.c irq.c keyboard.c screen.c regs.c spinlock.c lcdscreen.c syscall.c
 #mouse.c
-CO_SRC_OTHER=int64.c timer.c kprintf.c sh.c sh_komennot.c time.c endian.c list.c fprintf.c sprintf.c math.c
+CO_SRC_OTHER=int64.c timer.c kprintf.c sh.c sh_komennot.c time.c endian.c list.c fprintf.c math.c xprintf_xscanf.c
 
 C_SRC=$(C_SRC_MEM) $(C_SRC_MULTITASK) $(C_SRC_DEVICES) $(C_SRC_OTHER)
 CO_SRC=$(CO_SRC_MEM) $(CO_SRC_OTHER) $(CO_SRC_STDROUTINES) $(CO_SRC_FS) $(CO_SRC_DEVICES)
