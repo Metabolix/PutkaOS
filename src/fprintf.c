@@ -100,11 +100,12 @@ static char *fmt_uint_64(char * restrict bufend, uint64_t num)
 {
 	char * newend = bufend;
 	while (num) {
-		uint64_t rem;
-		uint32_t num32;
 		while (newend > bufend) {
 			*(--newend) = '0';
 		}
+
+		uint64_t rem;
+		uint32_t num32;
 		if ((num32 = num) == num) {
 			num = 0;
 		} else {
@@ -116,7 +117,7 @@ static char *fmt_uint_64(char * restrict bufend, uint64_t num)
 	}
 	return newend;
 }
-
+/*
 static char *fmt_int_64(char * restrict bufend, int64_t num)
 {
 	if (num < 0) {
@@ -136,7 +137,7 @@ static char *fmt_int_32(char * restrict bufend, int32_t num)
 		bufend = fmt_uint_32(bufend, num);
 	}
 	return bufend;
-}
+}*/
 
 static char *fmt_hex_64(char * restrict bufend, uint64_t num, int bigtxt)
 {
@@ -162,16 +163,6 @@ static char *fmt_hex_32(char * restrict bufend, uint32_t num, int bigtxt)
 static char *fmt_oct_64(char * restrict bufend, uint64_t num)
 {
 	uint32_t shl;
-	bufend[-1] = '0';
-	for (shl = 0; num >> shl; shl += 3) {
-		*(--bufend) = '0' + ((uint32_t)(num >> shl) & 0x07);
-	}
-	return bufend;
-}
-static char *fmt_oct_32(char * restrict bufend, uint32_t num)
-{
-	uint32_t shl;
-	bufend[-1] = '0';
 	for (shl = 0; num >> shl; shl += 3) {
 		*(--bufend) = '0' + ((uint32_t)(num >> shl) & 0x07);
 	}
@@ -217,26 +208,75 @@ static int fprintf_oct(FILE *f, struct printf_format_tag *tag, uintmax_t num)
 static int fprintf_uint(FILE *f, struct printf_format_tag *tag, uintmax_t num)
 {
 	char buf[32], *ptr;
+	int numstrlen, numlen, preclen, minlen, len;
+
 	buf[31] = 0;
 	ptr = fmt_uint_64(buf + 31, num);
-	*(--ptr) = ' ';
-	*(--ptr) = 't';
-	*(--ptr) = 'n';
-	*(--ptr) = 'i';
-	*(--ptr) = 'u';
-	return fprintf_stub(f, ptr);
+	numlen = numstrlen = (buf + 31 - ptr);
+
+	preclen = numlen;
+	if (tag->has_precision) {
+		tag->fillchar = ' ';
+		if (numlen < tag->precision) {
+			preclen = tag->precision;
+		}
+	}
+	if (tag->always_sign) {
+		++numlen;
+		++preclen;
+	}
+
+	minlen = preclen;
+	if (tag->has_width && preclen < tag->width) {
+		minlen = tag->width;
+	}
+
+	if (tag->fillchar == '0' && tag->always_sign) {
+		preclen = minlen;
+	}
+
+	// Nothing output yet...
+	len = 0;
+
+	// Fill from left?
+	if (!tag->left_align) {
+		while (minlen > preclen) {
+			--minlen;
+			len += fwrite(&tag->fillchar, 1, 1, f);
+		}
+	}
+
+	// Sign
+	if (tag->always_sign) {
+		--numlen;
+		--preclen;
+		len += fwrite(&tag->always_sign, 1, 1, f);
+	}
+
+	// Precision padding
+	while (numlen < preclen) {
+		++numlen;
+		len += fwrite("0", 1, 1, f);
+	}
+
+	// Number
+	len += fwrite(ptr, 1, numstrlen, f);
+
+	// Fill from right?
+	while (minlen > len) {
+		len += fwrite(&tag->fillchar, 1, 1, f);
+	}
+
+	return len;
 }
 
 static int fprintf_int(FILE *f, struct printf_format_tag *tag, intmax_t num)
 {
-	char buf[32], *ptr;
-	buf[31] = 0;
-	ptr = fmt_int_64(buf + 31, num);
-	*(--ptr) = ' ';
-	*(--ptr) = 't';
-	*(--ptr) = 'n';
-	*(--ptr) = 'i';
-	return fprintf_stub(f, ptr);
+	if (num < 0) {
+		tag->always_sign = '-';
+		num = -num;
+	}
+	return fprintf_uint(f, tag, num);
 }
 
 static int fprintf_fnan(FILE *f, struct printf_format_tag *tag)
@@ -254,6 +294,7 @@ static int fprintf_fzero(FILE *f, struct printf_format_tag *tag, int sign)
 
 static long int fprintf_longdouble(FILE *f, struct printf_format_tag *tag, long double val)
 {
+	// TODO
 	const long double inf = 1.0 / 0.0;
 	const long double ninf = 1.0 / 0.0;
 	const long double zero = 0.0;
@@ -284,8 +325,8 @@ c = f / 10^d
 	if (memcmp(&val, &nzero, sizeof(val)) == 0) {
 		return fprintf_fzero(f, tag, -1);
 	}
+	// TÄHÄN ASTI HYVÄ.
 
-	// TODO: jotain kunnollista. ;)
 	const uint32_t max_len = 128;
 	char buf[max_len], str[max_len];
 	char *ptr;
@@ -313,7 +354,9 @@ c = f / 10^d
 	strcpy(str, ptr);
 
 	if (ep) {
-		ptr = fmt_int_32(buf + max_len, ep);
+		int negati = (ep < 0 ? -1 : 0);
+		ptr = fmt_uint_32(buf + max_len, negati * ep);
+		if (negati) *(--ptr) = '-';
 		--ptr;
 		ptr[0] = 'e';
 		strcat(str, ptr);
@@ -570,7 +613,7 @@ int vfprintf(FILE * restrict f, const char * restrict fmt, va_list args)
 		fmt = strptr;
 		++strptr;
 
-		memset(tag, 0, sizeof(tag));
+		memset(tag, 0, sizeof(*tag));
 		tag->fillchar = ' ';
 		tag->lenmod = LEN_def;
 
@@ -579,6 +622,7 @@ int vfprintf(FILE * restrict f, const char * restrict fmt, va_list args)
 
 		// Minimileveys, parametrina tai tästä numeroin
 		if (*strptr == '*') {
+			tag->has_width = 1;
 			tag->width = va_arg(args, int);
 			++strptr;
 		} else {
@@ -592,6 +636,7 @@ int vfprintf(FILE * restrict f, const char * restrict fmt, va_list args)
 		if (*strptr == '.') {
 			++strptr;
 			if (*strptr == '*') {
+				tag->has_precision = 1;
 				tag->precision = va_arg(args, int);
 				++strptr;
 			} else {

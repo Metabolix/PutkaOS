@@ -86,10 +86,28 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 
 void testattava_koodi()
 {
-	char tavaraa[128];
-	sprintf(tavaraa, "%d %x %o", 123, 0x123fac, 012345670);
-	print(tavaraa);
-	putch('\n');
+	char b[128];
+	int i = 123;
+#define P(x) sprintf(b, x, i); kprintf("%20s: '%s'\n", x, b);
+	P("%d")
+	P("%0d")
+	P("%+d")
+	P("% d")
+
+	P("%8d")
+	P("%08d")
+	P("%+08d")
+	P("% 08d")
+	P("% 8d")
+	P("%08d")
+	P("%.8d")
+	P("%+.8d")
+	P("%-.8d")
+	P("% 8.4d")
+	P("%+8.4d")
+	P("%-+8.4d")
+	P("% 08.4d")
+	P("%+08.4d")
 #if 0
 	FILE *file = fopen("/aja", "r");
 	if(file) {

@@ -38,6 +38,7 @@ int sprintf(char * restrict buf, const char * restrict fmt, ...)
 	va_list args;
 	va_start(args, fmt);
 	retval = vfprintf(&f->std, fmt, args);
+	*f->buf = 0;
 	va_end(args);
 
 	kfree(f);
@@ -52,7 +53,7 @@ int vsprintf(char * restrict buf, const char * restrict fmt, va_list args)
 	f->buf = buf;
 
 	retval = vfprintf(&f->std, fmt, args);
-
+	*f->buf = 0;
 	kfree(f);
 	return retval;
 }
