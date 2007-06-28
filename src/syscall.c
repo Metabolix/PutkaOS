@@ -1,41 +1,53 @@
 #include <idt.h>
-#include <regs.h>
 #include <screen.h>
 
-void call_syscall(struct regs_t regs)
-{
-	switch(regs.eax) {
-		case 0:
-			print("syscall number 0!\n");
-			break;
-		case 1:
-			kprintf("syscall 1 with 2 params: %d and %d\n", regs.ebx, regs.ecx);
-			break;
-		default:
-			kprintf("undefined syscall number %d\n", regs.eax);
-	}
-}
+#include <syscall.h>
 
-void syscall(void);
-__asm__("syscall:\n" /* TODO: Change stack? */
-	"pusha\n"
-	"push %ss\n"
-	"push %ds\n"
-	"push %es\n"
-	"push %fs\n"
-	"push %gs\n"
-	"call call_syscall\n"
-	"pop %gs\n"
-	"pop %fs\n"
-	"pop %es\n"
-	"pop %ds\n"
-	"pop %ss\n"
-	"popa\n"
-	"iret\n"
-);
-
+int asm_syscall();
 
 void init_syscalls(void)
 {
-	idt_set_gate(0x80, (unsigned)syscall, 0x08, 0x8E);
+	idt_set_gate(0x80, (uintptr_t)asm_syscall, 0x08, 0x8E);
 }
+
+/**
+* Syscalls
+* (List in the end...)
+**/
+
+/**
+* syscall_print: print((char*) ebx);
+**/
+intptr_t syscall_print(int eax, char *ebx, ...)
+{
+	print(ebx);
+	return 0;
+}
+
+/**
+* syscall_malloc: malloc(ebx);
+**/
+intptr_t syscall_malloc(int eax, intptr_t ebx, ...)
+{
+	return (intptr_t) malloc(ebx);
+}
+
+/**
+* syscall_free: free((void*) ebx);
+**/
+intptr_t syscall_free(int eax, intptr_t ebx, ...)
+{
+	free((void*) ebx);
+	return 0;
+}
+
+/**
+* syscall_table: function pointers for asm to call.
+**/
+const syscall_t syscall_table[] = {
+	(syscall_t)  /*    0 */ syscall_print
+	,(syscall_t) /*    1 */ syscall_malloc
+	,(syscall_t) /*    2 */ syscall_free
+};
+const syscall_t *syscall_table_ptr = syscall_table;
+const int syscall_table_size = (sizeof(syscall_table) / sizeof(syscall_t));
