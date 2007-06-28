@@ -144,6 +144,7 @@ size_t minix_fwrite(const void *buf, size_t size, size_t count, struct minix_fil
 int minix_fflush(struct minix_file *stream);
 
 //int minix_fsetpos(struct minix_file *stream, const fpos_t *pos);
+int minix_ioctl(struct minix_file *f, int request, uintptr_t param);
 
 int minix_dmake(struct minix_fs *this, const char * dirname, uint_t owner, uint_t rights);
 struct minix_dir *minix_dopen(struct minix_fs *this, const char * dirname);

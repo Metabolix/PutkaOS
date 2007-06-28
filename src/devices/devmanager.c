@@ -21,6 +21,7 @@ struct fs devfs = {
 	.fs_umount = 0,
 	.filefunc = {
 		.fopen = (fopen_t) dev_fopen,
+		.ioctl = 0 // alempi rajapinta hoitaa
 	},
 	.dirfunc = {
 		.dopen = (dopen_t) dev_dopen,

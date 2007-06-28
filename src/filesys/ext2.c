@@ -9,30 +9,37 @@
 
 struct ext2_fs ext2_op = {
 	{
-		"ext2",
-		(fs_mount_t)  ext2_mount,
-		(fs_umount_t) ext2_umount,
-		{
-			(fopen_t)     ext2_fopen,
-			(fclose_t)    ext2_fclose,
-			(fread_t)     ext2_fread,
-			(fwrite_t)    ext2_fwrite,
-			(fflush_t)    ext2_fflush,
-			(fsetpos_t)   ext2_fsetpos
+		.name = "ext2",
+		.fs_mount = (fs_mount_t) ext2_mount,
+		.fs_umount = (fs_umount_t) ext2_umount,
+		.filefunc = {
+			.fopen = (fopen_t) ext2_fopen,
+			.fclose = (fclose_t) ext2_fclose,
+			.fread = (fread_t) ext2_fread,
+			.fwrite = (fwrite_t) ext2_fwrite,
+			.fflush = (fflush_t) ext2_fflush,
+			.fsetpos = (fsetpos_t) ext2_fsetpos,
+			.ioctl = (ioctl_t) ext2_ioctl
 		},
-		{
-			(dmake_t)     ext2_dmake,
-			(dopen_t)     ext2_dopen,
-			(dclose_t)    ext2_dclose,
-			(dread_t)     ext2_dread
+		.dirfunc = {
+			.dmake = (dmake_t) ext2_dmake,
+			.dopen = (dopen_t) ext2_dopen,
+			.dclose = (dclose_t) ext2_dclose,
+			.dread = (dread_t) ext2_dread
 		}
 	},
-	0,
-	0,
-	0,
-	0,
-	0
+	.super_block = 0,
+	.group_desc = 0,
+	.group_desc_n = 0,
+	.block_size = 0,
+	.device = 0
 };
+
+int ext2_ioctl(struct ext2_file *f, int request, uintptr_t param)
+{
+	// TODO: ext2_ioctl
+	return -1;
+}
 
 /* get_ext2_inode gets inode number `num' from filesystem */
 

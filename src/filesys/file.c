@@ -130,3 +130,11 @@ long ftell(FILE *stream)
 	}
 	return (long)(pos & INT32_MAX);
 }
+
+int ioctl(FILE * stream, int request, uintptr_t param)
+{
+	if (stream && stream->func->ioctl) {
+		return stream->func->ioctl(stream, request, param);
+	}
+	return -1; // TODO: errno EBADF
+}

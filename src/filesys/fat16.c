@@ -6,24 +6,31 @@
 #include <debugprint.h>
 
 struct fs fat16_fs = {
-	"fat/msdos",
-	(fs_mount_t)  fat_mount,
-	(fs_umount_t) fat16_umount,
-	{
-		(fopen_t)     fat16_fopen,
-		(fclose_t)    fat16_fclose,
-		(fread_t)     fat16_fread,
-		(fwrite_t)    fat16_fwrite,
-		(fflush_t)    fat16_fflush,
-		(fsetpos_t)   fat16_fsetpos
+	.name = "fat/msdos",
+	.fs_mount = (fs_mount_t) fat_mount,
+	.fs_umount = (fs_umount_t) fat16_umount,
+	.filefunc = {
+		.fopen = (fopen_t) fat16_fopen,
+		.fclose = (fclose_t) fat16_fclose,
+		.fread = (fread_t) fat16_fread,
+		.fwrite = (fwrite_t) fat16_fwrite,
+		.fflush = (fflush_t) fat16_fflush,
+		.fsetpos = (fsetpos_t) fat16_fsetpos,
+		.ioctl = (ioctl_t) fat16_ioctl
 	},
-	{
-		(dmake_t)     fat16_dmake,
-		(dopen_t)     fat16_dopen,
-		(dclose_t)    fat16_dclose,
-		(dread_t)     fat16_dread
+	.dirfunc = {
+		.dmake = (dmake_t) fat16_dmake,
+		.dopen = (dopen_t) fat16_dopen,
+		.dclose = (dclose_t) fat16_dclose,
+		.dread = (dread_t) fat16_dread
 	}
 };
+
+int fat16_ioctl(struct fat16_file *f, int request, uintptr_t param)
+{
+	// TODO: fat16_ioctl
+	return -1;
+}
 
 static int fat16_intceil(int num, int bound) {
 	return (((num + bound - 1) / bound) * bound);

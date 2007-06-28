@@ -47,7 +47,7 @@ extern int blockdev_fclose(BD_FILE *desc);
 extern int blockdev_fflush(BD_FILE *desc);
 extern size_t blockdev_fread(void *buffer, size_t size, size_t count, BD_FILE *device);
 extern size_t blockdev_fwrite(const void *buffer, size_t size, size_t count, BD_FILE *device);
-extern int blockdev_fgetpos(BD_FILE *device, fpos_t *pos);
 extern int blockdev_fsetpos(BD_FILE *device, const fpos_t *pos);
+extern int blockdev_ioctl(BD_FILE *device, int request, uintptr_t param);
 
 #endif

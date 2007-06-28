@@ -24,7 +24,8 @@ const struct fs minix_fs = {
 		.fread = (fread_t) minix_fread,
 		.fwrite = (fwrite_t) minix_fwrite,
 		.fflush = (fflush_t) minix_fflush,
-		.fsetpos = (fsetpos_t) fsetpos_copypos
+		.fsetpos = (fsetpos_t) fsetpos_copypos,
+		.ioctl = (ioctl_t) minix_ioctl
 	},
 	.dirfunc = {
 		.dmake = (dmake_t) minix_dmake,
@@ -35,22 +36,30 @@ const struct fs minix_fs = {
 };
 
 const struct filefunc minix_filefunc_ro = {
-	.fopen = (fopen_t)     minix_fopen,
-	.fclose = (fclose_t)   minix_fclose,
-	.fread = (fread_t)     minix_fread,
+	.fopen = (fopen_t) minix_fopen,
+	.fclose = (fclose_t) minix_fclose,
+	.fread = (fread_t) minix_fread,
 	.fwrite = 0,
-	.fflush = (fflush_t)   fflush_none,
-	.fsetpos = (fsetpos_t) fsetpos_copypos
+	.fflush = (fflush_t) fflush_none,
+	.fsetpos = (fsetpos_t) fsetpos_copypos,
+	.ioctl = (ioctl_t) minix_ioctl
 };
 
 const struct filefunc minix_filefunc_wo = {
-	.fopen = (fopen_t)     minix_fopen,
-	.fclose = (fclose_t)   minix_fclose,
+	.fopen = (fopen_t) minix_fopen,
+	.fclose = (fclose_t) minix_fclose,
 	.fread = 0,
-	.fwrite = (fwrite_t)   minix_fwrite,
-	.fflush = (fflush_t)   minix_fflush,
-	.fsetpos = (fsetpos_t) fsetpos_copypos
+	.fwrite = (fwrite_t) minix_fwrite,
+	.fflush = (fflush_t) minix_fflush,
+	.fsetpos = (fsetpos_t) fsetpos_copypos,
+	.ioctl = (ioctl_t) minix_ioctl
 };
+
+int minix_ioctl(struct minix_file *f, int request, uintptr_t param)
+{
+	// TODO: minix_ioctl
+	return -1;
+}
 
 static int minix_check_filename(const char *filename, int maxlen, int *parts)
 {

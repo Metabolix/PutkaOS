@@ -21,5 +21,6 @@ extern size_t fwrite(const void * restrict buf, size_t size, size_t count, FILE 
 extern int fflush(FILE * restrict stream);
 extern int fgetpos(FILE * restrict stream, fpos_t * restrict pos);
 extern int fsetpos(FILE * stream, const fpos_t *pos);
+extern int ioctl(FILE * stream, int request, uintptr_t param);
 
 #endif

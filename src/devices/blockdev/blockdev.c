@@ -14,13 +14,20 @@ size_t blockdev_dummy_read_blocks(BD_DEVICE *self, uint64_t num, size_t count, v
 size_t blockdev_dummy_write_blocks(BD_DEVICE *self, uint64_t num, size_t count, const void * buf);
 
 struct filefunc blockdev_func = {
-	(fopen_t)   blockdev_fopen,
-	(fclose_t)  blockdev_fclose,
-	(fread_t)   blockdev_fread,
-	(fwrite_t)  blockdev_fwrite,
-	(fflush_t)  blockdev_fflush,
-	(fsetpos_t) blockdev_fsetpos
+	.fopen = (fopen_t) blockdev_fopen,
+	.fclose = (fclose_t) blockdev_fclose,
+	.fread = (fread_t) blockdev_fread,
+	.fwrite = (fwrite_t) blockdev_fwrite,
+	.fflush = (fflush_t) blockdev_fflush,
+	.fsetpos = (fsetpos_t) blockdev_fsetpos,
+	.ioctl = (ioctl_t) blockdev_ioctl
 };
+
+int blockdev_ioctl(BD_FILE *device, int request, uintptr_t param)
+{
+	// TODO: blockdev_ioctl
+	return -1;
+}
 
 void blockdev_update_pos(BD_FILE *device)
 {
