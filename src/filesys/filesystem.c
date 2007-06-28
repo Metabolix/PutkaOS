@@ -1,4 +1,3 @@
-#include <filesys/pseudofsdriver.h>
 #include <filesys/filesystem.h>
 #include <filesys/fat.h>
 #include <filesys/ext2.h>
