@@ -303,8 +303,13 @@ size_t ata_rw_some (uint_t device, uint64_t sector, uint8_t count, char * buf, a
 	size_t retval;
 
 	setup_LBA(device, sector, count);
-	// lukukomento
-	outportb(ide_ports[device >> 1].comStat, 0x20);
+	if (rw_next_sector == ata_read_next_sector) {
+		// lukukomento
+		outportb(ide_ports[device >> 1].comStat, 0x20);
+	} else {
+		// kirjoituskomento
+		outportb(ide_ports[device >> 1].comStat, 0x30);
+	}
 
 	retval = 0;
 	for (i = 0; i < count; i++) {
@@ -433,11 +438,11 @@ int atapi_send_packet(int device, uint_t bytecount, uint16_t * packet)
 	int i;
 
 	while (inportb(ide_ports[device >> 1].comStat) & 0x80);
-	while (!(inportb(ide_ports[device >> 1].comStat) & 0x40));
+	//while (!(inportb(ide_ports[device >> 1].comStat) & 0x40));  jää jumiin :S
 
-	outportb(ide_ports[device >> 1].driveHead, (device & 0x01) << 4); //laite 0 = 0x00, laite 1 olis 0x10
+	outportb(ide_ports[device >> 1].driveHead, (device & 0x01) << 4); //laite 0 = 0x00, laite 1 olisi 0x10
 	outportb(ide_ports[device >> 1].altComStat, 0x0A); //skipataan keskeytys
-	outportb(ide_ports[device >> 1].comStat, 0xA0); //THE COMMAND
+	outportb(ide_ports[device >> 1].comStat, 0xA0); //Komento
 
 	kwait(0, 1000);
 

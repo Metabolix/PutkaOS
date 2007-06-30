@@ -1,7 +1,6 @@
 - grep -iR TODO *
 - grep -iR stub *
 
-- ide(-ata)-ajurin kirjoitus ei tunnu toimivan!
 - ext2 kirjoitustuki
 - FAT16 kirjoitustuki (direntryjen päivitys)
 - FAT32
