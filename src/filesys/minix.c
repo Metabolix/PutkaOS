@@ -267,7 +267,7 @@ static struct minix_file *minix_fopen_all(struct minix_fs * restrict const this,
 	};
 
 	struct minix_direntry direntry;
-	int parts;
+	int parts, len;
 	const char *str, *str_end;
 	uint16_t next_inode;
 
@@ -289,10 +289,11 @@ static struct minix_file *minix_fopen_all(struct minix_fs * restrict const this,
 		--parts;
 		str = str_end + 1;
 		for (str_end = str; *str_end && *str_end != '/'; ++str_end);
+		len = str_end - str;
 
 		next_inode = 0;
 		while (minix_fread(&direntry, MINIX_FS_DIRENTRY_SIZE, 1, &f) == 1) {
-			if (memcmp(direntry.name, str, str_end - str) == 0) {
+			if (memcmp(direntry.name, str, len) == 0 && direntry.name[len] == 0) {
 				next_inode = direntry.inode;
 				break;
 			}
@@ -307,6 +308,7 @@ static struct minix_file *minix_fopen_all(struct minix_fs * restrict const this,
 	goto found_it_already;
 
 need_new_file:
+	// TODO: Tarkista, että fs on rw.
 	if (!(mode & FILE_MODE_WRITE)) {
 		minix_fclose(&f);
 		return 0;
@@ -608,6 +610,7 @@ flush_disk:
 	if (!write_len) {
 		write_len = write_end - write_begin;
 	}
+	--write_zone; // Minix-numerointi 1 .. n. :/
 	pos = write_zone * MINIX_FS_ZONE_SIZE + write_begin;
 	if (fsetpos(info->f->dev, &pos)) {
 		return -1;
@@ -669,7 +672,7 @@ static size_t minix_alloc_zones(struct minix_file *this, const size_t zone0, con
 	size_t count = 0;
 	uint8_t * const zone_map = this->fs->zone_map, * const end_map = this->fs->end_map;
 	uint8_t *ptr = zone_map;
-	int i = 0;
+	int i = 0, j = this->fs->super.first_data_zone - 1;
 	while (info.zone0 != info.zone1 && ptr != end_map) {
 		if (*ptr == 0xff) {
 			++ptr;
@@ -678,7 +681,7 @@ static size_t minix_alloc_zones(struct minix_file *this, const size_t zone0, con
 		}
 		for (; *ptr & (1 << i); ++i);
 		*ptr |= 1 << i;
-		if (minix_handle_alloced_zone(&info, 8 * (ptr - zone_map) + i)) {
+		if (minix_handle_alloced_zone(&info, j + 8 * (ptr - zone_map) + i)) {
 			break;
 		}
 		++i;
@@ -696,7 +699,7 @@ static size_t minix_alloc_zones(struct minix_file *this, const size_t zone0, con
 
 size_t minix_freadwrite(char *buf, size_t size, size_t count, struct minix_file *stream, fread_t ffunction, int write)
 {
-	const size_t  pos0        = stream->pos;
+	const size_t  pos0        = stream->pos = stream->std.pos;
 	const fpos_t  pos_1a      = pos0 + (uint64_t)size * count;
 	const size_t  pos_1b      = write ? stream->fs->super.max_size : stream->size;
 	const size_t  pos1        = pos_1a < pos_1b ? pos_1a : pos_1b;
@@ -709,6 +712,10 @@ size_t minix_freadwrite(char *buf, size_t size, size_t count, struct minix_file 
 	uint16_t *zonelist = kcalloc(sizeof(uint16_t), numzones_c);
 	size_t done_size, pos_in_zone;
 	size_t numzones = minix_get_zones(stream, zone0, zone1, zonelist, write);
+
+	for (zone = numzones; zone--;) {
+//		zonelist[zone]--;
+	}
 
 	pos_in_zone = stream->pos % MINIX_FS_ZONE_SIZE;
 	if (numzones == 1) {
@@ -765,6 +772,7 @@ return_etc:
 	if (write && stream->pos > stream->size) {
 		stream->size = stream->pos;
 		stream->std.size = stream->size;
+		stream->inode->size = stream->size;
 	}
 	kfree(zonelist);
 	return (stream->pos - pos0) / size;

@@ -3,6 +3,8 @@
 #include <panic.h>
 #include <timer.h>
 #include <io.h>
+#include <stdio.h>
+#include <ctype.h>
 #include <filesys/mount.h>
 #include <string.h>
 
@@ -10,29 +12,54 @@
 void sh_hexcat(char *name);
 void sh_lsmount(char*a);
 
+FILE *sh_f = 0;
+void sh_fopen(char*a);
+void sh_fread(char*a);
+void sh_fwrite(char*a);
+void sh_fprint(char*a);
+void sh_fgetpos(char*a);
+void sh_fsetpos(char*a);
+void sh_fclose(char*a);
+
 struct sh_komento komentotaulu[] = {
 	{"?", "Apua", sh_help},
 	{"help", "Apua", sh_help},
 	{"exit", "Paniikki", sh_exit},
 	{"panic", "Paniikki", sh_exit},
+
 	{"uptime", "Uptime", sh_uptime},
+
 	{"lscolours", "Listaa varit", sh_list_colours},
 	{"colour", "Aseta vari", sh_set_colour},
 	{"reset", "Tyhjenna ruutu ja aseta perusvari", sh_reset},
+	{"history", "Komentohistoria", sh_history},
+
 	{"keynames", "Tulostetaan nappien nimia, kunnes tulee Escape", sh_key_names},
 	{"outp", "outb port byte, laheta tavu porttiin (dec: 123, hex: 0x7b, oct: 0173)", sh_outportb},
 	{"inp", "inp port, hae tavu portista (dec: 123, hex: 0x7b, oct: 0173)", sh_inportb},
-	{"history", "Komentohistoria", sh_history},
+
 	{"ls", "ls polku; listaa hakemisto", sh_ls},
+
 	{"cat", "cat polku; tulosta tiedoston sisalto", sh_cat},
 	{"hexcat", "hexcat polku; tulosta tiedoston sisalto tavuittain heksana", sh_hexcat},
+
 	{"mountro", "mountro laite liitospiste; liita laite pisteeseen (vain luku)", sh_mount_ro},
 	{"remountro", "remountro laite liitospiste; korvaa vanha liitos pisteessa (vain luku)", sh_remount_ro},
-	{"lsmount", "Listaa liitokset", sh_lsmount},
 	{"mount", "mount laite liitospiste; liita laite pisteeseen", sh_mount},
 	{"remount", "remount laite liitospiste; korvaa vanha liitos pisteessa", sh_remount},
 	{"umount", "umount {laite | polku}; poista laite tai liitoskohta", sh_umount},
+	{"lsmount", "Listaa liitokset", sh_lsmount},
+
 	{"reboot", "reboot; kaynnista tietokone uudelleen", sh_reboot},
+
+	{"f.open", "f.open tiedosto tila; avaa tiedosto", sh_fopen},
+	{"f.read", "f.read koko; lue ja tulosta 'koko' tavua", sh_fread},
+	{"f.write", "f.write koko [tavu [tavu ...]]; kirjoita 'koko' tavua", sh_fwrite},
+	{"f.print", "f.print teksti; kirjoita teksti tiedostoon", sh_fprint},
+	{"f.getpos", "f.getpos; ilmoita sijainti tiedostossa", sh_fgetpos},
+	{"f.setpos", "f.setpos sijainti; aseta sijainti tiedostoon", sh_fsetpos},
+	{"f.close", "f.close; sulje tiedosto", sh_fclose},
+
 	{0, 0, sh_ei_tunnistettu} /* Terminaattori */
 };
 struct sh_komento *komennot = komentotaulu;
@@ -402,3 +429,166 @@ void sh_ei_tunnistettu(char *buf)
 {
 	kprintf("Tunnistamaton komento (%s) Mutta 'help' auttaa!\n", buf);
 }
+
+void sh_fopen(char*a)
+{
+	if (sh_f) {
+		print("Sulje ensin entinen tiedosto!\n");
+		return;
+	}
+	char *filename = a;
+	char *mode = a;
+	int lai = 0;
+	while (*mode) {
+		if (!lai && *mode == ' ') {
+			*mode = 0;
+			++mode;
+			break;
+		}
+		if (*mode == '"') {
+			lai = !lai;
+		}
+		++mode;
+	}
+	if (*mode) {
+		sh_f = fopen(filename, mode);
+		if (!sh_f) {
+			print("Avaaminen ei onnistunut.\n");
+		}
+	} else {
+		print("Vialliset parametrit!\n");
+	}
+}
+
+void sh_fread(char*a)
+{
+	if (!sh_f) {
+		print("Avaa ensin tiedosto!\n");
+		return;
+	}
+	while (*a && !isdigit(*a)) ++a;
+	if (!*a) {
+		print("Parametri unohtui.\n");
+	}
+	int maara = sh_read_int(&a), lue, luettu;
+	unsigned char b[64];
+	char c[3] = "ff";
+	const char merkit[] = "0123456789abcdef";
+	int kohta = 0;
+	const int per_rivi = 16;
+	while (maara) {
+		lue = (maara > sizeof(b) ? sizeof(b) : maara);
+		luettu = fread(b, 1, sizeof(b), sh_f);
+		if (luettu != lue) {
+			print("Virhe lukemisessa.\n");
+			maara = luettu;
+		}
+		maara -= luettu;
+		for (lue = 0; lue < luettu; ++lue) {
+			c[0] = merkit[b[lue] >> 4];
+			c[1] = merkit[b[lue] & 0x0f];
+			kprintf("%s ", c);
+
+			++kohta;
+			if (kohta == per_rivi) {
+				kohta = 0;
+				putch('\n');
+			}
+		}
+	}
+	if (kohta) {
+		putch('\n');
+	}
+}
+
+void sh_fwrite(char*a)
+{
+	if (!sh_f) {
+		print("Avaa ensin tiedosto!\n");
+		return;
+	}
+	char c[64], *b = c, * const d = c + sizeof(c);
+	int i;
+	while (*a) {
+		i = 0;
+		while (*a && !isxdigit(*a)) ++a;
+		if (!*a) break;
+		if (isdigit(*a)) i += *a - '0'; else
+		if (isupper(*a)) i += *a - 'A' + 10; else
+		/*just padding*/ i += *a - 'a' + 10;
+
+		i <<= 4;
+		while (*a && !isxdigit(*a)) ++a;
+		if (!*a) break;
+		if (isdigit(*a)) i += *a - '0'; else
+		if (isupper(*a)) i += *a - 'A' + 10; else
+		/*just padding*/ i += *a - 'a' + 10;
+		*b = i;
+		++b;
+		if (b == d) {
+			if (fwrite(b, 1, b-c, sh_f) != (b-c)) {
+				print("Ongelmia kirjoituksessa!\n");
+				return;
+			}
+		}
+	}
+	if (fwrite(b, 1, b-c, sh_f) != (b-c)) {
+		print("Ongelmia kirjoituksessa!\n");
+	}
+}
+
+void sh_fprint(char*a)
+{
+	if (!sh_f) {
+		print("Avaa ensin tiedosto!\n");
+		return;
+	}
+	while (*a && isspace(*a)) ++a;
+	if (fprintf(sh_f, "%s", a) != 1) {
+		print("Virhe tulostuksessa!\n");
+	}
+}
+
+void sh_fgetpos(char*a)
+{
+	if (!sh_f) {
+		print("Avaa ensin tiedosto!\n");
+		return;
+	}
+	fpos_t pos;
+	if (fgetpos(sh_f, &pos)) {
+		print("Virhe sijainnin hakemisessa!\n");
+		return;
+	}
+	kprintf("Sijainti: %d\n", (int)pos);
+}
+
+void sh_fsetpos(char*a)
+{
+	if (!sh_f) {
+		print("Avaa ensin tiedosto!\n");
+		return;
+	}
+	while (*a && isspace(*a)) ++a;
+	if (a) {
+		fpos_t pos = sh_read_int(&a);
+		if (fsetpos(sh_f, &pos)) {
+			print("Virhe sijainnin asettamisessa!\n");
+		}
+	} else {
+		print("Viallinen parametri!\n");
+	}
+}
+
+void sh_fclose(char*a)
+{
+	if (!sh_f) {
+		print("Avaa ensin tiedosto!\n");
+		return;
+	}
+	if (fclose(sh_f)) {
+		print("Varoitus: sulkeminen epäonnistui.");
+	}
+	sh_f = 0;
+}
+
