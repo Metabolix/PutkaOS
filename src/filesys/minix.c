@@ -131,7 +131,7 @@ struct fs *minix_mount(FILE *device, uint_t mode)
 	const size_t inode_map_size = fs.super.num_inodes / 8 + 1;
 	const size_t zone_map_size = fs.super.num_blocks / 8 + 1;
 	const size_t maps_size = inode_map_size + zone_map_size;
-	//fs.pos_inodes - fs.pos_inode_map;
+
 	if (!(this = kmalloc(sizeof(struct minix_fs) + maps_size))) goto failure;
 
 	memcpy(this, &fs, sizeof(struct minix_fs));
@@ -139,11 +139,11 @@ struct fs *minix_mount(FILE *device, uint_t mode)
 	this->zone_map = this->inode_map + inode_map_size;
 	this->end_map = this->zone_map + zone_map_size;
 
-	if (fsetpos(fs.dev, &fs.pos_inode_map)) goto failure;
-	if (fread(this->inode_map, inode_map_size, 1, fs.dev) != 1) goto failure;
+	if (fsetpos(this->dev, &this->pos_inode_map)) goto failure;
+	if (fread(this->inode_map, inode_map_size, 1, this->dev) != 1) goto failure;
 
-	if (fsetpos(fs.dev, &fs.pos_zone_map)) goto failure;
-	if (fread(this->zone_map, zone_map_size, 1, fs.dev) != 1) goto failure;
+	if (fsetpos(this->dev, &this->pos_zone_map)) goto failure;
+	if (fread(this->zone_map, zone_map_size, 1, this->dev) != 1) goto failure;
 	list_init(this->open_inodes);
 
 	return (struct fs *)this;
@@ -162,6 +162,22 @@ int minix_umount(struct minix_fs *this)
 		return MOUNT_ERR_BUSY;
 	}
 	if (this->std.filefunc.fwrite) {
+		const size_t inode_map_size = this->super.num_inodes / 8 + 1;
+		const size_t zone_map_size = this->super.num_blocks / 8 + 1;
+
+		if (this->inode_map_changed) {
+			if (fsetpos(this->dev, &this->pos_inode_map)
+			|| fwrite(this->inode_map, inode_map_size, 1, this->dev) != 1) {
+				// TODO: Error... ^^
+			}
+		}
+
+		if (this->inode_map_changed) {
+			if (fsetpos(this->dev, &this->pos_zone_map)
+			|| fwrite(this->zone_map, zone_map_size, 1, this->dev) != 1) {
+				// TODO: Error... ^^
+			}
+		}
 		fflush(this->dev);
 	}
 	list_destroy(this->open_inodes);
@@ -241,6 +257,8 @@ static uint16_t minix_alloc_inode(struct minix_fs *this, uint16_t type)
 		}
 	}
 	*ptr |= 1 << i;
+	this->inode_map_changed = 1;
+
 	inoli.inode_n = 8 * (ptr - this->inode_map) + i;
 	list_insert(list_end(this->open_inodes), inoli);
 	return inoli.inode_n;
@@ -674,6 +692,7 @@ static size_t minix_alloc_zones(struct minix_file *this, const size_t zone0, con
 		}
 		for (; *ptr & (1 << i); ++i);
 		*ptr |= 1 << i;
+		this->fs->zone_map_changed = 1;
 		if (minix_handle_alloced_zone(&info, j + 8 * (ptr - zone_map) + i)) {
 			break;
 		}
@@ -704,7 +723,6 @@ size_t minix_freadwrite(char *buf, size_t size, size_t count, struct minix_file 
 	uint16_t *zonelist = kcalloc(sizeof(uint16_t), numzones_c);
 	size_t done_size, pos_in_zone;
 	size_t numzones = minix_get_zones(stream, zone0, zone1, zonelist, write);
-
 
 	if (!numzones) {
 		goto return_etc;

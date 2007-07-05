@@ -108,6 +108,7 @@ struct minix_fs {
 	uint8_t *inode_map;
 	uint8_t *zone_map;
 	uint8_t *end_map;
+	int zone_map_changed, inode_map_changed;
 };
 
 struct minix_file {
