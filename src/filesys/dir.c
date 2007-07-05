@@ -18,7 +18,7 @@ int dmake(const char * dirname, uint_t owner, uint_t rights)
 	const char *newdirname = dirname;
 	mnt = mount_etsi_kohta(&newdirname);
 	if (!mnt || !mnt->fs || !mnt->fs->dirfunc.dopen) {
-		return EOF;
+		return DIR_ERR_NO_FUNCTIONS;
 	}
 	return mnt->fs->dirfunc.dmake(mnt->fs, newdirname, owner, rights);
 }

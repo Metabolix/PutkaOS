@@ -13,6 +13,9 @@ void sh_hexcat(char *name);
 void sh_lsmount(char*a);
 
 FILE *sh_f = 0;
+
+void sh_mkdir(char*a);
+
 void sh_fopen(char*a);
 void sh_fread(char*a);
 void sh_fwrite(char*a);
@@ -26,6 +29,7 @@ struct sh_komento komentotaulu[] = {
 	{"help", "Apua", sh_help},
 	{"exit", "Paniikki", sh_exit},
 	{"panic", "Paniikki", sh_exit},
+	{"reboot", "reboot; kaynnista tietokone uudelleen", sh_reboot},
 
 	{"uptime", "Uptime", sh_uptime},
 
@@ -38,11 +42,6 @@ struct sh_komento komentotaulu[] = {
 	{"outp", "outb port byte, laheta tavu porttiin (dec: 123, hex: 0x7b, oct: 0173)", sh_outportb},
 	{"inp", "inp port, hae tavu portista (dec: 123, hex: 0x7b, oct: 0173)", sh_inportb},
 
-	{"ls", "ls polku; listaa hakemisto", sh_ls},
-
-	{"cat", "cat polku; tulosta tiedoston sisalto", sh_cat},
-	{"hexcat", "hexcat polku; tulosta tiedoston sisalto tavuittain heksana", sh_hexcat},
-
 	{"mountro", "mountro laite liitospiste; liita laite pisteeseen (vain luku)", sh_mount_ro},
 	{"remountro", "remountro laite liitospiste; korvaa vanha liitos pisteessa (vain luku)", sh_remount_ro},
 	{"mount", "mount laite liitospiste; liita laite pisteeseen", sh_mount},
@@ -50,7 +49,11 @@ struct sh_komento komentotaulu[] = {
 	{"umount", "umount {laite | polku}; poista laite tai liitoskohta", sh_umount},
 	{"lsmount", "Listaa liitokset", sh_lsmount},
 
-	{"reboot", "reboot; kaynnista tietokone uudelleen", sh_reboot},
+	{"ls", "ls polku; listaa hakemisto", sh_ls},
+	{"mkdir", "mkdir polku; luo hakemisto", sh_mkdir},
+
+	{"cat", "cat polku; tulosta tiedoston sisalto", sh_cat},
+	{"hexcat", "hexcat polku; tulosta tiedoston sisalto tavuittain heksana", sh_hexcat},
 
 	{"f.open", "f.open tiedosto tila; avaa tiedosto", sh_fopen},
 	{"f.read", "f.read koko; lue ja tulosta 'koko' tavua", sh_fread},
@@ -478,7 +481,7 @@ void sh_fread(char*a)
 	const int per_rivi = 16;
 	while (maara) {
 		lue = (maara > sizeof(b) ? sizeof(b) : maara);
-		luettu = fread(b, 1, sizeof(b), sh_f);
+		luettu = fread(b, 1, lue, sh_f);
 		if (luettu != lue) {
 			print("Virhe lukemisessa.\n");
 			maara = luettu;
@@ -507,7 +510,7 @@ void sh_fwrite(char*a)
 		print("Avaa ensin tiedosto!\n");
 		return;
 	}
-	char c[64], *b = c, * const d = c + sizeof(c);
+	char buf[64], * const c = buf, *b = c, * const d = c + sizeof(buf);
 	int i;
 	while (*a) {
 		i = 0;
@@ -516,6 +519,7 @@ void sh_fwrite(char*a)
 		if (isdigit(*a)) i += *a - '0'; else
 		if (isupper(*a)) i += *a - 'A' + 10; else
 		/*just padding*/ i += *a - 'a' + 10;
+		++a;
 
 		i <<= 4;
 		while (*a && !isxdigit(*a)) ++a;
@@ -523,16 +527,20 @@ void sh_fwrite(char*a)
 		if (isdigit(*a)) i += *a - '0'; else
 		if (isupper(*a)) i += *a - 'A' + 10; else
 		/*just padding*/ i += *a - 'a' + 10;
+		++a;
+
 		*b = i;
+
 		++b;
 		if (b == d) {
-			if (fwrite(b, 1, b-c, sh_f) != (b-c)) {
+			if (fwrite(c, 1, b-c, sh_f) != (b-c)) {
 				print("Ongelmia kirjoituksessa!\n");
 				return;
 			}
+			b = c;
 		}
 	}
-	if (fwrite(b, 1, b-c, sh_f) != (b-c)) {
+	if (fwrite(c, 1, b-c, sh_f) != (b-c)) {
 		print("Ongelmia kirjoituksessa!\n");
 	}
 }
@@ -592,3 +600,24 @@ void sh_fclose(char*a)
 	sh_f = 0;
 }
 
+void sh_mkdir(char*a)
+{
+	while (*a && isspace(*a)) ++a;
+	switch (dmake(a, 0, 0777)) {
+	case DIR_ERR_TOTAL_FAILURE:
+		print("mkdir: tuntematon virhe!\n");
+		break;
+	case DIR_ERR_NO_FUNCTIONS:
+		print("mkdir: tiedostojarjestelma ei anna funktiota!\n");
+		break;
+	case DIR_ERR_EXISTS:
+		print("mkdir: hakemisto on jo!\n");
+		break;
+	case DIR_ERR_CANT_MAKE:
+		print("mkdir: luominen ei onnistunut!\n");
+		break;
+	case DIR_ERR_CANT_WRITE:
+		print("mkdir: kirjoittaminen (. ja ..) ei onnistunut!\n");
+		break;
+	}
+}

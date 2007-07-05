@@ -6,6 +6,16 @@
 #include <time.h>
 #include <filesys/file.h>
 
+enum DIR_ERRORS {
+	DIR_ERR_TOTAL_FAILURE = -1,
+	DIR_ERR_NO_FUNCTIONS = -2,
+	DIR_ERR_EXISTS = -3,
+	DIR_ERR_CANT_MAKE = -4,
+	DIR_ERR_CANT_WRITE = -5,
+
+	DIR_ERR__ = -100
+};
+
 typedef struct _DIR {
 	char *name;
 	fpos_t size;

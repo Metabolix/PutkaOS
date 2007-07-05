@@ -53,12 +53,6 @@ struct minix_superblock {
 	uint32_t _todo_4567_jne;
 };
 
-typedef enum _1x2_t {
-	_1x2__1,
-	_1x2__X,
-	_1x2__2
-} _1x2_t;
-
 #define MINIX_FS_MAGIC_A (0x0001137F)
 #define MINIX_FS_MAGIC_B (0x0001138F)
 

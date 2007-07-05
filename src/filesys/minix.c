@@ -10,7 +10,7 @@
 def_ceil(ceil_uint32, uint32_t)
 
 static int minix_check_filename(const char *filename, int maxlen, int *parts);
-static struct minix_file *minix_fopen_all(struct minix_fs *this, const char * filename, uint_t mode, _1x2_t file_or_dir);
+static struct minix_file *minix_fopen_all(struct minix_fs *this, const char * filename, uint_t mode, int file_or_dir);
 static size_t minix_get_zones(struct minix_file *this, const size_t zone0, const size_t zone1, uint16_t *zonelist, const int write);
 static size_t minix_alloc_zones(struct minix_file *this, const size_t zone0, const size_t zone2, uint16_t *zonelist);
 
@@ -99,37 +99,37 @@ struct fs *minix_mount(FILE *device, uint_t mode)
 		.dev = device,
 		.filename_maxlen = 30,
 	};
-	struct minix_fs *this;
+	struct minix_fs *this = &fs;
 	fpos_t pos;
 
-	if ((mode & FILE_MODE_WRITE) && !fs.dev->func->fwrite) {
+	if ((mode & FILE_MODE_WRITE) && !this->dev->func->fwrite) {
 		return 0;
 	}
 
 	pos = MINIX_FS_ZONE_SIZE;
-	if (fsetpos(fs.dev, &pos)) {
+	if (fsetpos(this->dev, &pos)) {
 		return 0;
 	}
-	if (fread(&fs.super, sizeof(fs.super), 1, fs.dev) != 1) {
+	if (fread(&this->super, sizeof(this->super), 1, this->dev) != 1) {
 		return 0;
 	}
 
-	// TODO: Tunnista se kunnolla!
-	if (fs.super.magic == MINIX_FS_MAGIC_A) {
-		fs.filename_maxlen = 14;
-	} else if (fs.super.magic == MINIX_FS_MAGIC_B) {
-		fs.filename_maxlen = 30;
+	// TODO: Tunnista kunnolla, onko varmasti minix
+	if (this->super.magic == MINIX_FS_MAGIC_A) {
+		this->filename_maxlen = 14;
+	} else if (this->super.magic == MINIX_FS_MAGIC_B) {
+		this->filename_maxlen = 30;
 	} else {
 		return 0;
 	}
 
-	fs.pos_inode_map = 2 * MINIX_FS_ZONE_SIZE;
-	fs.pos_zone_map = fs.pos_inode_map + fs.super.num_inode_map_zones * MINIX_FS_ZONE_SIZE;
-	fs.pos_inodes = fs.pos_zone_map + fs.super.num_zone_map_zones * MINIX_FS_ZONE_SIZE;
-	fs.pos_data = fs.pos_inodes + ceil_uint32((uint32_t)fs.super.num_inodes * sizeof(struct minix_inode), MINIX_FS_ZONE_SIZE);
+	this->pos_inode_map = 2 * MINIX_FS_ZONE_SIZE;
+	this->pos_zone_map = this->pos_inode_map + this->super.num_inode_map_zones * MINIX_FS_ZONE_SIZE;
+	this->pos_inodes = this->pos_zone_map + this->super.num_zone_map_zones * MINIX_FS_ZONE_SIZE;
+	this->pos_data = this->pos_inodes + ceil_uint32((uint32_t)this->super.num_inodes * sizeof(struct minix_inode), MINIX_FS_ZONE_SIZE);
 
-	const size_t inode_map_size = fs.super.num_inodes / 8 + 1;
-	const size_t zone_map_size = fs.super.num_blocks / 8 + 1;
+	const size_t inode_map_size = this->super.num_inodes / 8 + 1;
+	const size_t zone_map_size = this->super.num_blocks / 8 + 1;
 	const size_t maps_size = inode_map_size + zone_map_size;
 
 	if (!(this = kmalloc(sizeof(struct minix_fs) + maps_size))) goto failure;
@@ -148,7 +148,7 @@ struct fs *minix_mount(FILE *device, uint_t mode)
 
 	return (struct fs *)this;
 failure:
-	if (!this) return 0;
+	if (!this || this == &fs) return 0;
 	kfree(this);
 	return 0;
 }
@@ -168,14 +168,14 @@ int minix_umount(struct minix_fs *this)
 		if (this->inode_map_changed) {
 			if (fsetpos(this->dev, &this->pos_inode_map)
 			|| fwrite(this->inode_map, inode_map_size, 1, this->dev) != 1) {
-				// TODO: Error... ^^
+				// TODO: umount: fwrite inode_map failed.
 			}
 		}
 
 		if (this->inode_map_changed) {
 			if (fsetpos(this->dev, &this->pos_zone_map)
 			|| fwrite(this->zone_map, zone_map_size, 1, this->dev) != 1) {
-				// TODO: Error... ^^
+				// TODO: umount: fwrite zone_map failed.
 			}
 		}
 		fflush(this->dev);
@@ -226,7 +226,7 @@ loytyi:
 
 static uint16_t minix_alloc_inode(struct minix_fs *this, uint16_t type)
 {
-	// TODO: Rights, uid, gid, modified, num_refs
+	// TODO: minix_alloc_inode: Rights, uid, gid, modified
 	struct minix_list_inode inoli = {
 		.inode = {
 			.flags = 0777 | (type << 12),
@@ -275,7 +275,7 @@ static int minix_free_inode(struct minix_fs *this, uint16_t inode)
 	return 0;
 }
 
-static struct minix_file *minix_fopen_all(struct minix_fs * restrict const this, const char * restrict filename, uint_t mode, _1x2_t file_or_dir)
+static struct minix_file *minix_fopen_all(struct minix_fs * restrict const this, const char * restrict filename, uint_t mode, int file_or_dir)
 {
 	struct minix_file f = {
 		.freefunc = 0,
@@ -289,7 +289,7 @@ static struct minix_file *minix_fopen_all(struct minix_fs * restrict const this,
 	const char *str, *str_end;
 	uint16_t next_inode;
 
-	print(""); // TODO: Miksi hemmetissä? :D
+	print(""); // TODO: minix_fopen_all: Miksi tarvitaan? :D
 	if (minix_check_filename(filename, this->filename_maxlen, &parts)) {
 		return 0;
 	}
@@ -326,17 +326,20 @@ static struct minix_file *minix_fopen_all(struct minix_fs * restrict const this,
 	goto found_it_already;
 
 need_new_file:
-	// TODO: Tarkista, että fs on rw.
+	// TODO: minix_fopen_all: need_new_file: Tarkista, että fs on rw.
 	if (!(mode & FILE_MODE_WRITE)) {
 		minix_fclose(&f);
 		return 0;
 	}
 	memset(&direntry, 0, MINIX_FS_DIRENTRY_SIZE);
 
-	// TODO: Nice flags...
+	// TODO: minix_fopen_all: need_new_file: Kivat liput...
 	uint16_t type_flags;
-	if (file_or_dir == _1x2__2) {type_flags = MINIX_FS_FLAG_DIR;}
-	else {type_flags = MINIX_FS_FLAG_FILE;}
+	if (file_or_dir == MINIX_FS_FLAG_DIR) {
+		type_flags = MINIX_FS_FLAG_DIR;
+	} else {
+		type_flags = MINIX_FS_FLAG_FILE;
+	}
 
 	direntry.inode = minix_alloc_inode(this, type_flags);
 	if (!direntry.inode) {
@@ -358,13 +361,13 @@ need_new_file:
 
 found_it_already:
 	switch (file_or_dir) {
-		case _1x2__1:
+		case MINIX_FS_FLAG_FILE:
 			if (MINIX_FS_IS(f.inode->flags, DIR)) {
 				minix_fclose(&f);
 				return 0;
 			}
 			break;
-		case _1x2__2:
+		case MINIX_FS_FLAG_DIR:
 			if (!MINIX_FS_IS(f.inode->flags, DIR)) {
 				minix_fclose(&f);
 				return 0;
@@ -383,7 +386,7 @@ found_it_already:
 		f.std.pos = f.std.size;
 	}
 	if ((mode & FILE_MODE_CLEAR)) {
-		// TODO
+		// TODO: minix_fopen_all: FILE_MODE_CLEAR
 	}
 	struct minix_file *retval;
 	if ((retval = kmalloc(sizeof(struct minix_file)))) {
@@ -504,7 +507,7 @@ read_dbl_indir:
 	}
 alloc_rest:
 	if (!write) {
-		// TODO: Corrupted inode (size > zonelist)
+		// TODO: minix_get_zones: Corrupted inode (size > zonelist)
 		goto return_etc;
 	}
 	got_zones += minix_alloc_zones(this, zone, zone1, zonelist);
@@ -666,7 +669,7 @@ static size_t minix_alloc_zones(struct minix_file *this, const size_t zone0, con
 	} else {
 		if (info.inode->u.zones.dbl_indir) {
 			info.dbl_indir_list = kcalloc(MINIX_INDIR_ZONES, sizeof(uint16_t));
-			// TODO: Lue se dbl_indir-sektori! (ja myöhemmin kirjoita)
+			// TODO: Lue dbl_indir_list! (ja myöhemmin kirjoita)
 			info.dbl_indir_ptr = info.dbl_indir_list + (zone0 - (MINIX_STD_ZONES + MINIX_INDIR_ZONES)) / MINIX_INDIR_ZONES;
 			if (*info.dbl_indir_ptr) {
 				info.indir_list = info.zonelist;
@@ -701,7 +704,7 @@ static size_t minix_alloc_zones(struct minix_file *this, const size_t zone0, con
 
 	if (info.dbl_indir_list) {
 		if (info.dbl_indir_list != info.dbl_indir_ptr) {
-			// TODO: Kirjoita se lista! (Ja aiemmin lue)
+			// TODO: Kirjoita dbl_indir_list! (Ja aiemmin lue)
 		}
 		kfree(info.dbl_indir_list);
 	}
@@ -812,8 +815,36 @@ int minix_fflush(struct minix_file *stream)
 
 int minix_dmake(struct minix_fs *this, const char * dirname, uint_t owner, uint_t rights)
 {
-	// TODO
-	return EOF;
+	// TODO: minix_dmake: virheiden hoitelu...
+        struct minix_file *file;
+        file = minix_fopen_all(this, dirname, FILE_MODE_READ, MINIX_FS_FLAG_DIR);
+        if (file) {
+		minix_fclose(file);
+		return DIR_ERR_EXISTS;
+	}
+        file = minix_fopen_all(this, dirname, FILE_MODE_RW, MINIX_FS_FLAG_DIR);
+	if (!file) {
+		return DIR_ERR_CANT_MAKE;
+	}
+
+	struct minix_direntry direntry = {
+		.inode = file->inode_n
+	};
+	direntry.name[0] = '.';
+	if (minix_fwrite(&direntry, sizeof(direntry), 1, file) != 1) {
+		minix_fclose(file);
+		return DIR_ERR_CANT_WRITE;
+	}
+	++file->inode->num_refs;
+	direntry.name[1] = '.';
+	if (minix_fwrite(&direntry, sizeof(direntry), 1, file) != 1) {
+		minix_fclose(file);
+		return DIR_ERR_CANT_WRITE;
+	}
+	++file->inode->num_refs;
+
+	minix_fclose(file);
+	return 0;
 }
 
 struct minix_dir *minix_dopen(struct minix_fs *this, const char * dirname)
@@ -821,7 +852,7 @@ struct minix_dir *minix_dopen(struct minix_fs *this, const char * dirname)
 	struct minix_file *file;
 	struct minix_dir *retval;
 
-	file = minix_fopen_all(this, dirname, FILE_MODE_READ, _1x2__2);
+	file = minix_fopen_all(this, dirname, FILE_MODE_READ, MINIX_FS_FLAG_DIR);
 	if (!file) return 0;
 
 	if ((retval = kcalloc(sizeof(struct minix_dir), 1))) {
