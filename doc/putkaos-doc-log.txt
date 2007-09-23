@@ -1,0 +1,60 @@
+23/20:23<+celeron55> eikö vt:stä voisi tehdä siis ihan normaalin devicen
+23/20:23<@Metabolix> Niin juuri.
+23/20:24<@Megant> no emt, jos mä sitä varten suunnittelin tota device_filliä
+23/20:24<@Metabolix> Näyttöajuri rekisteröisi laitteet /dev/tty{1-8} jne.
+23/20:24<@Metabolix> Vai 1-6, anyway.
+23/20:24<@Megant> no sitä varten mulla oli just tuo device_fill
+23/20:24<+celeron55> mitä tarkoittaa laitteiden rekisteröiminen?
+23/20:25<@Metabolix> Sitä, että annetaan se device managerille eli liitetään ajuri ja jokin kiva /dev/nimi yhteen.
+23/20:25<+celeron55> :o
+23/20:26<@Megant> eli sitä että kerrotaan ajurista jonnekkin josta sitä voidaan käyttää
+23/20:27<@Metabolix> Jos vaikka avaa fopen("/dev/hda"), niin ensin menee mount-systeemille /dev/hda, se huomaa, että /deviin on mountattu device manager, sille sitten menee hda ja se kutsuu sen mukaan oikeaa ajuria.
+23/20:28<@Metabolix> En oikein käsitä, mitä Megant niillä valmiilla FILEillä meinaa tehdä. :o
+23/20:28<@Metabolix> Onko jokainen VT-tiedosto valmiiksi auki tai jotain?
+23/20:28<@Metabolix> (Tavallaan loogista näytön tapauksessa.)
+23/20:28<+celeron55> tässä tapauksessa siis joku kertoo vt:lle että osaa survoa sille survottua juttua sille kertojalle
+23/20:29<+celeron55> vai öm.
+23/20:31<@Metabolix> Kun tiedosto on auki (vaikka nyt se /dev/hda), niin FILE-struct sisältää osoittimet kaikkiin fwrite-funktioihin jne. Eli kun kutsutaan fwrite(f), niin kutsutaankin oikeasti f->fwrite(f). Siksi siis tiedostoa avatessa ajuri saa asettaa omat kirjoitusfunktionsa tuonne.
+23/20:32<+celeron55> miten tuo rekisteröinti siis tuolla tasolla tarkoittaa
+23/20:32<+celeron55> juuri tuota noiden asettamista?
+23/20:32<+celeron55> mitä*
+23/20:32<@Metabolix> Eiku nuo asetetaan avatessa.
+23/20:33<@Metabolix> Rekisteröinti tarkoittaa, että täytetään devmanager.h-otsikon mukainen struct device ja annetaan se device_insert-funktiolle.
+23/20:34<+celeron55> joka siis lisää sen johonkin devicelistaan
+23/20:34<@Metabolix> Tai siis tietenkin voi taas tehdä niin, että on struct hassulaite_t { DEVICE std; int omajuttu; }, niin saa omat jutut kulkemaan siellä mukana.
+23/20:34<@Metabolix> Joo.
+23/20:34<+celeron55> mitäs kautta tuota devicelistaa sitten käytetään tiedostoa avatessa?
+23/20:35<@Metabolix> Se menee noilla hienoilla mount-jutuilla. Se lista on samalla myös oma tiedostojärjestelmänsä, joka on mountattu kohtaan /dev. :)
+23/20:36<+celeron55> voisitko kertoa siis vähän tarkemmin niistä mount-jutuista :P
+23/20:37<@Metabolix> No... Mitä haluat tietää? :)
+23/20:37<@Metabolix> Ne ovat kyllä kai suhteellisen selkeitä verrattuna... *köh* ei mitään.
+23/20:37<+celeron55> niinpä
+23/20:37<+celeron55> mistä edes löydän fopenin
+23/20:38<@Metabolix> filesys/file.{c,h}
+23/20:39<+celeron55> hmm oho
+23/20:39<+celeron55> siellähän se olikin, olinpas huono etsimään
+23/20:43<@Metabolix> (Niin, filename muuttuu tuossa kutsussa mount_etsi_kohta. Siitä otetaan pois se mountpoint, eli vaikka /dev/hda => hda.
+23/20:43<+celeron55> joo, tutkin juuri sitä
+23/20:44<@Metabolix> Se vain etsii mount-puusta pisimmän osuvan alkupätkän.
+23/20:44<@Metabolix> Eli pääsee kiinni oikeaan tiedostojärjestelmään (osioon tms).
+23/20:48<+celeron55> joo, nyt tajusin suunnilleen tuon
+23/20:48<+celeron55> hmm
+23/20:52<+celeron55> onpas jäns cä
+23/20:53<+celeron55> jotain juttua nyt en vielä tiedä, mutta en oikein osaa edes sanoa mikä se on
+23/20:54<+celeron55> hmm joo
+23/20:55<+celeron55> tai ei
+23/21:08<+celeron55> no nyt tajusin tämän systeemin
+23/21:08<+celeron55> aika kiva
+23/21:09<+celeron55> onks esim. linuxin devicejutut millään tavalla samanlaisia?
+23/21:09<@Metabolix> Ei tietoa. :)
+23/21:09<+celeron55> :P
+23/21:10<@Metabolix> Hm, jaksaisikohan tätä minix-hommaa testata... *eyes.rotate(FULL_CIRCLE)*
+23/21:10<+celeron55> voisi vaikka tailata logista tämän pätkän ja laittaa svn:ään /doc-hakemistoon
+23/21:10<+celeron55> jos olisi jollekin hyötyä
+23/21:10<+celeron55> kannatetaanko?
+23/21:10<+celeron55> parempi kuin ei mitään (tm) :P
+23/21:11<@Metabolix> Vai piirränkö hienon kaavion? :P
+23/21:11<+celeron55> mitä sitä turhia 8)
+23/21:11<@Metabolix> Hassu juttu tässä on se, että koodaan C:llä vähän C++-tyylisellä ajattelulla. :P
+23/21:11<@Metabolix> Tuollaiset hienot interfacet kaikelle.
+23/21:12<+celeron55> ihan kiva oikeastaan
