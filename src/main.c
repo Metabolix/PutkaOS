@@ -76,6 +76,8 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 	init_syscalls();
 	ide_init();
 
+	vts_init();
+
 	kprintf("Going to unmask irqs\n");
 	outportb(0x21, 0); /* Don't mask any IRQ */
 	outportb(0xa1, 0);

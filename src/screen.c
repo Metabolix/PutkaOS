@@ -5,6 +5,9 @@
 #include <thread.h>
 #include <putkaos.h>
 
+#include <stdio.h>
+#include <string.h>
+
 struct vt_t vt[VT_COUNT];
 unsigned int cur_vt = 0;
 char change_to_vt = 0;
@@ -28,7 +31,7 @@ unsigned int vt_out_get(void)
 
 int move(unsigned int y, unsigned int x)
 {
-	if (y > 25 || x > 80) {
+	if (y >= SCREEN_H || x >= SCREEN_W) {
 		return -1;
 	}
 
@@ -79,6 +82,39 @@ void set_colour(unsigned char c)
 	vt[vt_num].colour = c;
 }
 
+void update_from_buffer()
+{
+	#ifdef SCREEN_BUFFER
+	memcpy((void*)0xB8000, vt[cur_vt].buffer + SCREEN_BUFFER_SIZE - SCREEN_MEM_SIZE - vt[cur_vt].scroll * SCREEN_MEM_W, SCREEN_MEM_SIZE);
+
+	/*char temp[100];
+	sprintf(temp, "(%d,%d,%d,%d)",
+			*(vt[cur_vt].buffer + (SCREEN_BUFFER_SIZE - SCREEN_MEM_SIZE) + 0),
+			*(vt[cur_vt].buffer + (SCREEN_BUFFER_SIZE - SCREEN_MEM_SIZE) + 1),
+			*(vt[cur_vt].buffer + (SCREEN_BUFFER_SIZE - SCREEN_MEM_SIZE) + 2),
+			*(vt[cur_vt].buffer + (SCREEN_BUFFER_SIZE - SCREEN_MEM_SIZE) + 3)
+			);
+	int i;
+	for(i=0; i<strlen(temp); i++){
+		*((char*)0xB8000 + i*2) = temp[i];
+		*((char*)0xB8000 + i*2+1) = 0x7;
+	}*/
+
+	move_cursor();
+
+	#endif
+}
+
+//täyttää halutun pätkän 0x0,0x7-floodilla (näyttöbuffereille kiva)
+void fill_with_blank(char *buf, unsigned int length)
+{
+	int j;
+	for(j=0; j<length; j++){
+		*(buf + j*2 + 0) = 0;
+		*(buf + j*2 + 1) = 0x7;
+	}
+}
+
 void change_vt(unsigned int vt_num)
 {
 	#ifdef SCREEN_BUFFER
@@ -94,24 +130,22 @@ void change_vt(unsigned int vt_num)
 	}
 	change_to_vt = 0;
 	cur_vt = vt_num;
-	move_cursor();
-	memcpy((void*)0xB8000, vt[cur_vt].buffer + SCREEN_BUFFER_SIZE - SCREEN_SIZE, SCREEN_SIZE);
+	//move_cursor();
+	update_from_buffer();
 	do_eop();
 	#endif
 }
-/* FIXME */
-#if 0
+
 void scroll(int lines) {
+	#ifdef SCREEN_BUFFER
 	vt[cur_vt].scroll += lines;
-	/*kprintf("%d, vt[cur_vt].scroll\n", vt[cur_vt].scroll);*/
-	if((vt[cur_vt].scroll * 160) >= SCREEN_BUFFER_SIZE - SCREEN_SIZE)
-		vt[cur_vt].scroll = (SCREEN_BUFFER_SIZE - SCREEN_SIZE)/160;
 	if(vt[cur_vt].scroll < 0)
 		vt[cur_vt].scroll = 0;
-	/*kprintf("%d, vt[cur_vt].scroll\n", vt[cur_vt].scroll);*/
-	memcpy((void*)0xB8000, vt[cur_vt].buffer + SCREEN_BUFFER_SIZE - SCREEN_SIZE - (vt[cur_vt].scroll * 160), SCREEN_SIZE);
+	if(vt[cur_vt].scroll > SCREEN_BUF_H - SCREEN_H)
+		vt[cur_vt].scroll = SCREEN_BUF_H - SCREEN_H;
+	update_from_buffer();
+	#endif
 }
-#endif
 
 void cls(void)
 {
@@ -121,11 +155,11 @@ void cls(void)
 		return;
 	}
 
-	while (a < SCREEN_SIZE) {
+	while (a < SCREEN_MEM_SIZE) {
 		*(char*)(0xB8000 + a++) = ' ';
 		*(char*)(0xB8000 + a++) = 0x7;
 	}
-	scroll_buffer((char*)0xB8000, SCREEN_SIZE);
+	scroll_buffer((char*)0xB8000, SCREEN_MEM_SIZE);
 	vt[vt_num].cx = 0;
 	vt[vt_num].cy = 0;
 }
@@ -166,15 +200,16 @@ void putch_vt(int c, unsigned int vt_num)
 		spinl_lock(&vt[vt_num].writelock);
 	}
 
-	if (vt[vt_num].scroll) {
+	if (vt[vt_num].scroll != 0) {
 		vt[vt_num].scroll = 0;
-		//scroll(0);
+		scroll(0);
 	}
+	
 	if (c == '\b') { /* backspace */
 		if (vt[vt_num].cx > 0) {
 			vt[vt_num].cx--;
 		} else {
-			vt[vt_num].cx = 79;
+			vt[vt_num].cx = SCREEN_W - 1;
 			vt[vt_num].cy--;
 		}
 	}
@@ -190,30 +225,35 @@ void putch_vt(int c, unsigned int vt_num)
 	}
 	else if (c >= ' ') { /* printable character */
 		if(vt_num == cur_vt) {
-			*(char*)(0xB8000 + vt[vt_num].cy * 160 + vt[vt_num].cx * 2) = c;
-			*(char*)(0xB8000 + vt[vt_num].cy * 160 + vt[vt_num].cx * 2 + 1) = vt[vt_num].colour;
+			*(char*)(0xB8000 + vt[vt_num].cy * SCREEN_MEM_W + vt[vt_num].cx * 2) = c;
+			*(char*)(0xB8000 + vt[vt_num].cy * SCREEN_MEM_W + vt[vt_num].cx * 2 + 1) = vt[vt_num].colour;
 		}
 		#ifdef SCREEN_BUFFER
 		if(vt[vt_num].buffer) {
-			*(vt[vt_num].buffer + SCREEN_BUFFER_SIZE - SCREEN_SIZE + vt[vt_num].cy * 160 + vt[vt_num].cx * 2) = c;
-			*(vt[vt_num].buffer + SCREEN_BUFFER_SIZE - SCREEN_SIZE + vt[vt_num].cy * 160 + vt[vt_num].cx * 2 + 1) = vt[vt_num].colour;
+			*(vt[vt_num].buffer + SCREEN_BUFFER_SIZE - SCREEN_MEM_SIZE + vt[vt_num].cy * SCREEN_MEM_W + vt[vt_num].cx * 2) = c;
+			*(vt[vt_num].buffer + SCREEN_BUFFER_SIZE - SCREEN_MEM_SIZE + vt[vt_num].cy * SCREEN_MEM_W + vt[vt_num].cx * 2 + 1) = vt[vt_num].colour;
 		}
 		#endif
 		vt[vt_num].cx++;
 	}
 
-	if (vt[vt_num].cx >= 80) {
+	if (vt[vt_num].cx >= SCREEN_W) {
 		vt[vt_num].cx = 0;
 		vt[vt_num].cy++;
 	}
 
-	if (vt[vt_num].cy >= 25) { /* scroll screen */
-		int amount = vt[vt_num].cy - 24;
+	if (vt[vt_num].cy >= SCREEN_H) { /* scroll screen */
+		int amount = vt[vt_num].cy - (SCREEN_H - 1);
 
-		memmove((char *)0xB8000, (char *)0xB8000 + amount * 160, (25 - amount) * 160);
-		memset((char *)0xB8000 + (25 - amount) * 160, 0, 160);
-		scroll_buffer((char*)0xB8000 + (25 - amount) * 160, (25 - amount) * 160);
-		vt[vt_num].cy = 24;
+		memmove((char *)0xB8000, (char *)0xB8000 + amount * SCREEN_MEM_W,
+				(SCREEN_H - amount) * SCREEN_MEM_W);
+		
+		fill_with_blank((char *)0xB8000 + (SCREEN_H - amount) * SCREEN_MEM_W, SCREEN_W);
+
+		scroll_buffer((char*)0xB8000 + (SCREEN_H - amount) * SCREEN_MEM_W,
+				amount * SCREEN_MEM_W);
+
+		vt[vt_num].cy = SCREEN_H - 1;
 	}
 	if (threading_on()) {
 		spinl_unlock(&vt[vt_num].writelock);
@@ -226,7 +266,7 @@ void putch_vt(int c, unsigned int vt_num)
 
 void move_cursor(void)
 {
-	unsigned int temp = vt[cur_vt].cy * 80 + vt[cur_vt].cx;
+	unsigned int temp = (vt[cur_vt].cy + vt[cur_vt].scroll) * SCREEN_W + vt[cur_vt].cx;
 
 	outportb(0x3D4, 14);
 	outportb(0x3D5, temp >> 8);
@@ -236,12 +276,16 @@ void move_cursor(void)
 
 void vts_init(void)
 {
-	int i;
+	int i, j;
 	for(i = 0; i < VT_COUNT; i++) {
-		vt[i].buffer = kmalloc(SCREEN_BUFFER_SIZE);
+		vt[i].buffer = (char*)kmalloc(SCREEN_BUFFER_SIZE);
+		for(j=0; j<SCREEN_BUF_H; j++){
+			fill_with_blank(vt[i].buffer, SCREEN_W);
+		}
+		//memset(vt[i].buffer, 0, SCREEN_BUFFER_SIZE);
 	}
 
-	memcpy(vt[0].buffer + SCREEN_BUFFER_SIZE - SCREEN_SIZE, (const void *)0xB8000, SCREEN_SIZE);
+	memcpy(vt[0].buffer + SCREEN_BUFFER_SIZE - SCREEN_MEM_SIZE, (const void *)0xB8000, SCREEN_MEM_SIZE);
 }
 
 void screen_init(void) {

@@ -332,16 +332,26 @@ void keyboard_handle(void)
 					kb_mods ^= KEYB_MOD_NUML;
 				}
 				break;
+			case KEY_PGUP:
+				if((kb_mods & KEYB_MOD_LSHIFT || kb_mods & KEYB_MOD_RSHIFT) && down)
+					scroll(SCREEN_H/2);
+				break;
+			case KEY_PGDOWN:
+				if((kb_mods & KEYB_MOD_LSHIFT || kb_mods & KEYB_MOD_RSHIFT) && down)
+					scroll(-SCREEN_H/2);
+				break;
 			default:
 				if (code >= KEY_F1 && code <= KEY_F6) { /* f1-f6 */
 					change_vt(code - KEY_F1);
 				}
+				else{
+					vt[cur_vt].kb_buf[vt[cur_vt].kb_buf_end] = code | (down ? 0 : 256);
+					++vt[cur_vt].kb_buf_count;
+					++vt[cur_vt].kb_buf_end;
+					vt[cur_vt].kb_buf_end %= KB_BUFFER_SIZE;
+				}
 		}
 
-		vt[cur_vt].kb_buf[vt[cur_vt].kb_buf_end] = code | (down ? 0 : 256);
-		++vt[cur_vt].kb_buf_count;
-		++vt[cur_vt].kb_buf_end;
-		vt[cur_vt].kb_buf_end %= KB_BUFFER_SIZE;
 	}
 }
 
