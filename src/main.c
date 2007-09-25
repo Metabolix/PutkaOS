@@ -23,6 +23,7 @@
 #include <devices/blockdev/ide.h>
 #include <devices/blockdev/floppy.h>
 #include <devices/ports/serial.h>
+#include <vt.h>
 
 void testattava_koodi();
 
@@ -33,6 +34,12 @@ multiboot_info_t mbt_real;
 multiboot_info_t *mbt = &mbt_real;
 
 extern int sprintf(char * restrict str, const char * restrict fmt, ...);
+
+size_t testfwrite(const void *buf, size_t size, size_t count, FILE *stream)
+{
+	kprintf("testfwrite(): size=%d, count=%d: \"%s\"\n", size, count, buf);
+	return count;
+}
 
 void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 {
@@ -63,7 +70,7 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 	fs_init();
 	devmanager_init();
 	floppy_init();
-	vts_init();
+	//screen_init();
 	serial_init();
 	threading_init();
 	init_syscalls();
@@ -74,6 +81,8 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 	outportb(0xa1, 0);
 	asm_sti(); /* Allow interrupts */
 
+	vt_init();
+	
 	//floppy_reset();
 	mount_init(mboot_device, mboot_cmdline);
 	print("testattava_koodi();\n");
@@ -86,6 +95,39 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 
 void testattava_koodi()
 {
+#if 1
+	FILE *files[2];
+
+	vt_get(files);
+
+	FILE *vt_head1 = files[0];
+	FILE *vt_head2 = files[1];
+
+	char foo[] = "mese ";
+	char foo2[] = "kebab ";
+	char foo3[] = "8D";
+
+	fwrite(foo, 1, strlen(foo)-1, vt_head1);
+	fwrite(foo2, 1, strlen(foo2), vt_head1);
+	fwrite(foo2, 1, strlen(foo2), vt_head2);
+	fwrite(foo, 1, strlen(foo), vt_head2);
+	
+	char bar[20];
+
+	fread(bar, 1, strlen(foo)-1, vt_head2);
+	kprintf("\"%s\"\n", bar);
+
+	ioctl(vt_head2, IOCTL_VT_SET_FWRITE, (uintptr_t)testfwrite);
+
+	fwrite(foo3, 1, strlen(foo3), vt_head1);
+
+	fread(bar, 1, strlen(foo)-1+strlen(foo2), vt_head1);
+	kprintf("\"%s\"\n", bar);
+
+	fclose(vt_head1);
+	fclose(vt_head2);
+#endif
+#if 0
 	char b[128];
 	int i = 123;
 #define P(x) sprintf(b, x, i); kprintf("%20s: '%s'\n", x, b);
@@ -108,6 +150,7 @@ void testattava_koodi()
 	P("%-+8.4d")
 	P("% 08.4d")
 	P("%+08.4d")
+#endif
 #if 0
 	FILE *file = fopen("/aja", "r");
 	if(file) {
