@@ -1,9 +1,10 @@
 #include <vt.h>
-#include <devices/devmanager.h>
+//#include <devices/devmanager.h>
 #include <malloc.h>
 #include <string.h>
 #include <screen.h>
 #include <list.h>
+#include <filesys/filesystem.h>
 
 struct stream_pair
 {
@@ -228,11 +229,6 @@ int vt_get(FILE **streams)
 	streams[0] = stream1;
 	streams[1] = stream2;
 	
-	return 0;
-}
-
-int vt_remove(DEVICE *device)
-{
 	return 0;
 }
 

@@ -6,9 +6,6 @@
 #include <keyboard.h>
 #include <filesys/file.h>
 
-#define VT_COUNT 6
-#define VT_MAX_DUMPDEVS 8
-
 enum {
 	IOCTL_VT_SET_FWRITE
 };
