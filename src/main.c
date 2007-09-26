@@ -1,5 +1,4 @@
 #include <putkaos.h>
-#include <screen.h>
 #include <gdt.h>
 #include <irq.h>
 #include <keyboard.h>
@@ -23,7 +22,9 @@
 #include <devices/blockdev/ide.h>
 #include <devices/blockdev/floppy.h>
 #include <devices/ports/serial.h>
+#include <display.h>
 #include <vt.h>
+#include <screen.h>
 
 void testattava_koodi();
 
@@ -46,6 +47,7 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 	mbt_real = *param_mbt;
 	char mboot_cmdline[128] = "";
 	unsigned long mboot_device = 0;
+	vt_init(); //vt:t jäävät vielä fallback-tilaan
 	cls();
 	if ((mbt->flags & (1 << 0)) == 0) {
 		panic("Mbt->flags bit 1 wasn't 1\n");
@@ -56,7 +58,6 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 	if ((mbt->flags & (1 << 2))) {
 		strncpy(mboot_cmdline, (char*) mbt->cmdline, 128);
 	}
-	screen_init();
 	gdt_install();
 	idt_install();
 	isrs_install();
@@ -76,19 +77,19 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 	init_syscalls();
 	ide_init();
 
-	vts_init();
-
 	kprintf("Going to unmask irqs\n");
 	outportb(0x21, 0); /* Don't mask any IRQ */
 	outportb(0xa1, 0);
 	asm_sti(); /* Allow interrupts */
 
-	vt_init();
-	
 	//floppy_reset();
 	mount_init(mboot_device, mboot_cmdline);
 	print("testattava_koodi();\n");
 	testattava_koodi();
+	
+	//avataan oikea näyttöajuri ja 
+	display_init();
+	vt_setdriver("/dev/display");
 
 	kprintf("%s %s is up and running _o/\n", systeemi, versio);
 	new_thread(run_sh, 0, 0);
@@ -97,7 +98,7 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 
 void testattava_koodi()
 {
-#if 1
+#if 0
 	FILE *files[2];
 
 	vt_get(files);

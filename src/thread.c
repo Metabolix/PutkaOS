@@ -3,6 +3,7 @@
 #include <string.h>
 #include <panic.h>
 #include <screen.h>
+#include <vt.h>
 #include <putkaos.h>
 
 struct process_t processes[K_MAX_PROCESSES];

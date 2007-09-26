@@ -24,8 +24,6 @@ enum KEYB_MODS {
 	KEYB_MOD_UPCASE = KEYB_MOD_CAPS | KEYB_MOD_SHIFT,
 };
 
-#define KB_BUFFER_SIZE 128
-
 extern char *nappien_nimet_qwerty[256];
 extern unsigned int kb_mods;
 

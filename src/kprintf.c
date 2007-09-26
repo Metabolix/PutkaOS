@@ -2,6 +2,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <putkaos.h>
+#include <vt.h>
 
 #define BUF_KOKO 32
 static char sprintf_buf[BUF_KOKO+1]={0};
@@ -128,8 +129,7 @@ int kprintf(const char *fmt, ...)
 	int retval = 0, numbytes = 0, len, apu;
 	int vt_out = vt_out_get();
 	if(threading_on()) {
-		spinl_lock(&vt[vt_out].printlock);
-		vt[vt_out].in_kprintf = 1;
+		vt_kprintflock(vt_out);
 	}
 	union {
 		char c;
@@ -413,8 +413,7 @@ int kprintf(const char *fmt, ...)
 	}
 	va_end(args);
 	if(threading_on()) {
-		spinl_unlock(&vt[vt_out].printlock);
-		vt[vt_out].in_kprintf = 0;
+		vt_kprintfunlock(vt_out);
 	}
 
 	return retval;

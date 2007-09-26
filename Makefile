@@ -38,7 +38,7 @@ CO_SRC_FS_1=mount.c filesystem.c file.c dir.c fat.c fat16.c ext2.c minix.c
 CO_SRC_FS=$(addprefix filesys/,$(CO_SRC_FS_1))
 
 # Misc
-C_SRC_OTHER=gdt.c isr.c main.c panic.c idt.c irq.c keyboard.c screen.c regs.c spinlock.c lcdscreen.c syscall.c vt.c
+C_SRC_OTHER=gdt.c isr.c main.c panic.c idt.c irq.c keyboard.c display.c regs.c spinlock.c lcdscreen.c syscall.c vt.c screen.c
 #mouse.c
 CO_SRC_OTHER=int64.c timer.c kprintf.c sh.c sh_komennot.c time.c endian.c list.c fprintf.c math.c xprintf_xscanf.c
 

@@ -7,6 +7,8 @@
 #include <ctype.h>
 #include <filesys/mount.h>
 #include <string.h>
+#include <keyboard.h>
+#include <vt.h>
 
 #include <sh_komennot.h>
 void sh_hexcat(char *name);

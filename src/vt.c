@@ -1,241 +1,470 @@
 #include <vt.h>
-//#include <devices/devmanager.h>
-#include <malloc.h>
-#include <string.h>
 #include <screen.h>
-#include <list.h>
-#include <filesys/filesystem.h>
 
-struct stream_pair
+int initialized = 0;
+
+struct vt_t vt[VT_COUNT];
+unsigned int cur_vt;
+int change_to_vt;
+
+FILE *driverstream = NULL;
+struct displayinfo driverinfo;
+
+void vt_fallback_update_cursor()
 {
-	FILE *stream1, *stream2;
-	char *to1buf, *to2buf;
-	int buf1len, buf2len;
-};
-
-LIST_TYPE(stream_pairs, struct stream_pair);
-list_of_stream_pairs stream_pair_list;
-
-size_t vt_fwrite(const void *buf, size_t size, size_t count, FILE *stream)
-{
-	if(count < 0 || size < 0) return 0;
-	list_iter_of_stream_pairs iter;
-	list_loop(iter, stream_pair_list) {
-		struct stream_pair *p = &list_item(iter);
-		if (p->stream1 == stream) {
-			size_t oldlen = p->buf2len;
-			size_t newlen = oldlen + size*count;
-			if(p->buf2len==0){
-				p->to2buf = (char*)kmalloc(size*count);
-			}
-			else p->to2buf = (char*)krealloc(p->to2buf, newlen);
-			memcpy(p->to2buf + oldlen, buf, size*count);
-			p->buf2len = newlen;
-			return count;
-		}
-		if (p->stream2 == stream) {
-			size_t oldlen = p->buf1len;
-			size_t newlen = oldlen + size*count;
-			if(p->buf1len==0){
-				p->to1buf = (char*)kmalloc(size*count);
-			}
-			else p->to1buf = (char*)krealloc(p->to1buf, newlen);
-			memcpy(p->to1buf + oldlen, buf, size*count);
-			p->buf1len = newlen;
-			return count;
-		}
-	}
-	kprintf("vt_fwrite(): could not find stream from list\n");
-	return 0;
+	if(!initialized) return;
+	unsigned int temp = vt[cur_vt].cy * 80 + vt[cur_vt].cx;
+	outportb(0x3D4, 14);
+	outportb(0x3D5, temp >> 8);
+	outportb(0x3D4, 15);
+	outportb(0x3D5, temp);
 }
 
-size_t vt_fread(void *buf, size_t size, size_t count, FILE *stream)
+void vt_locate_display(unsigned int x, unsigned int y)
 {
-	if(count < 0 || size < 0) return 0;
-	list_iter_of_stream_pairs iter;
-	list_loop(iter, stream_pair_list) {
-		struct stream_pair *p = &list_item(iter);
-		if (p->stream1 == stream) {
-			size_t oldlen = p->buf1len;
-			size_t readlen = size*count;
-			size_t newlen = oldlen - readlen;
-			if(oldlen < readlen){
-				newlen = 0;
-				readlen = oldlen;
-			}
-			memcpy(buf, p->to1buf, readlen);
-			p->to1buf = (char*)krealloc(p->to1buf + readlen, newlen);
-			return readlen;
-		}
-		if (p->stream2 == stream) {
-			size_t oldlen = p->buf2len;
-			size_t readlen = size*count;
-			size_t newlen = oldlen - readlen;
-			if(oldlen < readlen){
-				newlen = 0;
-				readlen = oldlen;
-			}
-			memcpy(buf, p->to2buf, readlen);
-			p->to2buf = (char*)krealloc(p->to2buf + readlen, newlen);
-			return readlen;
-		}
-	}
-	kprintf("vt_fread(): could not find stream from list\n");
-	return 0;
+	if(!initialized) return;
+	if(!driverstream) return;
+	unsigned int xy[2];
+	xy[0] = x;
+	xy[1] = y;
+	ioctl(driverstream, IOCTL_DISPLAY_LOCATE, (uintptr_t)&xy);
 }
 
-int vt_ioctl(FILE *stream, int request, uintptr_t param)
+void vt_update_display_cursor()
 {
-	list_iter_of_stream_pairs iter;
-	list_loop(iter, stream_pair_list) {
-		struct stream_pair *p = &list_item(iter);
-		//FILE *this;
-		FILE *other;
-		char *tothisbuf;
-		int tothisbuflen;
-		if (p->stream1 == stream) {
-			//this = p->stream1;
-			other = p->stream2;
-			tothisbuf = p->to1buf;
-			tothisbuflen = p->buf1len;
-		}
-		else if (p->stream2 == stream) {
-			//this = p->stream2;
-			other = p->stream1;
-			tothisbuf = p->to2buf;
-			tothisbuflen = p->buf2len;
-		}
-		else continue;
+	vt_locate_display(vt[cur_vt].cx, vt[cur_vt].cy + vt[cur_vt].scroll);
+}
 
-		if(request == IOCTL_VT_SET_FWRITE){
-			struct filefunc *func;
-			func = (struct filefunc*)other->func;
-			func->fwrite = (fwrite_t)param;
-			if(func->fwrite==NULL){
-				func->fwrite = (fwrite_t)vt_fwrite;
-			}
-			else{
-				int a = func->fwrite(tothisbuf, sizeof(char), tothisbuflen,
-						other);
-				kfree(tothisbuf);
-				if(a != tothisbuflen) return 1;
-				else return 0;
-			}
+//täyttää halutun pätkän 0x0,0x7-floodilla
+//(näyttöbuffereiden tyhjäykseen, 0x7 on oletusväri)
+void vt_fill_with_blank(char *buf, unsigned int length)
+{
+	int j;
+	for(j=0; j<length; j++){
+		*(buf + j*2 + 0) = 0;
+		*(buf + j*2 + 1) = 0x7;
+	}
+}
+
+unsigned char vt_get_color(unsigned int vt_num)
+{
+	if(!initialized) return -1;
+	if (vt_num >= VT_COUNT) {
+		return 0;
+	}
+	return vt[vt_num].color;
+}
+
+void vt_set_color(unsigned int vt_num, unsigned char c)
+{
+	if(!initialized) return;
+	if (vt_num >= VT_COUNT) {
+		return;
+	}
+	vt[vt_num].color = c;
+}
+
+int vt_locate(unsigned int vt_num, unsigned int x, unsigned int y)
+{
+	if(!initialized) return 1;
+	if(vt_num >= VT_COUNT) return 1;
+	int ret = 0;
+	if(x >= driverinfo.w){
+		x = driverinfo.w - 1;
+		ret = 1;
+	}
+	if(y >= driverinfo.h){
+		y = driverinfo.h - 1;
+		ret = 1;
+	}
+	vt[vt_num].cx = x;
+	vt[vt_num].cy = y;
+	if(vt_num == cur_vt){
+		if(driverstream){
+			vt_update_display_cursor();
 		}
 		else{
-			return 1;
+			vt_fallback_update_cursor();
 		}
 	}
-	return 1;
+
+	return ret;
 }
 
-int vt_fclose(FILE *stream)
+void vt_cls(unsigned int vt_num)
 {
-	kprintf("vt_fclose()\n");
-	list_iter_of_stream_pairs iter;
-	list_loop(iter, stream_pair_list) {
-		if (list_item(iter).stream1 == stream || list_item(iter).stream2 == stream) {
-			kprintf("closing\n");
-			list_item(iter).stream1 = NULL;
-			list_item(iter).stream2 = NULL;
-			kfree(list_item(iter).to2buf);
-			kfree(list_item(iter).to1buf);
-			list_erase(iter);
-			return 0;
+	if(!initialized) return;
+	if (vt_num >= VT_COUNT) {
+		return;
+	}
+	vt[vt_num].cx = 0;
+	vt[vt_num].cy = 0;
+	if(vt_num == cur_vt){
+		if(driverstream){
+			ioctl(driverstream, IOCTL_DISPLAY_CLS, NULL);
+		}
+		else{
+			int i;
+			for(i=0; i<80*25; i++){
+				*(char*)(0xB8000 + i * 2 + 0) = ' ';
+				*(char*)(0xB8000 + i * 2 + 1) = 0x7;
+			}
+			vt_fallback_update_cursor();
 		}
 	}
-	return 1;
+	if(vt[vt_num].buffer && initialized){
+		vt_fill_with_blank(vt[vt_num].buffer + vt[vt_num].bufsize - driverinfo.h*vt[vt_num].bufw*2, driverinfo.h*vt[vt_num].bufw);
+	}
 }
 
-/*FILE * vt_getpair(FILE *stream)
+int vt_print(unsigned int vt_num, const char *string)
 {
-	list_iter_of_stream_pairs iter;
-	list_loop(iter, stream_pair_list) {
-		if (list_item(iter).stream1 == stream) {
-			return list_item(iter).stream2;
-		}
-		if (list_item(iter).stream2 == stream) {
-			return list_item(iter).stream1;
+	if(!initialized) return 1;
+	if (vt_num >= VT_COUNT) return 1;
+	if (!vt[vt_num].in_kprintf) {
+		if (threading_on()) {
+			spinl_lock(&vt[vt_num].printlock);
 		}
 	}
-	return NULL;
-}*/
 
-int vt_get(FILE **streams)
+	char *s = (char *)string;
+	while (*s) {
+		vt_putch(vt_num, *s);
+		++s;
+	}
+
+	if (!vt[vt_num].in_kprintf) {
+		if (threading_on()) {
+			spinl_unlock(&vt[vt_num].printlock);
+		}
+	}
+
+	return s - string;
+}
+
+///
+
+unsigned int vt_get_display_height(void)
 {
-	kprintf("vt_get()\n");
+	if(!initialized) return 0;
+	if(driverstream) return driverinfo.h;
+	else return 25;
+}
 
-	FILE *stream1 = (FILE*)kmalloc(sizeof(FILE));
-	if(stream1 == NULL){
-		kprintf("vt_open(): kmalloc error 1\n");
-		return 1;
+
+void do_eop(void)
+{
+	if(!initialized) return;
+	/* if user wants to change vt while printing we queue it */
+	if (change_to_vt) {
+		vt_change(change_to_vt);
 	}
-	memset(stream1, 0, sizeof(struct filefunc));
-	stream1->mode = FILE_MODE_READ + FILE_MODE_WRITE;
+}
 
-	FILE *stream2 = (FILE*)kmalloc(sizeof(FILE));
-	if(stream2 == NULL){
-		kprintf("vt_open(): kmalloc error 2\n");
-		kfree(stream1);
-		return 1;
+unsigned int vt_out_get(void)
+{
+	if(!initialized) return 0;
+	if (threading_on()) {
+		return active_process_ptr->vt_num;
 	}
-	memset(stream2, 0, sizeof(struct filefunc));
-	stream2->mode = FILE_MODE_READ + FILE_MODE_WRITE;
 
-	struct filefunc *func1;
-	func1 = (struct filefunc*)kmalloc(sizeof(struct filefunc));
-	if(func1 == NULL){
-		kprintf("vt_open(): kmalloc error 3\n");
-		kfree(stream1);
-		kfree(stream2);
-		return 1;
+	return VT_KERN_LOG;
+}
+
+void update_from_current_buf(void)
+{
+	if(!initialized) return;
+	if(driverstream){
+		if(vt[cur_vt].buffer){
+			//FIXME: jostain syystä joko tämä tai displayn
+			//display_fwrite() bugaa jännästi
+			vt_locate_display(0,0);
+			fwrite(vt[cur_vt].buffer + vt[cur_vt].bufsize - (driverinfo.h*driverinfo.w*2) - vt[cur_vt].scroll * (driverinfo.w*2), 1, (driverinfo.h*driverinfo.w*2), driverstream);
+			vt_update_display_cursor();
+		}
 	}
-	memset(func1, 0, sizeof(struct filefunc));
-
-	struct filefunc *func2;
-	func2 = (struct filefunc*)kmalloc(sizeof(struct filefunc));
-	if(func2 == NULL){
-		kprintf("vt_open(): kmalloc error 4\n");
-		kfree(stream1);
-		kfree(stream2);
-		kfree(func1);
-		return 1;
+	else{
+		if(vt[cur_vt].buffer){
+			memcpy((char*)0xB8000, vt[cur_vt].buffer + vt[cur_vt].bufsize - 160*25,
+					160*25);
+			vt_fallback_update_cursor();
+		}
 	}
-	memset(func2, 0, sizeof(struct filefunc));
+}
 
-	func1->fwrite = (fwrite_t)&vt_fwrite;
-	func1->fread = (fread_t)&vt_fread;
-	func1->ioctl = (ioctl_t)&vt_ioctl;
-	func1->fclose = (fclose_t)&vt_fclose;
+void buffer_add_lines(unsigned int vt_num, unsigned int lines)
+{
+	if(!initialized) return;
+	if(!driverstream) return; //ei bufferia fallbackina
+	if (vt_num >= VT_COUNT) return;
+	if(vt[cur_vt].buffer){
+		memmove(vt[cur_vt].buffer, vt[cur_vt].buffer + lines, vt[vt_num].bufsize - lines*vt[vt_num].bufw*2);
+		vt_fill_with_blank(vt[vt_num].buffer + vt[vt_num].bufsize - lines*vt[vt_num].bufw*2, lines*vt[vt_num].bufw);
+	}
+}
 
-	func2->fwrite = (fwrite_t)&vt_fwrite;
-	func2->fread = (fread_t)&vt_fread;
-	func2->ioctl = (ioctl_t)&vt_ioctl;
-	func2->fclose = (fclose_t)&vt_fclose;
 
-	stream1->func = func1;
-	stream2->func = func2;
+void vt_change(unsigned int vt_num)
+{
+	if(!initialized) return;
+	if(!driverstream) return; //ei vt:n vaihtoa fallbackina (ei bufferia)
+	if (vt_num >= VT_COUNT) {
+		return;
+	}
+	if (cur_vt == vt_num) {
+		return;
+	}
+	if (spinl_locked(&vt[cur_vt].writelock) || spinl_locked(&vt[cur_vt].printlock)) {
+		change_to_vt = vt_num;
+		return;
+	}
+	change_to_vt = 0;
+	cur_vt = vt_num;
+	update_from_current_buf();
+	do_eop();
+}
 
-	struct stream_pair streampair;
-	streampair.stream1 = stream1;
-	streampair.stream2 = stream2;
-	streampair.to1buf = NULL;
-	streampair.to2buf = NULL;
-	streampair.buf1len = 0;
-	streampair.buf2len = 0;
+void vt_scroll(int lines) {
+	if(!initialized) return;
+	if(!driverstream) return; //ei skrollailua fallbackina (ei bufferia)
+	vt[cur_vt].scroll += lines;
+	if(vt[cur_vt].scroll < 0)
+		vt[cur_vt].scroll = 0;
+	if(vt[cur_vt].scroll > VT_BUF_H - driverinfo.h)
+		vt[cur_vt].scroll = VT_BUF_H - driverinfo.h;
+	update_from_current_buf();
+}
+
+void vt_putch(unsigned int vt_num, int c)
+{
+	if(!initialized) return;
+	if (vt_num >= VT_COUNT) return;
+	if (threading_on()) {
+		spinl_lock(&vt[vt_num].writelock);
+	}
+
+	if (vt[vt_num].scroll != 0) {
+		vt[vt_num].scroll = 0;
+		vt_scroll(0);
+	}
 	
-	list_insert(list_end(stream_pair_list), streampair);
+	if (c == '\b') { /* backspace */
+		if (vt[vt_num].cx > 0) {
+			vt[vt_num].cx--;
+		} else {
+			vt[vt_num].cx = (driverinfo.w) - 1;
+			vt[vt_num].cy--;
+		}
+		vt_update_display_cursor();
+	}
+	else if (c == '\t') { /* tab */
+		vt[vt_num].cx = (vt[vt_num].cx + 8) & ~7;
+		vt_update_display_cursor();
+	}
+	else if (c == '\r') { /* return */
+		vt[vt_num].cx = 0;
+		vt_update_display_cursor();
+	}
+	else if (c == '\n') { /* new line */
+		vt[vt_num].cx = 0;
+		vt[vt_num].cy++;
+		vt_update_display_cursor();
+	}
+	else if (c >= ' ') { /* printable character */
+		if(vt_num == cur_vt) {
+			if(driverstream){
+				char cc[2];
+				cc[0] = c;
+				cc[1] = vt[vt_num].color;
+				fwrite(cc, 1, 2, driverstream);
+			}
+			else{
+				*(char*)(0xB8000 + vt[vt_num].cy * 160 + vt[vt_num].cx * 2) = c;
+				*(char*)(0xB8000 + vt[vt_num].cy * 160 + vt[vt_num].cx * 2 + 1) = 0x7;
+			}
+		}
+		if(vt[vt_num].buffer && initialized) {
+			*(vt[vt_num].buffer + vt[vt_num].bufsize - (driverinfo.h*driverinfo.w*2) + vt[vt_num].cy * (driverinfo.w*2) + vt[vt_num].cx * 2) = c;
+			*(vt[vt_num].buffer + vt[vt_num].bufsize - (driverinfo.h*driverinfo.w*2) + vt[vt_num].cy * (driverinfo.w*2) + vt[vt_num].cx * 2 + 1) = vt[vt_num].color;
+		}
+		vt[vt_num].cx++;
+	}
+
 	
-	streams[0] = stream1;
-	streams[1] = stream2;
+	if(driverstream){
+		if (vt[vt_num].cx >= (driverinfo.w)) {
+			vt[vt_num].cx = 0;
+			vt[vt_num].cy++;
+		}
+		if (vt[vt_num].cy >= driverinfo.h) { /* scroll screen */
+			int amount = vt[vt_num].cy - (driverinfo.h - 1);
+			buffer_add_lines(vt_num, amount);
+			ioctl(driverstream, IOCTL_DISPLAY_ROLL_UP, amount);
+			vt[vt_num].cy = driverinfo.h - 1;
+			vt_update_display_cursor();
+		}
+	}
+	else{
+		if (vt[vt_num].cx >= 80) {
+			vt[vt_num].cx = 0;
+			vt[vt_num].cy++;
+		}
+		if (vt[vt_num].cy >= 25) { /* scroll screen */
+			int amount = vt[vt_num].cy - (25 - 1);
+			
+			memmove((char *)0xB8000, (char *)0xB8000 + amount * 160,
+					(25 - amount) * 160);
+			vt_fill_with_blank((char *)0xB8000 + (25 - amount) * 160, 80 * amount);
+
+			vt[vt_num].cy = 25 - 1;
+		}
+	}
+	if (threading_on()) {
+		spinl_unlock(&vt[vt_num].writelock);
+	}
+	vt_fallback_update_cursor();
+	do_eop();
+}
+
+void vt_keyboard(int code, int down)
+{
+	if(!initialized) return;
+	if(!vt[cur_vt].kb_buf) return;
+	vt[cur_vt].kb_buf[vt[cur_vt].kb_buf_end] = code | (down ? 0 : 256);
+	++vt[cur_vt].kb_buf_count;
+	++vt[cur_vt].kb_buf_end;
+	vt[cur_vt].kb_buf_end %= KB_BUFFER_SIZE;
+}
+
+int vt_kb_peek(unsigned int vt_num)
+{
+	if(!initialized) return -1;
+	if (!vt[vt_num].kb_buf_count) {
+		return -1;
+	}
+	return vt[vt_num].kb_buf[vt[vt_num].kb_buf_start++];
+}
+
+int vt_kb_get(unsigned int vt_num)
+{
+	if(!initialized) return -1;
+	int ret;
+	extern void taikatemppu();
+
+	while (!vt[vt_num].kb_buf_count) {
+		taikatemppu(&vt[vt_num].kb_buf_count);
+	}
+
+	ret = vt[vt_num].kb_buf[vt[vt_num].kb_buf_start];
+	--vt[vt_num].kb_buf_count;
+	++vt[vt_num].kb_buf_start;
+	vt[vt_num].kb_buf_start %= KB_BUFFER_SIZE;
+
+	/*if (kb_buf_full) {
+		asm_cli();
+		while (kb_buf_full) {
+			keyboard_handle();
+		}
+		asm_sti();
+		//asm_hlt();
+	}*/
+
+	return ret;
+}
+
+void vt_kprintflock(unsigned int vt_num)
+{
+	if(!initialized) return;
+	if(threading_on()) {
+		spinl_lock(&vt[vt_num].printlock);
+		vt[vt_num].in_kprintf = 1;
+	}
+}
+
+void vt_kprintfunlock(unsigned int vt_num)
+{
+	if(!initialized) return;
+	if(threading_on()) {
+		spinl_unlock(&vt[vt_num].printlock);
+		vt[vt_num].in_kprintf = 0;
+	}
+}
+
+int vt_setdriver(char *fname)
+{
+	int i;
+	if(fname==NULL){ //NULL = fallback
+		for(i = 0; i < VT_COUNT; i++) {
+			if(vt[i].buffer) kfree(vt[i].buffer);
+			vt[i].scroll = 0;
+			vt[i].in_kprintf = 0;
+			vt[i].cx = vt[i].cy = 0;
+			vt[i].color = 0x7;
+			vt[i].buffer = 0;
+			vt[i].kb_buf_count = 0;
+			vt[i].kb_buf_start = 0;
+			vt[i].kb_buf_end = 0;
+			spinl_init(&vt[i].writelock);
+			spinl_init(&vt[i].printlock);
+		}
+
+		cur_vt = 0;
+		memset(&driverinfo, 0, sizeof(driverinfo));
+		driverstream = NULL;
+	}
 	
+	if(!initialized) return 1;
+
+	driverstream = fopen(fname, "w");
+	if(driverstream == NULL){
+		kprintf("vt_setdriver(): driverstream=NULL\n");
+		return 1;
+	}
+	memset(&driverinfo, 0, sizeof(driverinfo));
+	if(ioctl(driverstream, IOCTL_DISPLAY_GET_INFO, (uintptr_t)&driverinfo)){
+		driverstream = NULL;
+		kprintf("vt_setdriver(): couldn't get display info\n");
+		return 1;
+	}
+	for(i = 0; i < VT_COUNT; i++) {
+		if(vt[i].buffer) kfree(vt[i].buffer);
+
+		vt[i].cx = vt[i].cy = 0;
+		vt[i].bufsize = driverinfo.h * driverinfo.w*2;
+
+		vt[i].buffer = (char*)kmalloc(vt[i].bufsize);
+
+		vt_fill_with_blank(vt[i].buffer, driverinfo.h * driverinfo.w);
+	}
+	
+	kprintf("vt_setdriver(): driver set\n");
+
 	return 0;
 }
 
 void vt_init(void)
 {
-	kprintf("vt_init()\n");
-	list_init(stream_pair_list);
+	/*int i;
+	for(i = 0; i < vt_count; i++) {
+		vt[i].scroll = 0;
+		vt[i].in_kprintf = 0;
+		vt[i].cx = vt[i].cy = 0;
+		vt[i].color = 0x7;
+		vt[i].buffer = 0;
+		vt[i].kb_buf_count = 0;
+		vt[i].kb_buf_start = 0;
+		vt[i].kb_buf_end = 0;
+		spinl_init(&vt[i].writelock);
+		spinl_init(&vt[i].printlock);
+	}
+
+	cur_vt = 0;
+	memset(&driverinfo, 0, sizeof(driverinfo));
+	driverstream = null;*/
+
+	vt_setdriver(NULL);
+
+	initialized = 1;
 }
 
 

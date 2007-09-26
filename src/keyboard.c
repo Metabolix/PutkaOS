@@ -1,3 +1,4 @@
+#include <keyboard.h>
 #include <io.h>
 #include <irq.h>
 #include <idt.h>
@@ -6,6 +7,7 @@
 #include <putkaos.h>
 #include <mem.h>
 #include <bit.h>
+#include <vt.h>
 
 char *nappien_nimet_qwerty[256] = {
 	"0x00",
@@ -264,13 +266,13 @@ void keyboard_handle(void)
 	static unsigned char capsl_key, numl_key, scroll_key;
 	static unsigned int code;
 
-	if (vt[cur_vt].kb_buf_count == KB_BUFFER_SIZE) {
+	/*if (vt[vt_out_get()].kb_buf_count == KB_BUFFER_SIZE) {
 		print("Keyboard buffer is full!\n");
 		++kb_buf_full;
 		return;
 	} else if (kb_buf_full) {
 		--kb_buf_full;
-	}
+	}*/
 
 	if (escaped) {
 		--escaped;
@@ -334,21 +336,18 @@ void keyboard_handle(void)
 				break;
 			case KEY_PGUP:
 				if((kb_mods & KEYB_MOD_LSHIFT || kb_mods & KEYB_MOD_RSHIFT) && down)
-					scroll(SCREEN_H/2);
+					vt_scroll(vt_get_display_height()/2);
 				break;
 			case KEY_PGDOWN:
 				if((kb_mods & KEYB_MOD_LSHIFT || kb_mods & KEYB_MOD_RSHIFT) && down)
-					scroll(-SCREEN_H/2);
+					vt_scroll(-vt_get_display_height()/2);
 				break;
 			default:
 				if (code >= KEY_F1 && code <= KEY_F6) { /* f1-f6 */
-					change_vt(code - KEY_F1);
+					vt_change(code - KEY_F1);
 				}
 				else{
-					vt[cur_vt].kb_buf[vt[cur_vt].kb_buf_end] = code | (down ? 0 : 256);
-					++vt[cur_vt].kb_buf_count;
-					++vt[cur_vt].kb_buf_end;
-					vt[cur_vt].kb_buf_end %= KB_BUFFER_SIZE;
+					vt_keyboard(code, down);
 				}
 		}
 
@@ -357,38 +356,12 @@ void keyboard_handle(void)
 
 int kb_peek(void)
 {
-	unsigned int curr_vt = cur_vt;
-	if (!vt[curr_vt].kb_buf_count) {
-		return -1;
-	}
-	return vt[curr_vt].kb_buf[vt[curr_vt].kb_buf_start];
+	return vt_kb_peek(vt_out_get());
 }
 
 int kb_get(void)
 {
-	int ret;
-	unsigned int curr_vt = cur_vt;
-	extern void taikatemppu();
-
-	while (!vt[curr_vt].kb_buf_count) {
-		taikatemppu(&vt[curr_vt].kb_buf_count);
-	}
-
-	ret = vt[curr_vt].kb_buf[vt[curr_vt].kb_buf_start];
-	--vt[curr_vt].kb_buf_count;
-	++vt[curr_vt].kb_buf_start;
-	vt[curr_vt].kb_buf_start %= KB_BUFFER_SIZE;
-
-	if (kb_buf_full) {
-		asm_cli();
-		while (kb_buf_full) {
-			keyboard_handle();
-		}
-		asm_sti();
-		//asm_hlt();
-	}
-
-	return ret;
+	return vt_kb_get(vt_out_get());
 }
 
 void keyboard_install(void)
