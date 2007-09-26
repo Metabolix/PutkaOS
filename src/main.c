@@ -87,7 +87,7 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 	print("testattava_koodi();\n");
 	testattava_koodi();
 	
-	//avataan oikea näyttöajuri ja 
+	//avataan oikea näyttöajuri ja asetetaan se vt-jutun käyttöön
 	display_init();
 	vt_setdriver("/dev/display");
 
