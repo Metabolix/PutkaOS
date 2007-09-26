@@ -77,14 +77,20 @@ void display_cls(void)
 	display.cy = 0;
 }
 
-//FIXME: joko tämä tai vt:n update_from_current_buf() bugaa jännästi
 size_t display_fwrite(const void *buf, size_t size, size_t count, FILE *stream)
 {
-	unsigned int i;
+	memcpy((char*)(0xB8000 + display.cy * DISPLAY_MEM_W + display.cx * 2), buf, size*count);
+	display.cx += size*count/2;
+	int ychange = display.cx / DISPLAY_W;
+	display.cx -= ychange * DISPLAY_W;
+	display.cy += ychange;
+	display.cy %= DISPLAY_H;
+	
+	/*unsigned int i;
 	char *cbuf = (char*)buf;
 	for(i=0; i < count/2; i++){
-		*(char*)(0xB8000 + display.cy * DISPLAY_MEM_W + display.cx * 2) = *cbuf;
-		*(char*)(0xB8000 + display.cy * DISPLAY_MEM_W + display.cx * 2 + 1) = *(cbuf+1);
+		*(char*)(0xB8000 + display.cy * DISPLAY_MEM_W + display.cx * 2) = *(cbuf++);
+		*(char*)(0xB8000 + display.cy * DISPLAY_MEM_W + display.cx * 2 + 1) = *(cbuf++);
 		display.cx++;
 		if (display.cx >= DISPLAY_W) {
 			display.cx = 0;
@@ -93,8 +99,8 @@ size_t display_fwrite(const void *buf, size_t size, size_t count, FILE *stream)
 		if (display.cy >= DISPLAY_H) {
 			display.cy = 0;
 		}
-		cbuf+=2;
-	}
+	}*/
+	
 	return count;
 }
 

@@ -176,11 +176,23 @@ void update_from_current_buf(void)
 	if(!initialized) return;
 	if(driverstream){
 		if(vt[cur_vt].buffer){
-			//FIXME: jostain syystä joko tämä tai displayn
-			//display_fwrite() bugaa jännästi
-			vt_locate_display(0,0);
-			fwrite(vt[cur_vt].buffer + vt[cur_vt].bufsize - (driverinfo.h*driverinfo.w*2) - vt[cur_vt].scroll * (driverinfo.w*2), 1, (driverinfo.h*driverinfo.w*2), driverstream);
+			vt_locate_display(0, 0);
+			fwrite((char*)vt[cur_vt].buffer + vt[cur_vt].bufsize
+					- (driverinfo.h * driverinfo.w * 2)
+					- (vt[cur_vt].scroll * driverinfo.w * 2), 1,
+					(driverinfo.h * driverinfo.w * 2), driverstream);
 			vt_update_display_cursor();
+			
+			/*
+			int x, y;
+			for(y=0; y<driverinfo.h; y++){
+				for(x=0; x<driverinfo.w; x++){
+					vt_locate_display(x, y);
+					fwrite((char*)(vt[cur_vt].buffer + vt[cur_vt].bufsize - (driverinfo.h*driverinfo.w*2) - vt[cur_vt].scroll * (driverinfo.w*2) + y * driverinfo.w*2 + x*2), 1, 2, driverstream);
+					vt_update_display_cursor();
+				}
+			}
+			*/
 		}
 	}
 	else{
@@ -198,8 +210,10 @@ void buffer_add_lines(unsigned int vt_num, unsigned int lines)
 	if(!driverstream) return; //ei bufferia fallbackina
 	if (vt_num >= VT_COUNT) return;
 	if(vt[cur_vt].buffer){
-		memmove(vt[cur_vt].buffer, vt[cur_vt].buffer + lines, vt[vt_num].bufsize - lines*vt[vt_num].bufw*2);
-		vt_fill_with_blank(vt[vt_num].buffer + vt[vt_num].bufsize - lines*vt[vt_num].bufw*2, lines*vt[vt_num].bufw);
+		memmove(vt[cur_vt].buffer, vt[cur_vt].buffer + (lines * vt[cur_vt].bufw * 2),
+				vt[vt_num].bufsize - (lines * vt[vt_num].bufw * 2));
+		vt_fill_with_blank(vt[vt_num].buffer + vt[vt_num].bufsize
+				- (lines * vt[vt_num].bufw * 2), (lines * vt[vt_num].bufw));
 	}
 }
 
@@ -227,6 +241,10 @@ void vt_change(unsigned int vt_num)
 void vt_scroll(int lines) {
 	if(!initialized) return;
 	if(!driverstream) return; //ei skrollailua fallbackina (ei bufferia)
+	/*if(lines < -vt[cur_vt].scroll)
+		lines = -vt[cur_vt].scroll;
+	if(lines > VT_BUF_H - vt[cur_vt].scroll)
+		lines = VT_BUF_H - vt[cur_vt].scroll;*/
 	vt[cur_vt].scroll += lines;
 	if(vt[cur_vt].scroll < 0)
 		vt[cur_vt].scroll = 0;
@@ -245,7 +263,7 @@ void vt_putch(unsigned int vt_num, int c)
 
 	if (vt[vt_num].scroll != 0) {
 		vt[vt_num].scroll = 0;
-		vt_scroll(0);
+		update_from_current_buf();
 	}
 	
 	if (c == '\b') { /* backspace */
@@ -396,6 +414,7 @@ int vt_setdriver(char *fname)
 	if(fname==NULL){ //NULL = fallback
 		for(i = 0; i < VT_COUNT; i++) {
 			if(vt[i].buffer) kfree(vt[i].buffer);
+			memset(&vt[i], 0, sizeof(struct vt_t));
 			vt[i].scroll = 0;
 			vt[i].in_kprintf = 0;
 			vt[i].cx = vt[i].cy = 0;
@@ -411,6 +430,7 @@ int vt_setdriver(char *fname)
 		cur_vt = 0;
 		memset(&driverinfo, 0, sizeof(driverinfo));
 		driverstream = NULL;
+		return 0;
 	}
 	
 	if(!initialized) return 1;
@@ -431,6 +451,8 @@ int vt_setdriver(char *fname)
 
 		vt[i].cx = vt[i].cy = 0;
 		vt[i].bufsize = driverinfo.h * driverinfo.w*2;
+		vt[i].bufh = VT_BUF_H;
+		vt[i].bufw = driverinfo.w;
 
 		vt[i].buffer = (char*)kmalloc(vt[i].bufsize);
 
@@ -444,26 +466,7 @@ int vt_setdriver(char *fname)
 
 void vt_init(void)
 {
-	/*int i;
-	for(i = 0; i < vt_count; i++) {
-		vt[i].scroll = 0;
-		vt[i].in_kprintf = 0;
-		vt[i].cx = vt[i].cy = 0;
-		vt[i].color = 0x7;
-		vt[i].buffer = 0;
-		vt[i].kb_buf_count = 0;
-		vt[i].kb_buf_start = 0;
-		vt[i].kb_buf_end = 0;
-		spinl_init(&vt[i].writelock);
-		spinl_init(&vt[i].printlock);
-	}
-
-	cur_vt = 0;
-	memset(&driverinfo, 0, sizeof(driverinfo));
-	driverstream = null;*/
-
 	vt_setdriver(NULL);
-
 	initialized = 1;
 }
 

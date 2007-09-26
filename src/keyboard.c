@@ -340,6 +340,7 @@ void keyboard_handle(void)
 				break;
 			case KEY_PGDOWN:
 				if((kb_mods & KEYB_MOD_LSHIFT || kb_mods & KEYB_MOD_RSHIFT) && down)
+					//vt_scroll(-1);
 					vt_scroll(-vt_get_display_height()/2);
 				break;
 			default:
