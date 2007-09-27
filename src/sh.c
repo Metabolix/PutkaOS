@@ -42,6 +42,10 @@ void run_sh(void)
 				}
 				history_index++;
 				/* Clear */
+				while(buffer[loc]){
+					loc++;
+					putch(' ');
+				}
 				while (loc > 0) {
 					print("\b \b");
 					buffer[--loc] = 0;
@@ -56,6 +60,10 @@ void run_sh(void)
 			if (ch == KEY_DOWN) {
 				if (history_index >= 0) {
 					/* Clear */
+					while(buffer[loc]){
+						loc++;
+						putch(' ');
+					}
 					while (loc > 0) {
 						print("\b \b");
 						buffer[--loc] = 0;
@@ -69,6 +77,10 @@ void run_sh(void)
 						history_index--;
 					}
 				} else { /* Clear */
+					while(buffer[loc]){
+						loc++;
+						putch(' ');
+					}
 					while (loc > 0) {
 						print("\b \b");
 						buffer[--loc] = 0;
@@ -104,6 +116,18 @@ void run_sh(void)
 				}
 				continue;
 			}
+			if(ch == KEY_DEL){
+				if (loc >= 0 && buffer[loc] != 0) {
+					for(i=loc; i < buffer_size-1; i++){
+						buffer[i] = buffer[i+1];
+						if(buffer[i] == 0) break;
+						else putch(buffer[i]);
+					}
+					print(" \b");
+					for(i-=loc; i > 0; i--) putch('\b');
+				}
+				continue;
+			}
 			int hex = ch;
 			ch = ktoasc(ch);
 			if (ch == '\n' || hex == KEY_NUM_ENTER) {
@@ -118,22 +142,30 @@ void run_sh(void)
 					loc--;
 					for(i=loc; i < buffer_size-1; i++){
 						buffer[i] = buffer[i+1];
-						if(buffer[i] == 0){
-							print(" \b");
-							break;
-						}
+						if(buffer[i] == 0) break;
 						else putch(buffer[i]);
 					}
+					print(" \b");
 					for(i-=loc; i > 0; i--) putch('\b');
 				}
 				continue;
 			}
 			if (loc < buffer_size - 1) {
 				putch(ch);
+				//jos locin kohdalla on nolla, kirjoitetaan siihen merkki ja
+				//nolla seuraavaan ja liikutaan
+				if(buffer[loc]==0){
+					buffer[loc] = ch;
+					buffer[++loc] = 0;
+					continue;
+				}
+				//haetaan bufferin pää ja samalla tulostellaan bufferin loppu
 				for(i=loc; i < buffer_size; i++){
 					if(buffer[i] == 0) break;
 					putch(buffer[i]);
 				}
+				//siirretään juttuja locin jälkeen eteen päin
+				buffer[i+1] = 0;
 				for(; i > loc; i--){
 					buffer[i] = buffer[i-1];
 					putch('\b');

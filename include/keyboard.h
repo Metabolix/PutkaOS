@@ -148,5 +148,6 @@ KEY__0x56 = 0x56,
 	KEY_DOWN = KEY_NUM_2 | 0x80,
 	KEY_PGDOWN = KEY_NUM_3 | 0x80,
 
+	KEY_DEL = 0xd3,
 };
 #endif
