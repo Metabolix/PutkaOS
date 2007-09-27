@@ -9,10 +9,14 @@
 #define def_ceil(name, type) static type name (type x, type bound) { return (x % bound) ? (x + bound - x % bound) : x; }
 def_ceil(ceil_uint32, uint32_t)
 
+#define MALLOC kmalloc
+#define CALLOC kcalloc
+#define FREE kfree
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
+
 static int minix_check_filename(const char *filename, int maxlen, int *parts);
 static struct minix_file *minix_fopen_all(struct minix_fs *this, const char * filename, uint_t mode, int file_or_dir);
 static size_t minix_get_zones(struct minix_file *this, const size_t zone0, const size_t zone1, uint16_t *zonelist, const int write);
-static size_t minix_alloc_zones(struct minix_file *this, const size_t zone0, const size_t zone2, uint16_t *zonelist);
 
 const struct fs minix_fs = {
 	.name = "minix",
@@ -106,7 +110,7 @@ struct fs *minix_mount(FILE *device, uint_t mode)
 		return 0;
 	}
 
-	pos = MINIX_FS_ZONE_SIZE;
+	pos = MINIX_ZONE_SIZE;
 	if (fsetpos(this->dev, &pos)) {
 		return 0;
 	}
@@ -115,24 +119,33 @@ struct fs *minix_mount(FILE *device, uint_t mode)
 	}
 
 	// TODO: Tunnista kunnolla, onko varmasti minix
-	if (this->super.magic == MINIX_FS_MAGIC_A) {
+	if (this->super.magic == MINIX_MAGIC_A) {
 		this->filename_maxlen = 14;
-	} else if (this->super.magic == MINIX_FS_MAGIC_B) {
+	} else if (this->super.magic == MINIX_MAGIC_B) {
 		this->filename_maxlen = 30;
 	} else {
 		return 0;
 	}
 
-	this->pos_inode_map = 2 * MINIX_FS_ZONE_SIZE;
-	this->pos_zone_map = this->pos_inode_map + this->super.num_inode_map_zones * MINIX_FS_ZONE_SIZE;
-	this->pos_inodes = this->pos_zone_map + this->super.num_zone_map_zones * MINIX_FS_ZONE_SIZE;
-	this->pos_data = this->pos_inodes + ceil_uint32((uint32_t)this->super.num_inodes * sizeof(struct minix_inode), MINIX_FS_ZONE_SIZE);
+	// TODO: Jotain muuta tarkistusta
+#if 0
+	// Kas, UINT16_MAX < MINIX_MAX_ZONES
+	if (this->super.num_zones > MINIX_MAX_ZONES) {
+		DEBUGF("this->super.num_zones = %d > %d (MINIX_MAX_ZONES)\n",
+			this->super.num_zones, MINIX_MAX_ZONES);
+		return 0;
+	}
+#endif
+	this->pos_inode_map = 2 * MINIX_ZONE_SIZE;
+	this->pos_zone_map = this->pos_inode_map + this->super.num_inode_map_zones * MINIX_ZONE_SIZE;
+	this->pos_inodes = this->pos_zone_map + this->super.num_zone_map_zones * MINIX_ZONE_SIZE;
+	this->pos_data = this->pos_inodes + ceil_uint32((uint32_t)this->super.num_inodes * sizeof(struct minix_inode), MINIX_ZONE_SIZE);
 
 	const size_t inode_map_size = this->super.num_inodes / 8 + 1;
-	const size_t zone_map_size = this->super.num_blocks / 8 + 1;
+	const size_t zone_map_size = this->super.num_zones / 8 + 1;
 	const size_t maps_size = inode_map_size + zone_map_size;
 
-	if (!(this = kmalloc(sizeof(struct minix_fs) + maps_size))) goto failure;
+	if (!(this = MALLOC(sizeof(struct minix_fs) + maps_size))) goto failure;
 
 	memcpy(this, &fs, sizeof(struct minix_fs));
 	this->inode_map = (uint8_t*)(this + 1);
@@ -149,7 +162,7 @@ struct fs *minix_mount(FILE *device, uint_t mode)
 	return (struct fs *)this;
 failure:
 	if (!this || this == &fs) return 0;
-	kfree(this);
+	FREE(this);
 	return 0;
 }
 
@@ -163,7 +176,7 @@ int minix_umount(struct minix_fs *this)
 	}
 	if (this->std.filefunc.fwrite) {
 		const size_t inode_map_size = this->super.num_inodes / 8 + 1;
-		const size_t zone_map_size = this->super.num_blocks / 8 + 1;
+		const size_t zone_map_size = this->super.num_zones / 8 + 1;
 
 		if (this->inode_map_changed) {
 			if (fsetpos(this->dev, &this->pos_inode_map)
@@ -181,7 +194,7 @@ int minix_umount(struct minix_fs *this)
 		fflush(this->dev);
 	}
 	list_destroy(this->open_inodes);
-	kfree(this);
+	FREE(this);
 	return 0;
 }
 
@@ -310,7 +323,7 @@ static struct minix_file *minix_fopen_all(struct minix_fs * restrict const this,
 		len = str_end - str;
 
 		next_inode = 0;
-		while (minix_fread(&direntry, MINIX_FS_DIRENTRY_SIZE, 1, &f) == 1) {
+		while (minix_fread(&direntry, MINIX_DIRENTRY_SIZE, 1, &f) == 1) {
 			if (memcmp(direntry.name, str, len) == 0 && direntry.name[len] == 0) {
 				next_inode = direntry.inode;
 				break;
@@ -331,14 +344,14 @@ need_new_file:
 		minix_fclose(&f);
 		return 0;
 	}
-	memset(&direntry, 0, MINIX_FS_DIRENTRY_SIZE);
+	memset(&direntry, 0, MINIX_DIRENTRY_SIZE);
 
 	// TODO: minix_fopen_all: need_new_file: Kivat liput...
 	uint16_t type_flags;
-	if (file_or_dir == MINIX_FS_FLAG_DIR) {
-		type_flags = MINIX_FS_FLAG_DIR;
+	if (file_or_dir == MINIX_FLAG_DIR) {
+		type_flags = MINIX_FLAG_DIR;
 	} else {
-		type_flags = MINIX_FS_FLAG_FILE;
+		type_flags = MINIX_FLAG_FILE;
 	}
 
 	direntry.inode = minix_alloc_inode(this, type_flags);
@@ -347,7 +360,7 @@ need_new_file:
 		return 0;
 	}
 	memcpy(direntry.name, str, str_end - str);
-	if (minix_fwrite(&direntry, MINIX_FS_DIRENTRY_SIZE, 1, &f) != 1) {
+	if (minix_fwrite(&direntry, MINIX_DIRENTRY_SIZE, 1, &f) != 1) {
 		minix_free_inode(this, direntry.inode);
 		minix_fclose(&f);
 		return 0;
@@ -361,14 +374,14 @@ need_new_file:
 
 found_it_already:
 	switch (file_or_dir) {
-		case MINIX_FS_FLAG_FILE:
-			if (MINIX_FS_IS(f.inode->flags, DIR)) {
+		case MINIX_FLAG_FILE:
+			if (MINIX_IS(f.inode->flags, DIR)) {
 				minix_fclose(&f);
 				return 0;
 			}
 			break;
-		case MINIX_FS_FLAG_DIR:
-			if (!MINIX_FS_IS(f.inode->flags, DIR)) {
+		case MINIX_FLAG_DIR:
+			if (!MINIX_IS(f.inode->flags, DIR)) {
 				minix_fclose(&f);
 				return 0;
 			}
@@ -389,9 +402,9 @@ found_it_already:
 		// TODO: minix_fopen_all: FILE_MODE_CLEAR
 	}
 	struct minix_file *retval;
-	if ((retval = kmalloc(sizeof(struct minix_file)))) {
+	if ((retval = MALLOC(sizeof(struct minix_file)))) {
 		memcpy(retval, &f, sizeof(struct minix_file));
-		retval->freefunc = kfree;
+		retval->freefunc = FREE;
 	}
 	return retval;
 }
@@ -415,315 +428,19 @@ int minix_fclose(struct minix_file *stream)
 	return 0;
 }
 
-static size_t minix_get_zones(struct minix_file *this, const size_t zone0, const size_t zone1, uint16_t *zonelist, const int write)
-{
-#define INSERT_ZONE(z) {*zonelist = z; ++zonelist; ++got_zones; ++zone;}
-	size_t j, k;
-	size_t zone;
-	fpos_t pos;
-	uint16_t indir[512], dbl_indir[512];
-	size_t got_zones = 0;
-
-	const size_t end_a = (zone1 < MINIX_STD_ZONES) ? zone1 : MINIX_STD_ZONES;
-	const size_t end_b = (zone1 < MINIX_STD_ZONES + MINIX_INDIR_ZONES) ? zone1 : (MINIX_STD_ZONES + MINIX_INDIR_ZONES);
-	const size_t end_c = zone1;
-
-	zone = zone0;
-
-	if (zone > end_b) goto read_dbl_indir;
-	if (zone > end_a) goto read_indir;
-
-	while (zone < end_a) {
-		if (!this->inode->u.zones.std[zone]) {
-			goto alloc_rest;
-		}
-		INSERT_ZONE(this->inode->u.zones.std[zone]);
-	}
-	if (zone >= zone1) {
-		goto return_etc;
-	}
-
-read_indir:
-	{
-		const size_t count_b = end_b - zone;
-		if (!this->inode->u.zones.indir) {
-			goto alloc_rest;
-		}
-
-		pos = this->inode->u.zones.indir * MINIX_FS_ZONE_SIZE;
-		pos += (zone - end_a) * sizeof(uint16_t);
-		if (fsetpos(this->dev, &pos)) {
-			goto read_error;
-		}
-		if (fread(indir, sizeof(uint16_t), count_b, this->dev) != count_b) {
-			goto read_error;
-		}
-
-		for (j = 0; zone < end_b; ++j) {
-			if (!indir[j]) {
-				goto alloc_rest;
-			}
-			INSERT_ZONE(indir[j]);
-		}
-		if (zone >= zone1) {
-			goto return_etc;
-		}
-	}
-
-read_dbl_indir:
-	{
-		if (!this->inode->u.zones.dbl_indir) {
-			goto alloc_rest;
-		}
-		pos = this->inode->u.zones.dbl_indir * MINIX_FS_ZONE_SIZE;
-		if (fsetpos(this->dev, &pos)) {
-			goto read_error;
-		}
-		if (fread(dbl_indir, sizeof(uint16_t), 512, this->dev) != 512) {
-			goto read_error;
-		}
-
-		while (zone < end_c) {
-			k = zone - end_b;
-
-			pos = dbl_indir[k / 512] * MINIX_FS_ZONE_SIZE;
-			if (fsetpos(this->dev, &pos)) {
-				goto read_error;
-			}
-			if (fread(indir, sizeof(uint16_t), 512, this->dev) != 512) {
-				goto read_error;
-			}
-
-			for (j = k % 512; j < 512 && zone < end_c; ++j) {
-				if (!indir[j]) {
-					goto alloc_rest;
-				}
-				INSERT_ZONE(indir[j]);
-			}
-		}
-		if (zone >= zone1) {
-			goto return_etc;
-		}
-	}
-alloc_rest:
-	if (!write) {
-		// TODO: minix_get_zones: Corrupted inode (size > zonelist)
-		goto return_etc;
-	}
-	got_zones += minix_alloc_zones(this, zone, zone1, zonelist);
-read_error:
-return_etc:
-	return got_zones;
-}
-
-enum minix_alloc_state_t {
-	MINIX_ALLOC_STD,
-	MINIX_ALLOC_INDIR_LIST,
-	MINIX_ALLOC_INDIR,
-	MINIX_ALLOC_DBL_INDIR_LIST_LIST,
-	MINIX_ALLOC_DBL_INDIR_LIST,
-	MINIX_ALLOC_DBL_INDIR,
-};
-struct minix_alloc_zones_t {
-	int state;
-	size_t zone0, zone1;
-
-	uint16_t *indir_list;
-	uint16_t *dbl_indir_list, *dbl_indir_ptr;
-
-	size_t indir_begin, indir_end;
-
-	uint16_t *zonelist;
-	struct minix_inode *inode;
-	struct minix_file *f;
-};
-
-static int minix_handle_alloced_zone(struct minix_alloc_zones_t * const info, uint16_t zone)
-{
-	fpos_t pos;
-	uint16_t write_zone;
-	size_t write_begin, write_end, write_len = 0;
-	void *write_buf;
-
-	switch (info->state) {
-	case MINIX_ALLOC_STD:
-		info->inode->u.zones.std[info->zone0] = *info->zonelist = zone;
-		++info->zonelist;
-		++info->zone0;
-		if (info->zone0 >= MINIX_STD_ZONES) {
-			info->state = MINIX_ALLOC_INDIR_LIST;
-		}
-		return 0;
-
-	case MINIX_ALLOC_INDIR_LIST:
-		info->inode->u.zones.indir = zone;
-		info->indir_list = info->zonelist;
-		info->indir_begin =
-		info->indir_end = info->zone0 - MINIX_STD_ZONES;
-		info->state = MINIX_ALLOC_INDIR;
-
-		write_zone = zone;
-		write_begin = 0;
-		write_len = MINIX_INDIR_ZONES * sizeof(uint16_t);
-		write_buf = 0;
-		goto flush_disk;
-
-	case MINIX_ALLOC_INDIR:
-		*info->zonelist = zone;
-		++info->zonelist;
-		++info->zone0;
-		++info->indir_end;
-		if (info->indir_end == MINIX_INDIR_ZONES || info->zone0 == info->zone1) {
-			info->state = MINIX_ALLOC_DBL_INDIR_LIST_LIST;
-
-			write_zone = info->inode->u.zones.indir;
-			write_begin = info->indir_begin * sizeof(uint16_t);
-			write_end = info->indir_end * sizeof(uint16_t);
-			write_buf = info->indir_list;
-
-			goto flush_disk;
-		}
-		return 0;
-
-	case MINIX_ALLOC_DBL_INDIR_LIST_LIST:
-		info->inode->u.zones.dbl_indir = zone;
-		info->dbl_indir_ptr =
-		info->dbl_indir_list = kcalloc(MINIX_INDIR_ZONES, sizeof(uint16_t));
-		info->state = MINIX_ALLOC_DBL_INDIR_LIST;
-		return 0;
-
-	case MINIX_ALLOC_DBL_INDIR_LIST:
-		if (info->dbl_indir_ptr - info->dbl_indir_list >= MINIX_INDIR_ZONES) {
-			return -1;
-		}
-		*info->dbl_indir_ptr = zone;
-		++info->dbl_indir_ptr;
-		info->indir_list = info->zonelist;
-		info->indir_begin =
-		info->indir_end = (info->zone0 - MINIX_STD_ZONES - MINIX_INDIR_ZONES) % MINIX_INDIR_ZONES;
-		info->state = MINIX_ALLOC_INDIR;
-		return 0;
-
-	case MINIX_ALLOC_DBL_INDIR:
-		*info->zonelist = zone;
-		++info->zonelist;
-		++info->zone0;
-		++info->indir_end;
-		if (info->indir_end == MINIX_INDIR_ZONES || info->zone0 == info->zone1) {
-			info->state = MINIX_ALLOC_DBL_INDIR_LIST;
-
-			write_zone = info->inode->u.zones.indir;
-			write_begin = info->indir_begin * sizeof(uint16_t);
-			write_end = info->indir_end * sizeof(uint16_t);
-			write_buf = info->indir_list;
-
-			goto flush_disk;
-		}
-		return 0;
-	}
-flush_disk:
-	if (!write_len) {
-		write_len = write_end - write_begin;
-	}
-	//--write_zone; // Minix-numerointi 1 .. n. :/
-	pos = write_zone * MINIX_FS_ZONE_SIZE + write_begin;
-	if (fsetpos(info->f->dev, &pos)) {
-		return -1;
-	}
-	if (write_buf) {
-		if (fwrite(write_buf, 1, write_len, info->f->dev) != write_len) {
-			return -1;
-		}
-	} else {
-		while (write_len--) if (fwrite(&write_buf, 1, 1, info->f->dev) != 1) {
-			return -1;
-		}
-	}
-	return 0;
-}
-
-static size_t minix_alloc_zones(struct minix_file *this, const size_t zone0, const size_t zone1, uint16_t *zonelist)
-{
-	struct minix_alloc_zones_t info = {
-		// .state = 0, // Asetetaan kohta
-		.zone0 = zone0,
-		.zone1 = zone1,
-		.zonelist = zonelist,
-		.inode = this->inode,
-		.f = this,
-		// uint16_t *indir_list, *dbl_indir_list, *dbl_indir_ptr;
-		// size_t indir_begin, indir_end;
-	};
-
-	if (zone0 < MINIX_STD_ZONES) {
-		info.state = MINIX_ALLOC_STD;
-	} else if (zone0 < MINIX_STD_ZONES + MINIX_INDIR_ZONES) {
-		if (info.inode->u.zones.indir) {
-			info.indir_list = info.zonelist;
-			info.indir_begin =
-			info.indir_end = zone0 - MINIX_STD_ZONES;
-			info.state = MINIX_ALLOC_INDIR;
-		} else {
-			info.state = MINIX_ALLOC_INDIR_LIST;
-		}
-	} else {
-		if (info.inode->u.zones.dbl_indir) {
-			info.dbl_indir_list = kcalloc(MINIX_INDIR_ZONES, sizeof(uint16_t));
-			// TODO: Lue dbl_indir_list! (ja myöhemmin kirjoita)
-			info.dbl_indir_ptr = info.dbl_indir_list + (zone0 - (MINIX_STD_ZONES + MINIX_INDIR_ZONES)) / MINIX_INDIR_ZONES;
-			if (*info.dbl_indir_ptr) {
-				info.indir_list = info.zonelist;
-				info.indir_begin =
-				info.indir_end = (zone0 - MINIX_STD_ZONES - MINIX_INDIR_ZONES) % MINIX_INDIR_ZONES;
-				info.state = MINIX_ALLOC_DBL_INDIR;
-			} else {
-				info.state = MINIX_ALLOC_DBL_INDIR_LIST;
-			}
-		} else {
-			info.state = MINIX_ALLOC_DBL_INDIR_LIST_LIST;
-		}
-	}
-
-	uint8_t * const zone_map = this->fs->zone_map, * const end_map = this->fs->end_map;
-	uint8_t *ptr = zone_map;
-	int i = 0, j = this->fs->super.first_data_zone - 1;
-	while (info.zone0 != info.zone1 && ptr != end_map) {
-		if (*ptr == 0xff) {
-			++ptr;
-			i = 0;
-			continue;
-		}
-		for (; *ptr & (1 << i); ++i);
-		*ptr |= 1 << i;
-		this->fs->zone_map_changed = 1;
-		if (minix_handle_alloced_zone(&info, j + 8 * (ptr - zone_map) + i)) {
-			break;
-		}
-		++i;
-	}
-
-	if (info.dbl_indir_list) {
-		if (info.dbl_indir_list != info.dbl_indir_ptr) {
-			// TODO: Kirjoita dbl_indir_list! (Ja aiemmin lue)
-		}
-		kfree(info.dbl_indir_list);
-	}
-	return info.zonelist - zonelist;
-}
-
 size_t minix_freadwrite(char *buf, size_t size, size_t count, struct minix_file *stream, fread_t ffunction, int write)
 {
 	const size_t  pos0        = stream->pos = stream->std.pos;
 	const fpos_t  pos_1a      = pos0 + (uint64_t)size * count;
 	const size_t  pos_1b      = write ? stream->fs->super.max_size : stream->size;
-	const size_t  pos1        = pos_1a < pos_1b ? pos_1a : pos_1b;
+	const size_t  pos1        = MIN(pos_1a, pos_1b);
 	const size_t  byte_count  = pos1 - pos0;
-	const size_t  zone0       = pos0 / MINIX_FS_ZONE_SIZE;
-	const size_t  zone1       = 1 + (pos1 - 1) / MINIX_FS_ZONE_SIZE;
+	const size_t  zone0       = pos0 / MINIX_ZONE_SIZE;
+	const size_t  zone1       = 1 + (pos1 - 1) / MINIX_ZONE_SIZE;
 	const size_t  numzones_c  = zone1 - zone0;
 	fpos_t pos;
 	size_t zone;
-	uint16_t *zonelist = kcalloc(sizeof(uint16_t), numzones_c);
+	uint16_t *zonelist = CALLOC(sizeof(uint16_t), numzones_c);
 	size_t done_size, pos_in_zone;
 	size_t numzones = minix_get_zones(stream, zone0, zone1, zonelist, write);
 
@@ -731,9 +448,9 @@ size_t minix_freadwrite(char *buf, size_t size, size_t count, struct minix_file 
 		goto return_etc;
 	}
 
-	pos_in_zone = stream->pos % MINIX_FS_ZONE_SIZE;
+	pos_in_zone = stream->pos % MINIX_ZONE_SIZE;
 	if (numzones == 1) {
-		pos = zonelist[0] * MINIX_FS_ZONE_SIZE + pos_in_zone;
+		pos = zonelist[0] * MINIX_ZONE_SIZE + pos_in_zone;
 		if (fsetpos(stream->dev, &pos)) {
 			goto return_etc;
 		}
@@ -744,17 +461,17 @@ size_t minix_freadwrite(char *buf, size_t size, size_t count, struct minix_file 
 
 	zone = 0;
 
-	pos_in_zone = stream->pos % MINIX_FS_ZONE_SIZE;
+	pos_in_zone = stream->pos % MINIX_ZONE_SIZE;
 	if (pos_in_zone) {
-		pos = zonelist[zone] * MINIX_FS_ZONE_SIZE + pos_in_zone;
+		pos = zonelist[zone] * MINIX_ZONE_SIZE + pos_in_zone;
 		if (fsetpos(stream->dev, &pos)) {
 			goto return_etc;
 		}
-		done_size = ffunction(buf, 1, MINIX_FS_ZONE_SIZE - pos_in_zone, stream->dev);
+		done_size = ffunction(buf, 1, MINIX_ZONE_SIZE - pos_in_zone, stream->dev);
 		buf += done_size;
 		stream->pos += done_size;
 		pos_in_zone += done_size;
-		if (pos_in_zone != MINIX_FS_ZONE_SIZE) {
+		if (pos_in_zone != MINIX_ZONE_SIZE) {
 			goto return_etc;
 		}
 
@@ -762,20 +479,20 @@ size_t minix_freadwrite(char *buf, size_t size, size_t count, struct minix_file 
 	}
 
 	for (; zone < numzones - 1; ++zone) {
-		pos = zonelist[zone] * MINIX_FS_ZONE_SIZE;
+		pos = zonelist[zone] * MINIX_ZONE_SIZE;
 		if (fsetpos(stream->dev, &pos)) {
 			goto return_etc;
 		}
 
-		done_size = ffunction(buf, 1, MINIX_FS_ZONE_SIZE, stream->dev);
+		done_size = ffunction(buf, 1, MINIX_ZONE_SIZE, stream->dev);
 		buf += done_size;
 		stream->pos += done_size;
-		if (done_size != MINIX_FS_ZONE_SIZE) {
+		if (done_size != MINIX_ZONE_SIZE) {
 			goto return_etc;
 		}
 	}
 
-	pos = zonelist[zone] * MINIX_FS_ZONE_SIZE;
+	pos = zonelist[zone] * MINIX_ZONE_SIZE;
 	if (fsetpos(stream->dev, &pos)) {
 		goto return_etc;
 	}
@@ -788,7 +505,7 @@ return_etc:
 		stream->std.size = stream->size;
 		stream->inode->size = stream->size;
 	}
-	kfree(zonelist);
+	FREE(zonelist);
 	return (stream->pos - pos0) / size;
 }
 
@@ -817,12 +534,12 @@ int minix_dmake(struct minix_fs *this, const char * dirname, uint_t owner, uint_
 {
 	// TODO: minix_dmake: virheiden hoitelu...
         struct minix_file *file;
-        file = minix_fopen_all(this, dirname, FILE_MODE_READ, MINIX_FS_FLAG_DIR);
+        file = minix_fopen_all(this, dirname, FILE_MODE_READ, MINIX_FLAG_DIR);
         if (file) {
 		minix_fclose(file);
 		return DIR_ERR_EXISTS;
 	}
-        file = minix_fopen_all(this, dirname, FILE_MODE_RW, MINIX_FS_FLAG_DIR);
+        file = minix_fopen_all(this, dirname, FILE_MODE_RW, MINIX_FLAG_DIR);
 	if (!file) {
 		return DIR_ERR_CANT_MAKE;
 	}
@@ -852,10 +569,10 @@ struct minix_dir *minix_dopen(struct minix_fs *this, const char * dirname)
 	struct minix_file *file;
 	struct minix_dir *retval;
 
-	file = minix_fopen_all(this, dirname, FILE_MODE_READ, MINIX_FS_FLAG_DIR);
+	file = minix_fopen_all(this, dirname, FILE_MODE_READ, MINIX_FLAG_DIR);
 	if (!file) return 0;
 
-	if ((retval = kcalloc(sizeof(struct minix_dir), 1))) {
+	if ((retval = CALLOC(sizeof(struct minix_dir), 1))) {
 		retval->file = file;
 		retval->std.func = &file->fs->std.dirfunc;
 	}
@@ -864,7 +581,7 @@ struct minix_dir *minix_dopen(struct minix_fs *this, const char * dirname)
 
 int minix_dread(struct minix_dir *listing)
 {
-	do if (minix_fread(&listing->direntry, MINIX_FS_DIRENTRY_SIZE, 1, listing->file) != 1) {
+	do if (minix_fread(&listing->direntry, MINIX_DIRENTRY_SIZE, 1, listing->file) != 1) {
 		return EOF;
 	} while (!listing->direntry.real.inode);
 
@@ -877,7 +594,7 @@ int minix_dread(struct minix_dir *listing)
 		.size = listing->inode.size,
 		.uid = listing->inode.uid,
 		.gid = listing->inode.gid,
-		.rights = MINIX_FS_RIGHTS(listing->inode.flags),
+		.rights = MINIX_RIGHTS(listing->inode.flags),
 		.created = listing->inode.modified,
 		.accessed = listing->inode.modified,
 		.modified = listing->inode.modified,
@@ -892,6 +609,291 @@ int minix_dclose(struct minix_dir *listing)
 	int i;
 	i = minix_fclose(listing->file);
 	if (i) return i;
-	kfree(listing);
+	FREE(listing);
 	return 0;
+}
+
+/************************
+* MINIX ZONE FUNCTIONS **
+************************/
+
+struct minix_zone_data_t {
+	uint16_t zone, *data, *begin, *end;
+};
+struct minix_zone_allocer_t {
+	struct minix_file *f;
+	struct minix_fs *fs;
+	struct minix_inode *inode;
+	size_t zone0, zone1;
+	uint16_t *zonelist, *dbl_indir_list;
+	const int write;
+	uint8_t *map, *map_end;
+	uint16_t map_pos, map_bit;
+
+	struct minix_zone_data_t buf1, buf2;
+
+	int eof;
+};
+
+static uint16_t minix_alloc_zone(struct minix_zone_allocer_t * const zal)
+{
+	if (!zal->write) {
+		zal->eof = 1;
+		return 0;
+	}
+	while (zal->map != zal->map_end) {
+		if (*zal->map != 0xff) for (; zal->map_bit < 8; ++zal->map_bit) {
+			if ((*zal->map & (1 << zal->map_bit)) == 0) {
+				*zal->map |= 1 << zal->map_bit;
+				zal->fs->zone_map_changed = 1;
+				return (zal->map_pos << 3) + zal->map_bit;
+			}
+		}
+		++zal->map;
+		++zal->map_pos;
+		zal->map_bit = 0;
+	}
+	zal->eof = 1;
+	return 0;
+}
+
+static int minix_get_std_zones(struct minix_zone_allocer_t * const zal)
+{
+	uint16_t zone;
+	const size_t end = MIN(zal->zone1, MINIX_STD_ZONES_END);
+	if (!(zal->zone0 < zal->zone1)) {
+		return 0;
+	}
+	while (zal->zone0 < end) {
+		if (!(zone = zal->inode->u.zones.std[zal->zone0])) {
+			if (!(zone = minix_alloc_zone(zal))) {
+				return -1;
+			}
+			zal->inode->u.zones.std[zal->zone0] = zone;
+		}
+		*zal->zonelist = zone;
+		++zal->zonelist;
+		++zal->zone0;
+	}
+	return 0;
+}
+
+static int minix_read_uint16s_from_zone(struct minix_zone_allocer_t * const zal, uint16_t zone, size_t begin, size_t end, int alloced)
+{
+	if (!alloced) {
+		const size_t count = end - begin;
+		const fpos_t pos = zone * MINIX_ZONE_SIZE + begin * sizeof(uint16_t);
+		if (fsetpos(zal->f->dev, &pos)) return -1;
+		if (fread(zal->zonelist, sizeof(uint16_t), count, zal->f->dev) != count) return -1;
+		while (*zal->zonelist) {
+			++begin;
+			++zal->zonelist;
+			++zal->zone0;
+			if (!(begin < end)) {
+				return 0;
+			}
+		}
+	}
+
+	zal->buf1.zone = zone;
+	zal->buf1.begin = zal->zonelist;
+	zal->buf1.data = zal->buf1.begin - begin; // Osoite vain ;)
+
+	while (begin < end) {
+		if (!(zone = minix_alloc_zone(zal))) {
+			zal->buf1.end = zal->zonelist;
+			return -1;
+		}
+		*zal->zonelist = zone;
+		++begin;
+		++zal->zonelist;
+		++zal->zone0;
+	}
+	zal->buf1.end = zal->zonelist;
+	return 0;
+}
+
+static int minix_get_indir_zones(struct minix_zone_allocer_t * const zal)
+{
+	uint16_t zone;
+	const size_t zone1 = MIN(zal->zone1, MINIX_INDIR_ZONES_END);
+
+	const size_t begin = zal->zone0 - MINIX_STD_ZONES_END;
+	const size_t end = zone1 - MINIX_STD_ZONES_END;
+
+	if (!(zal->zone0 < zone1)) {
+		return 0;
+	}
+
+	int alloced = 0;
+	if (!(zone = zal->inode->u.zones.indir)) {
+		if (!(zone = minix_alloc_zone(zal))) {
+			return -1;
+		}
+		zal->inode->u.zones.indir = zone;
+		alloced = 1;
+	}
+	return minix_read_uint16s_from_zone(zal, zone, begin, end, alloced);
+}
+
+int minix_get_dbl_indir_zones_sub(struct minix_zone_allocer_t * const zal, const size_t begin, const size_t end)
+{
+	int alloced = 0;
+	if (!*zal->dbl_indir_list) {
+		alloced = 1;
+		if (!(*zal->dbl_indir_list = minix_alloc_zone(zal))) {
+			goto virhe_etc;
+		}
+		zal->buf2.end = zal->dbl_indir_list + 1;
+	}
+	uint16_t zone = *zal->dbl_indir_list;
+	if (minix_read_uint16s_from_zone(zal, zone, begin, end, alloced)) {
+		goto virhe_etc;
+	}
+	++zal->dbl_indir_list;
+
+	goto return_etc;
+
+return_etc:
+	return 0;
+virhe_etc:
+	return -1;
+}
+
+static int minix_get_dbl_indir_zones(struct minix_zone_allocer_t * const zal)
+{
+	uint16_t zone;
+	int virhe = 0;
+	int alloced = 0;
+
+	size_t begin_z = zal->zone0;
+	const size_t end_z = MIN(zal->zone1, MINIX_DBL_INDIR_ZONES_END);
+
+	size_t begin_indir = (begin_z - MINIX_INDIR_ZONES_END) / MINIX_ZONES_PER_ZONE;
+	const size_t end_indir = 1 + (end_z - 1 - MINIX_INDIR_ZONES_END) / MINIX_ZONES_PER_ZONE;
+
+	const size_t begin_in_1st_indir = (begin_z - MINIX_INDIR_ZONES_END) % MINIX_ZONES_PER_ZONE;
+	const size_t end_in_last_indir = (end_z - MINIX_INDIR_ZONES_END) % MINIX_ZONES_PER_ZONE;
+
+	if (!(begin_z < end_z)) {
+		goto return_etc;
+	}
+
+	if (!(zone = zal->inode->u.zones.dbl_indir)) {
+		alloced = 1;
+		if (!(zone = minix_alloc_zone(zal))) {
+			goto virhe_etc;
+		}
+		zal->inode->u.zones.dbl_indir = zone;
+		zal->buf2.zone = zone;
+		zal->buf2.begin = zal->buf2.data;
+		zal->dbl_indir_list = zal->buf2.data + begin_indir;
+	} else {
+		zal->buf2.begin = zal->buf2.data + begin_indir;
+		zal->dbl_indir_list = zal->buf2.data + begin_indir;
+
+		// TODO: Luetaan se zone
+		const size_t count = end_indir - begin_indir;
+		const fpos_t pos = zone * MINIX_ZONE_SIZE + begin_indir * sizeof(uint16_t);
+		if (fsetpos(zal->f->dev, &pos)) {
+			goto virhe_etc;
+		}
+		if (fread(zal->dbl_indir_list, sizeof(uint16_t), count, zal->f->dev) != count) {
+			goto virhe_etc;
+		}
+	}
+
+	// Vain yksi zone
+	if (end_indir - begin_indir == 1) {
+		if (minix_get_dbl_indir_zones_sub(zal, begin_in_1st_indir, end_in_last_indir) != 0) {
+			goto virhe_etc;
+		}
+		goto return_etc;
+	}
+
+	// Ensimmäinen
+	if (minix_get_dbl_indir_zones_sub(zal, begin_in_1st_indir, MINIX_ZONES_PER_ZONE) != 0) {
+		goto virhe_etc;
+	}
+	++begin_indir;
+
+	// Muut
+	while (begin_indir < end_indir - 1) {
+		if (minix_get_dbl_indir_zones_sub(zal, begin_in_1st_indir, end_in_last_indir) != 0) {
+		}
+		++begin_indir;
+	}
+
+	// Viimeinen
+	if (minix_get_dbl_indir_zones_sub(zal, 0, end_in_last_indir) != 0) {
+		goto virhe_etc;
+	}
+virhe_etc:
+	virhe = -1;
+
+return_etc:
+	if (alloced && zal->buf2.begin) {
+		zal->buf2.end = zal->buf2.begin + MINIX_ZONES_PER_ZONE;
+	}
+	return virhe;
+}
+
+static int minix_zones_flush(struct minix_zone_data_t *data, struct minix_file *f)
+{
+	if (!data || !f) return -1;
+	if (!data->zone || !data->data || !data->begin || !data->end || data->begin == data->end) return 0;
+
+	const size_t bbeg = (data->begin - data->data) * sizeof(uint16_t);
+	const size_t count = data->end - data->begin;
+	fpos_t pos;
+	pos = data->zone * MINIX_ZONE_SIZE + bbeg;
+	if (fsetpos(f->dev, &pos)) return -1;
+	if (fwrite(data->begin, sizeof(uint16_t), count, f->dev) != count) return -1;
+	data->begin = data->end;
+	return 0;
+}
+
+static size_t minix_get_zones(struct minix_file *this, const size_t zone0, const size_t zone1, uint16_t *zonelist, const int write)
+{
+	// TODO: Virheenkäsittely, jos flush pieleen...
+	struct minix_zone_allocer_t zal_ = {
+		.f = this,
+		.fs = this->fs,
+		.inode = this->inode,
+		.zone0 = zone0,
+		.zone1 = zone1,
+		.zonelist = zonelist,
+		.write = write,
+		.map = this->fs->zone_map,
+		.map_end = this->fs->inode_map,
+	}, * const zal = &zal_;
+
+	if (zal->zone1 > zal->fs->super.num_zones) {
+		zal->zone1 = zal->fs->super.num_zones;
+	}
+	if (zone0 >= zone1) return 0;
+
+	// standard zones
+	if (minix_get_std_zones(zal) != 0) goto return_etc;
+
+	// indirect zones & flush
+	if (minix_get_indir_zones(zal) != 0) goto return_etc;
+	if (minix_zones_flush(&zal->buf1, zal->f) != 0) goto return_etc;
+
+	// alloc for dbl_indir-table & double indirect zones
+	if (zal->zone1 > MINIX_STD_ZONES_END) {
+		zal->buf2.data = CALLOC(MINIX_ZONE_SIZE, 1);
+		if (!zal->buf2.data) {
+			goto return_etc;
+		}
+	}
+	if (minix_get_dbl_indir_zones(zal) != 0) goto return_etc;
+
+return_etc:
+	minix_zones_flush(&zal->buf1, zal->f);
+	minix_zones_flush(&zal->buf2, zal->f);
+	if (zal->buf2.data) {
+		FREE(zal->buf2.data);
+	}
+	return zal->zonelist - zonelist;
 }

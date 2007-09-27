@@ -1,12 +1,22 @@
-#ifndef _MINIX_FS_H
-#define _MINIX_FS_H 1
+#ifndef _MINIX_H
+#define _MINIX_H 1
 
 #include <filesys/filesystem.h>
 #include <list.h>
 #include <stdint.h>
 
 #define MINIX_STD_ZONES (7)
-#define MINIX_INDIR_ZONES (512)
+#define MINIX_ZONES_PER_ZONE (512)
+#define MINIX_INDIR_ZONES (MINIX_ZONES_PER_ZONE)
+
+#define MINIX_STD_ZONES_END \
+	MINIX_STD_ZONES
+#define MINIX_INDIR_ZONES_END \
+	(MINIX_STD_ZONES_END + MINIX_INDIR_ZONES)
+#define MINIX_DBL_INDIR_ZONES_END \
+	(MINIX_INDIR_ZONES_END + (MINIX_INDIR_ZONES * MINIX_INDIR_ZONES))
+
+#define MINIX_MAX_ZONES (MINIX_DBL_INDIR_ZONES_END)
 
 struct minix_inode {
 	uint16_t flags;
@@ -43,7 +53,7 @@ struct minix_direntry_own {
 
 struct minix_superblock {
 	uint16_t num_inodes;
-	uint16_t num_blocks;
+	uint16_t num_zones;
 	uint16_t num_inode_map_zones;
 	uint16_t num_zone_map_zones;
 	uint16_t first_data_zone;
@@ -53,28 +63,28 @@ struct minix_superblock {
 	uint32_t _todo_4567_jne;
 };
 
-#define MINIX_FS_MAGIC_A (0x0001137F)
-#define MINIX_FS_MAGIC_B (0x0001138F)
+#define MINIX_MAGIC_A (0x0001137F)
+#define MINIX_MAGIC_B (0x0001138F)
 
-#define MINIX_FS_NUM_ZONES 7
-#define MINIX_FS_FLAG_RIGHTS (0x01ff) /*(0777)*/
-#define MINIX_FS_RIGHTS(x) ((x) & MINIX_FS_FLAG_RIGHTS)
-//#define MINIX_FS_FLAG_  (0x0200)
-//#define MINIX_FS_FLAG_  (0x0400)
-//#define MINIX_FS_FLAG_  (0x0800)
-#define MINIX_FS_FLAG_PIPE      (0x1)
-#define MINIX_FS_FLAG_CHARDEV   (0x2)
-#define MINIX_FS_FLAG_DIR       (0x4)
-#define MINIX_FS_FLAG_BLOCKDEV  (0x6)
-#define MINIX_FS_FLAG_FILE      (0x8)
-#define MINIX_FS_FLAG_SYMLINK   (0xa) /* FILE | CHARDEV */
+#define MINIX_NUM_ZONES 7
+#define MINIX_FLAG_RIGHTS (0x01ff) /*(0777)*/
+#define MINIX_RIGHTS(x) ((x) & MINIX_FLAG_RIGHTS)
+//#define MINIX_FLAG_  (0x0200)
+//#define MINIX_FLAG_  (0x0400)
+//#define MINIX_FLAG_  (0x0800)
+#define MINIX_FLAG_PIPE      (0x1)
+#define MINIX_FLAG_CHARDEV   (0x2)
+#define MINIX_FLAG_DIR       (0x4)
+#define MINIX_FLAG_BLOCKDEV  (0x6)
+#define MINIX_FLAG_FILE      (0x8)
+#define MINIX_FLAG_SYMLINK   (0xa) /* FILE | CHARDEV */
 
-#define MINIX_FS_IS(x, what) (((x) >> 12) == (MINIX_FS_FLAG_ ## what))
+#define MINIX_IS(x, what) (((x) >> 12) == (MINIX_FLAG_ ## what))
 
-#define MINIX_FS_ZONE_SIZE 1024
+#define MINIX_ZONE_SIZE 1024
 
 #define MINIS_FS_INODE_SIZE (sizeof(struct minix_inode))
-#define MINIX_FS_DIRENTRY_SIZE (sizeof(struct minix_direntry))
+#define MINIX_DIRENTRY_SIZE (sizeof(struct minix_direntry))
 
 struct minix_list_inode {
 	uint16_t inode_n;

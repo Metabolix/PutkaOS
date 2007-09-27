@@ -59,7 +59,7 @@ struct sh_komento komentotaulu[] = {
 
 	{"f.open", "f.open tiedosto tila; avaa tiedosto", sh_fopen},
 	{"f.read", "f.read koko; lue ja tulosta 'koko' tavua", sh_fread},
-	{"f.write", "f.write koko [tavu [tavu ...]]; kirjoita 'koko' tavua", sh_fwrite},
+	{"f.write", "f.write xx [xx ...]; kirjoita heksamuotoiset tavut", sh_fwrite},
 	{"f.print", "f.print teksti; kirjoita teksti tiedostoon", sh_fprint},
 	{"f.getpos", "f.getpos; ilmoita sijainti tiedostossa", sh_fgetpos},
 	{"f.setpos", "f.setpos sijainti; aseta sijainti tiedostoon", sh_fsetpos},
