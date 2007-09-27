@@ -500,6 +500,15 @@ void vt_kprintfunlock(unsigned int vt_num)
 	}
 }
 
+void vt_unlockspinlocks(void)
+{
+	int i;
+	for(i=0; i<VT_COUNT; i++){
+		spinl_unlock(&vt[i].writelock);
+		spinl_unlock(&vt[i].printlock);
+	}
+}
+
 int vt_setdriver(char *fname)
 {
 	int i;

@@ -63,6 +63,7 @@ extern void vt_keyboard(int code, int down);
 
 extern void vt_kprintflock(unsigned int vt_num);
 extern void vt_kprintfunlock(unsigned int vt_num);
+extern void vt_unlockspinlocks(void);
 
 extern void vt_init(void);
 extern int vt_setdriver(char *filename);

@@ -349,6 +349,7 @@ void keyboard_handle(void)
 				if (code == KEY_C && (kb_mods & KEYB_MOD_LCTRL || kb_mods & KEYB_MOD_RCTRL) && down) {
 					extern thread_id_t sh_tid;
 					kill_thread(sh_tid);
+					vt_unlockspinlocks();
 					sh_tid = new_thread(run_sh, 0, 0);
 					break;
 				}
