@@ -9,14 +9,38 @@
 #include <string.h>
 #include <keyboard.h>
 #include <vt.h>
+#include <stdint.h>
 
-#include <sh_komennot.h>
+/***********************
+** JULKISET ESITTELYT **
+***********************/
+
+void sh_ei_tunnistettu(char *buf);
+
+void sh_cat(char *buf);
 void sh_hexcat(char *name);
-void sh_lsmount(char*a);
 
-FILE *sh_f = 0;
+void sh_uptime(char *buf);
+
+void sh_outportb(char *buf);
+void sh_inportb(char *buf);
+
+void sh_list_colours(char *buf);
+void sh_set_colour(char *buf);
+void sh_reset(char *buf);
+void sh_history(char *buf);
+void sh_help(char *buf);
+
+void sh_exit(char *buf);
+void sh_reboot(char *buf);
+
+void sh_key_names(char *buf);
 
 void sh_mkdir(char*a);
+void sh_ls(char *buf);
+
+void sh_mount(char *buf);
+void sh_umount(char *buf);
 
 void sh_fopen(char*a);
 void sh_fread(char*a);
@@ -25,6 +49,10 @@ void sh_fprint(char*a);
 void sh_fgetpos(char*a);
 void sh_fsetpos(char*a);
 void sh_fclose(char*a);
+
+/**********
+** LISTA **
+**********/
 
 struct sh_komento komentotaulu[] = {
 	{"?", "Apua", sh_help},
@@ -44,12 +72,8 @@ struct sh_komento komentotaulu[] = {
 	{"outp", "outb port byte, laheta tavu porttiin (dec: 123, hex: 0x7b, oct: 0173)", sh_outportb},
 	{"inp", "inp port, hae tavu portista (dec: 123, hex: 0x7b, oct: 0173)", sh_inportb},
 
-	{"mountro", "mountro laite liitospiste; liita laite pisteeseen (vain luku)", sh_mount_ro},
-	{"remountro", "remountro laite liitospiste; korvaa vanha liitos pisteessa (vain luku)", sh_remount_ro},
-	{"mount", "mount laite liitospiste; liita laite pisteeseen", sh_mount},
-	{"remount", "remount laite liitospiste; korvaa vanha liitos pisteessa", sh_remount},
+	{"mount", "mount [laite liitospiste] [-ro]; ilman parametreja lista liitoksista", sh_mount},
 	{"umount", "umount {laite | polku}; poista laite tai liitoskohta", sh_umount},
-	{"lsmount", "Listaa liitokset", sh_lsmount},
 
 	{"ls", "ls polku; listaa hakemisto", sh_ls},
 	{"mkdir", "mkdir polku; luo hakemisto", sh_mkdir},
@@ -69,96 +93,83 @@ struct sh_komento komentotaulu[] = {
 };
 struct sh_komento *komennot = komentotaulu;
 
-int sh_read_int(char **bufptr)
-{
-	char *buf = *bufptr;
-	int retval = 0;
-	if (buf[0] == '0') {
-		if (buf[1] == 'x') {
-			++buf;
-			while (++buf) if (*buf <= '9' && *buf >= '0') {
-				retval = 16 * retval + *buf - '0';
-			} else if (*buf <= 'f' && *buf >= 'a') {
-				retval = 16 * retval + 10 + *buf - 'a';
-			} else if (*buf <= 'F' && *buf >= 'A') {
-				retval = 16 * retval + 10 + *buf - 'A';
-			} else {
-				break;
-			}
-		} else {
-			while (++buf) if (*buf <= '7' && *buf >= '0') {
-				retval = 8 * retval + *buf - '0';
-			} else {
-				break;
-			}
-		}
-	} else {
-		while (*buf && (*buf <= '9' && *buf >= '0')) {
-			retval = 10 * retval + *buf - '0';
-			++buf;
-		}
-	}
-	*bufptr = buf;
-	return retval;
-}
+/*************************
+** STAATTISET ESITTELYT **
+*************************/
 
-void sh_printmount(const char *fs_name, const char *dev_name, const char *absolute_path, const char *relative_path, int level)
-{
-	kprintf("%s @ %s (%s)\n", dev_name, absolute_path, fs_name);
-}
+FILE *sh_f = 0;
 
-void sh_lsmount(char*a)
-{
-	mount_foreach(sh_printmount);
-}
+static void sh_mount_real(char *dev, char *point, uint_t mode, int remount);
+static int sh_read_int(char **bufptr);
+static void sh_printmount(const char *fs_name, const char *dev_name, const char *absolute_path, const char *relative_path, int level);
+
+/*************
+** JULKISET **
+*************/
 
 void sh_mount(char *dev_point)
 {
-	sh_mount_real(dev_point, FILE_MODE_READ | FILE_MODE_WRITE, 0);
-}
+	char *str, *osa;
+	char *laite = 0, *piste = 0;
+	uint_t liput = FILE_MODE_READ | FILE_MODE_WRITE;
+	int remount = 0, umount = 0;
+	int loppu = 0;
 
-void sh_mount_ro(char *dev_point)
-{
-	sh_mount_real(dev_point, FILE_MODE_READ, 0);
-}
-
-void sh_remount(char *dev_point)
-{
-	sh_mount_real(dev_point, FILE_MODE_READ | FILE_MODE_WRITE, 1);
-}
-
-void sh_remount_ro(char *dev_point)
-{
-	sh_mount_real(dev_point, FILE_MODE_READ, 1);
-}
-
-void sh_mount_real(char *dev_point, uint_t mode, int remount)
-{
-	char *dev = dev_point, *point = strchr(dev_point, ' ');
-	if (!point) {
+	for (osa = str = dev_point; *str; ++str) {
+		if (isspace(*str)) {
+			*str = 0;
+			goto hoida;
+			/* !!! */ silmukka_jatkuu:
+			osa = str + 1;
+		}
+	}
+	loppu = 1;
+hoida:
+	if (!osa[0]) {
+		mount_foreach(sh_printmount);
+		goto kaytto;
+	} else if (osa[0] == '/') {
+		if (!laite) {
+			laite = osa;
+		} else if (!piste) {
+			piste = osa;
+		} else {
+			kprintf("Virhe: liikaa polkuja parametrina!\n");
+			goto kaytto;
+		}
+	} else if (strcmp(osa, "-ro") == 0) {
+		liput = liput & (~FILE_MODE_WRITE);
+	} else if (strcmp(osa, "-rw") == 0) {
+		liput = liput | FILE_MODE_WRITE;
+	} else if (strcmp(osa, "-re") == 0 || strcmp(osa, "-remount") == 0) {
+		remount = 1;
+	} else if (strcmp(osa, "-u") == 0 || strcmp(osa, "-un") == 0 || strcmp(osa, "-umount") == 0 || strcmp(osa, "-unmount") == 0) {
+		umount = 1;
+	} else {
+		kprintf("Virhe: viallinen parametri (%s)!\n", osa);
+		goto kaytto;
+	}
+	if (!loppu) {
+		goto silmukka_jatkuu;
+	}
+	if (!laite || (!umount && !piste)) {
+		kprintf("Virhe: liian vahan polkuja parametrina!\n");
+		goto kaytto;
+	}
+	if (umount) {
+		if (remount) {
+			kprintf("Siis -umount vai -remount?\n");
+			goto kaytto;
+		}
+		sh_umount(laite); // tai piste
 		return;
 	}
-	*point = 0;
-	++point;
-	switch ((!remount ? mount_something(dev, point, mode) : mount_replace(dev, point, mode))) {
-		case 0:
-			break;
-		case MOUNT_ERR_TOTAL_FAILURE:
-			kprintf("sh: mount: Jokin virhe.\n");
-			break;
-		case MOUNT_ERR_ALREADY_MOUNTED:
-			kprintf("sh: mount: Piste on jo liitetty.\n");
-			break;
-		case MOUNT_ERR_DEVICE_ERROR:
-			kprintf("sh: mount: Laitetta ei saada auki.\n");
-			break;
-		case MOUNT_ERR_FILESYS_ERROR:
-			kprintf("sh: mount: Tunnistamaton tiedostojarjestelma.\n");
-			break;
-		default:
-			kprintf("sh: mount: Muu virhe.\n");
-			break;
-	}
+
+	sh_mount_real(laite, piste, liput, remount);
+	return;
+kaytto:
+	kprintf("\nKaytto: mount [laite liitospiste] [-ro|-rw] [-remount]\n");
+	return;
 }
 
 void sh_umount(char *dev_point)
@@ -622,5 +633,74 @@ void sh_mkdir(char*a)
 	case DIR_ERR_CANT_WRITE:
 		print("mkdir: kirjoittaminen (. ja ..) ei onnistunut!\n");
 		break;
+	}
+}
+
+
+/***************
+** STAATTISET **
+***************/
+
+static int sh_read_int(char **bufptr)
+{
+	char *buf = *bufptr;
+	int retval = 0;
+	if (buf[0] == '0') {
+		if (buf[1] == 'x') {
+			++buf;
+			while (++buf) if (*buf <= '9' && *buf >= '0') {
+				retval = 16 * retval + *buf - '0';
+			} else if (*buf <= 'f' && *buf >= 'a') {
+				retval = 16 * retval + 10 + *buf - 'a';
+			} else if (*buf <= 'F' && *buf >= 'A') {
+				retval = 16 * retval + 10 + *buf - 'A';
+			} else {
+				break;
+			}
+		} else {
+			while (++buf) if (*buf <= '7' && *buf >= '0') {
+				retval = 8 * retval + *buf - '0';
+			} else {
+				break;
+			}
+		}
+	} else {
+		while (*buf && (*buf <= '9' && *buf >= '0')) {
+			retval = 10 * retval + *buf - '0';
+			++buf;
+		}
+	}
+	*bufptr = buf;
+	return retval;
+}
+
+static void sh_printmount(const char *fs_name, const char *dev_name, const char *absolute_path, const char *relative_path, int level)
+{
+	kprintf("%s @ %s (%s)\n", dev_name, absolute_path, fs_name);
+}
+
+static void sh_mount_real(char *dev, char *point, uint_t mode, int remount)
+{
+	if (!dev || !point) {
+		return;
+	}
+	switch ((!remount ? mount_something(dev, point, mode) : mount_replace(dev, point, mode))) {
+		case 0:
+			break;
+		case MOUNT_ERR_TOTAL_FAILURE:
+			kprintf("sh: mount: Jokin virhe.\n");
+			break;
+		case MOUNT_ERR_ALREADY_MOUNTED:
+			kprintf("sh: mount: Piste on jo liitetty.\n");
+			break;
+		case MOUNT_ERR_DEVICE_ERROR:
+			kprintf("sh: mount: Laitetta ei saada auki.\n");
+			break;
+		case MOUNT_ERR_FILESYS_ERROR:
+			kprintf("sh: mount: Tunnistamaton tiedostojarjestelma.\n");
+			break;
+		default:
+			kprintf("sh: mount: Muu virhe.\n");
+			break;
 	}
 }
