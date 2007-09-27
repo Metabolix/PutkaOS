@@ -299,6 +299,7 @@ void sh_help(char *buf)
 		++komennot;
 	}
 	komennot = komentotaulu;
+	kprintf("keys: shift + pgup/down to scroll, F<n> to change vt\n");
 }
 
 void sh_reset(char *buf)

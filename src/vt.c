@@ -222,12 +222,8 @@ void vt_change(unsigned int vt_num)
 {
 	if(!initialized) return;
 	if(!driverstream) return; //ei vt:n vaihtoa fallbackina (ei bufferia)
-	if (vt_num >= VT_COUNT) {
-		return;
-	}
-	if (cur_vt == vt_num) {
-		return;
-	}
+	if (vt_num >= VT_COUNT) return;
+	if (cur_vt == vt_num) return;
 	if (spinl_locked(&vt[cur_vt].writelock) || spinl_locked(&vt[cur_vt].printlock)) {
 		change_to_vt = vt_num;
 		return;
@@ -243,13 +239,13 @@ void vt_scroll(int lines) {
 	if(!driverstream) return; //ei skrollailua fallbackina (ei bufferia)
 	/*if(lines < -vt[cur_vt].scroll)
 		lines = -vt[cur_vt].scroll;
-	if(lines > VT_BUF_H - vt[cur_vt].scroll)
-		lines = VT_BUF_H - vt[cur_vt].scroll;*/
+	if(lines > vt[cur_vt].bufh - vt[cur_vt].scroll)
+		lines = vt[cur_vt].bufh - vt[cur_vt].scroll;*/
 	vt[cur_vt].scroll += lines;
 	if(vt[cur_vt].scroll < 0)
 		vt[cur_vt].scroll = 0;
-	if(vt[cur_vt].scroll > VT_BUF_H - driverinfo.h)
-		vt[cur_vt].scroll = VT_BUF_H - driverinfo.h;
+	if(vt[cur_vt].scroll > vt[cur_vt].bufh - driverinfo.h)
+		vt[cur_vt].scroll = vt[cur_vt].bufh - driverinfo.h;
 	update_from_current_buf();
 }
 
@@ -450,9 +446,9 @@ int vt_setdriver(char *fname)
 		if(vt[i].buffer) kfree(vt[i].buffer);
 
 		vt[i].cx = vt[i].cy = 0;
-		vt[i].bufsize = driverinfo.h * driverinfo.w*2;
 		vt[i].bufh = VT_BUF_H;
 		vt[i].bufw = driverinfo.w;
+		vt[i].bufsize = vt[i].bufh * vt[i].bufw * 2;
 
 		vt[i].buffer = (char*)kmalloc(vt[i].bufsize);
 
