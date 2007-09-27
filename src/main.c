@@ -30,6 +30,7 @@ void testattava_koodi();
 
 const char systeemi[] = "PutkaOS";
 const char versio[] = "v0.002";
+thread_id_t sh_tid;
 
 multiboot_info_t mbt_real;
 multiboot_info_t *mbt = &mbt_real;
@@ -82,7 +83,7 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 	outportb(0xa1, 0);
 	asm_sti(); /* Allow interrupts */
 
-	//floppy_reset();
+	floppy_reset();
 	mount_init(mboot_device, mboot_cmdline);
 	print("testattava_koodi();\n");
 	testattava_koodi();
@@ -92,7 +93,7 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 	vt_setdriver("/dev/display");
 
 	kprintf("%s %s is up and running _o/\n", systeemi, versio);
-	new_thread(run_sh, 0, 0);
+	sh_tid = new_thread(run_sh, 0, 0);
 	start_threading();
 }
 

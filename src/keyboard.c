@@ -5,6 +5,8 @@
 #include <screen.h>
 #include <panic.h>
 #include <putkaos.h>
+#include <sh.h>
+#include <thread.h>
 #include <mem.h>
 #include <bit.h>
 #include <vt.h>
@@ -344,7 +346,13 @@ void keyboard_handle(void)
 					vt_scroll(-(int)vt_get_display_height()/2);
 				break;
 			default:
-				if (code >= KEY_F1 && code <= KEY_F6) { /* f1-f6 */
+				if (code == KEY_C && (kb_mods & KEYB_MOD_LCTRL || kb_mods & KEYB_MOD_RCTRL) && down) {
+					extern thread_id_t sh_tid;
+					kill_thread(sh_tid);
+					sh_tid = new_thread(run_sh, 0, 0);
+					break;
+				}
+				else if (code >= KEY_F1 && code <= KEY_F6) { /* f1-f6 */
 					vt_change(code - KEY_F1);
 				}
 				else{
@@ -352,6 +360,7 @@ void keyboard_handle(void)
 				}
 		}
 
+		vt_keyboard(vt_out_get(), code);
 	}
 }
 

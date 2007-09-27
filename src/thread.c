@@ -133,6 +133,8 @@ void kill_thread(thread_id_t thread)
 {
 	kfree((void*)threads[thread].stack);
 	threads[thread].stack = 0;
+	threads[active_thread].process = 0;
+	threads[active_thread].state = pstate_none;
 }
 
 void threading_init(void)
