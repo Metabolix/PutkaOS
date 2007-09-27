@@ -24,7 +24,7 @@ void vt_locate_display(unsigned int x, unsigned int y)
 {
 	if(!initialized) return;
 	if(!driverstream) return;
-	unsigned int xy[2];
+	int xy[2];
 	xy[0] = x;
 	xy[1] = y;
 	ioctl(driverstream, IOCTL_DISPLAY_LOCATE, (uintptr_t)&xy);
@@ -259,7 +259,7 @@ void vt_putch(unsigned int vt_num, int c)
 
 	if (vt[vt_num].scroll != 0) {
 		vt[vt_num].scroll = 0;
-		update_from_current_buf();
+		vt_scroll(0);
 	}
 	
 	if (c == '\b') { /* backspace */
@@ -311,7 +311,8 @@ void vt_putch(unsigned int vt_num, int c)
 			vt[vt_num].cy++;
 		}
 		if (vt[vt_num].cy >= driverinfo.h) { /* scroll screen */
-			int amount = vt[vt_num].cy - (driverinfo.h - 1);
+			unsigned int amount = vt[vt_num].cy - (driverinfo.h - 1);
+			if(amount > driverinfo.h) amount = driverinfo.h;
 			buffer_add_lines(vt_num, amount);
 			ioctl(driverstream, IOCTL_DISPLAY_ROLL_UP, amount);
 			vt[vt_num].cy = driverinfo.h - 1;
@@ -411,14 +412,7 @@ int vt_setdriver(char *fname)
 		for(i = 0; i < VT_COUNT; i++) {
 			if(vt[i].buffer) kfree(vt[i].buffer);
 			memset(&vt[i], 0, sizeof(struct vt_t));
-			vt[i].scroll = 0;
-			vt[i].in_kprintf = 0;
-			vt[i].cx = vt[i].cy = 0;
 			vt[i].color = 0x7;
-			vt[i].buffer = 0;
-			vt[i].kb_buf_count = 0;
-			vt[i].kb_buf_start = 0;
-			vt[i].kb_buf_end = 0;
 			spinl_init(&vt[i].writelock);
 			spinl_init(&vt[i].printlock);
 		}
@@ -430,6 +424,8 @@ int vt_setdriver(char *fname)
 	}
 	
 	if(!initialized) return 1;
+
+	int was_in_fallback_mode = (driverstream == NULL);
 
 	driverstream = fopen(fname, "w");
 	if(driverstream == NULL){
@@ -445,7 +441,6 @@ int vt_setdriver(char *fname)
 	for(i = 0; i < VT_COUNT; i++) {
 		if(vt[i].buffer) kfree(vt[i].buffer);
 
-		vt[i].cx = vt[i].cy = 0;
 		vt[i].bufh = VT_BUF_H;
 		vt[i].bufw = driverinfo.w;
 		vt[i].bufsize = vt[i].bufh * vt[i].bufw * 2;
@@ -453,6 +448,13 @@ int vt_setdriver(char *fname)
 		vt[i].buffer = (char*)kmalloc(vt[i].bufsize);
 
 		vt_fill_with_blank(vt[i].buffer, driverinfo.h * driverinfo.w);
+
+	}
+	if(was_in_fallback_mode && vt[0].buffer){
+		memcpy(vt[0].buffer + vt[0].bufsize - driverinfo.w*2 * driverinfo.h,
+				(char *)0xB8000, 160*25);
+		vt_update_display_cursor();
+		kprintf("vt_setdriver(): was in fallback mode: copied old display contents to buffer\n");
 	}
 	
 	kprintf("vt_setdriver(): driver set\n");

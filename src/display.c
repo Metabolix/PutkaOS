@@ -8,12 +8,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <screen.h>
+#include <vt.h>
 
 struct display_str {
 	int num_open;
 	unsigned int cx, cy;
-	struct spinlock printlock; 
-	struct spinlock writelock;
 	unsigned int color;
 } display;
 
@@ -33,29 +32,10 @@ int display_locate(unsigned int y, unsigned int x)
 		return -1;
 	}
 
-	if (threading_on()) {
-		spinl_spin(&display.printlock);
-		spinl_lock(&display.writelock);
-	}
-
 	display.cx = x;
 	display.cy = y;
-
-	display_move_cursor();
-	if(threading_on()){
-		spinl_unlock(&display.writelock);
-	}
+	
 	return 0;
-}
-
-/*unsigned char display_get_color(void)
-{
-	return display.color;
-}*/
-
-void display_set_color(unsigned char c)
-{
-	display.color = c;
 }
 
 //täyttää halutun pätkän 0x0,0x7-floodilla
@@ -79,28 +59,33 @@ void display_cls(void)
 
 size_t display_fwrite(const void *buf, size_t size, size_t count, FILE *stream)
 {
-	memcpy((char*)(0xB8000 + display.cy * DISPLAY_MEM_W + display.cx * 2), buf, size*count);
+	//- Tarkoitus on tunkea merkkejä ruudulle peräkkäin, aloittaen kursorin
+	//  nykyisestä paikasta ja wräppäytyen aina reunan jälkeen uudelle riville.
+	//- Merkkejä ei tule enempää, kuin mitä kursorista näyttöbufferin loppuun
+	//  mahtuu.
+	//- Kursori pitää siirtää piirrettyjen merkkien perään.
+	//- buffissa tulee merkki-väri-pareja peräkkäin.
+	//- count on bufferin koko tavuina ja size pitäisi olla sizeof(char) eli 1.
+	//- Bufferin koko on aina parillinen
+	//- Näyttöä ohjaava juttu (vt) pitää huolen ettei mennä bufferin yli.
+	
+	//Tosin voi sen tietenkin tarkistaa...
+	if(display.cy * DISPLAY_MEM_W + display.cx*2 + count > DISPLAY_MEM_SIZE)
+		count = DISPLAY_MEM_SIZE - (display.cy * DISPLAY_MEM_W + display.cx*2);
+	
+	//koska ei mennä bufferin yli, voidaan kopioida buf vaan suoraan paikalleen.
+	memcpy((char*)(0xB8000 + display.cy * DISPLAY_MEM_W + display.cx * 2), buf,
+			size*count);
+	
+	//ja kursori pitää asettaa uuteen paikkaansa.
 	display.cx += size*count/2;
 	int ychange = display.cx / DISPLAY_W;
 	display.cx -= ychange * DISPLAY_W;
 	display.cy += ychange;
 	display.cy %= DISPLAY_H;
+	display_move_cursor();
 	
-	/*unsigned int i;
-	char *cbuf = (char*)buf;
-	for(i=0; i < count/2; i++){
-		*(char*)(0xB8000 + display.cy * DISPLAY_MEM_W + display.cx * 2) = *(cbuf++);
-		*(char*)(0xB8000 + display.cy * DISPLAY_MEM_W + display.cx * 2 + 1) = *(cbuf++);
-		display.cx++;
-		if (display.cx >= DISPLAY_W) {
-			display.cx = 0;
-			display.cy++;
-		}
-		if (display.cy >= DISPLAY_H) {
-			display.cy = 0;
-		}
-	}*/
-	
+	//palautetaan piirrettyjen tavujen määrä
 	return count;
 }
 
@@ -111,6 +96,7 @@ size_t display_fwrite(const void *buf, size_t size, size_t count, FILE *stream)
 int display_ioctl(FILE *stream, int request, uintptr_t param)
 {
 	if(request == IOCTL_DISPLAY_GET_INFO){
+		//täytetään paramin osoittama displayinfo-strukti.
 		struct displayinfo *di = (struct displayinfo*)param;
 		if(di==NULL) return 1;
 		di->w = DISPLAY_W;
@@ -118,7 +104,10 @@ int display_ioctl(FILE *stream, int request, uintptr_t param)
 		return 0;
 	}
 	if(request == IOCTL_DISPLAY_LOCATE){
-		unsigned int *xy = (unsigned int*)param;
+		//- Siirretään kursori paramin osoittaman int-taulukon
+		//  mukaiseen paikkaan
+		//- Jos paikka ei ole näytön alueella, kursori piilotetaan.
+		int *xy = (int*)param;
 		if(xy==NULL) return 1;
 		display.cx = xy[0];
 		display.cy = xy[1];
@@ -126,17 +115,21 @@ int display_ioctl(FILE *stream, int request, uintptr_t param)
 		return 0;
 	}
 	if(request == IOCTL_DISPLAY_CLS){
+		//- Tyhjätään koko ruutu (' '-merkkejä) (värillä ei väliä)
+		//- Kursorin paikka ruudun vasempaan yläkulmaan (0,0)
 		display_cls();
 		return 0;
 	}
 	if(request == IOCTL_DISPLAY_ROLL_UP){
-		if(param > DISPLAY_H) param = DISPLAY_H;
-		//rullataan ruutua ylös päin paramin verran rivejä
+		//- Rullataan ruutua ylöspäin paramin verran rivejä.
+		//- Uudet rivit täytetään tyhjällä (' '-merkeillä) (värillä ei väliä)
+		//- Rivien määrä on (unsigned int)param.
+		//- param <= ilmoitettu näytön korkeus
+		//- Kursorin paikka kerrotaan aina tämän ioctl:n jälkeen toisella.
 		memmove((char *)0xB8000, (char *)0xB8000 + param * DISPLAY_MEM_W,
 				(DISPLAY_H - param) * DISPLAY_MEM_W);
 		fill_with_blank((char *)0xB8000 + (DISPLAY_H - param) * DISPLAY_MEM_W,
 				DISPLAY_W * param);
-		display.cy = DISPLAY_H - 1;
 		return 0;
 	}
 	return 1;
@@ -183,8 +176,6 @@ FILE *display_open(DEVICE *device, uint_t mode)
 
 	stream->func = func;
 	
-	if(display.num_open == 0) cls();
-
 	display.num_open++;
 
 	kprintf("display_open(): opened\n");
@@ -203,7 +194,7 @@ void display_init(void) {
 	
 	char name_[] = "display";
 	int namelen = strlen(name_);
-	//int r;
+	int r;
 
 	//tehdään device ja tungetaan se device_insertille
 	
@@ -218,6 +209,9 @@ void display_init(void) {
 	dev->dev_type = DEV_TYPE_OTHER;
 	dev->devopen = (devopen_t)&display_open;
 	dev->remove = (devrm_t)&display_remove;
-	/*r =*/ device_insert(dev);
+	r = device_insert(dev);
+	if(r){
+		kprintf("display_init(): error inserting device\n");
+	}
 }
 

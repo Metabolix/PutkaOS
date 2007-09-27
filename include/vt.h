@@ -17,6 +17,8 @@
 
 #define KB_BUFFER_SIZE 128
 
+//referenssi-implementaatio display-ajurille löytyy display.c/h:sta
+
 struct displayinfo {
 	unsigned int w, h;
 };
