@@ -341,7 +341,7 @@ void keyboard_handle(void)
 			case KEY_PGDOWN:
 				if((kb_mods & KEYB_MOD_LSHIFT || kb_mods & KEYB_MOD_RSHIFT) && down)
 					//vt_scroll(-1);
-					vt_scroll(-vt_get_display_height()/2);
+					vt_scroll(-(int)vt_get_display_height()/2);
 				break;
 			default:
 				if (code >= KEY_F1 && code <= KEY_F6) { /* f1-f6 */
