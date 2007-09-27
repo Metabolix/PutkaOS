@@ -150,12 +150,12 @@ int display_fclose(FILE *stream)
 FILE *display_open(DEVICE *device, uint_t mode)
 {
 	if(!(mode & FILE_MODE_WRITE) || (mode & FILE_MODE_READ)){
-		kprintf("display_open(): invalid mode");
+		kprintf("display_open(): invalid mode\n");
 		return NULL;
 	}
 	FILE *stream = (FILE*)kmalloc(sizeof(FILE));
 	if(stream == NULL){
-		kprintf("display_open(): malloc failed (1)");
+		kprintf("display_open(): malloc failed (1)\n");
 		return NULL;
 	}
 	memset(stream, 0, sizeof(struct filefunc));
@@ -164,7 +164,7 @@ FILE *display_open(DEVICE *device, uint_t mode)
 	func = (struct filefunc*)kmalloc(sizeof(struct filefunc));
 	if(func == NULL){
 		kfree(stream);
-		kprintf("display_open(): malloc failed (2)");
+		kprintf("display_open(): malloc failed (2)\n");
 		return NULL;
 	}
 	memset(func, 0, sizeof(struct filefunc));

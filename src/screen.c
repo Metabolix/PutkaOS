@@ -7,13 +7,11 @@ void cls(void)
 }
 int putch(char c)
 {
-	vt_putch(vt_out_get(), c);
-	return 0;
+	return vt_putch(vt_out_get(), c);
 }
 int print(const char * string)
 {
-	vt_print(vt_out_get(), string);
-	return 0;
+	return vt_print(vt_out_get(), string);
 }
 int move(unsigned int y, unsigned int x)
 {

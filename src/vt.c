@@ -10,7 +10,7 @@ int change_to_vt;
 FILE *driverstream = NULL;
 struct displayinfo driverinfo;
 
-void vt_fallback_update_cursor()
+void vt_fallback_update_cursor(void)
 {
 	if(!initialized) return;
 	unsigned int temp = vt[cur_vt].cy * 80 + vt[cur_vt].cx;
@@ -20,7 +20,18 @@ void vt_fallback_update_cursor()
 	outportb(0x3D5, temp);
 }
 
-void vt_locate_display(unsigned int x, unsigned int y)
+void vt_fallback_cls(void)
+{
+	if(!initialized) return;
+	int i;
+	for(i=0; i<80*25; i++){
+		*(char*)(0xB8000 + i * 2 + 0) = ' ';
+		*(char*)(0xB8000 + i * 2 + 1) = 0x7;
+	}
+	vt_fallback_update_cursor();
+}
+
+void vt_display_locate(unsigned int x, unsigned int y)
 {
 	if(!initialized) return;
 	if(!driverstream) return;
@@ -30,9 +41,14 @@ void vt_locate_display(unsigned int x, unsigned int y)
 	ioctl(driverstream, IOCTL_DISPLAY_LOCATE, (uintptr_t)&xy);
 }
 
-void vt_update_display_cursor()
+void vt_update_cursor()
 {
-	vt_locate_display(vt[cur_vt].cx, vt[cur_vt].cy + vt[cur_vt].scroll);
+	if(driverstream){
+		vt_display_locate(vt[cur_vt].cx, vt[cur_vt].cy + vt[cur_vt].scroll);
+	}
+	else{
+		vt_fallback_update_cursor();
+	}
 }
 
 //täyttää halutun pätkän 0x0,0x7-floodilla
@@ -46,12 +62,103 @@ void vt_fill_with_blank(char *buf, unsigned int length)
 	}
 }
 
+
+void do_eop(void)
+{
+	if(!initialized) return;
+	/* if user wants to change vt while printing we queue it */
+	if (change_to_vt) {
+		vt_change(change_to_vt);
+	}
+}
+
+void update_from_current_buf(void)
+{
+	if(!initialized) return;
+	if(driverstream){
+		if(vt[cur_vt].buffer){
+			vt_display_locate(0, 0);
+			fwrite((char*)vt[cur_vt].buffer + vt[cur_vt].bufsize
+					- (driverinfo.h * driverinfo.w * 2)
+					- (vt[cur_vt].scroll * driverinfo.w * 2), 1,
+					(driverinfo.h * driverinfo.w * 2), driverstream);
+			vt_update_cursor();
+			
+			/*
+			int x, y;
+			for(y=0; y<driverinfo.h; y++){
+				for(x=0; x<driverinfo.w; x++){
+					vt_display_locate(x, y);
+					fwrite((char*)(vt[cur_vt].buffer + vt[cur_vt].bufsize - (driverinfo.h*driverinfo.w*2) - vt[cur_vt].scroll * (driverinfo.w*2) + y * driverinfo.w*2 + x*2), 1, 2, driverstream);
+					vt_update_cursor();
+				}
+			}
+			*/
+		}
+	}
+	else{
+		if(vt[cur_vt].buffer){
+			memcpy((char*)0xB8000, vt[cur_vt].buffer + vt[cur_vt].bufsize - 160*25,
+					160*25);
+			vt_fallback_update_cursor();
+		}
+	}
+}
+
+void buffer_add_lines(unsigned int vt_num, unsigned int lines)
+{
+	if(!initialized) return;
+	if(!driverstream) return; //ei bufferia fallbackina
+	if (vt_num >= VT_COUNT) return;
+	if(vt[cur_vt].buffer){
+		memmove(vt[cur_vt].buffer, vt[cur_vt].buffer + (lines * vt[cur_vt].bufw * 2),
+				vt[vt_num].bufsize - (lines * vt[vt_num].bufw * 2));
+		vt_fill_with_blank(vt[vt_num].buffer + vt[vt_num].bufsize
+				- (lines * vt[vt_num].bufw * 2), (lines * vt[vt_num].bufw));
+	}
+}
+
+void vt_scroll_if_needed(unsigned int vt_num)
+{
+	if(driverstream){
+		if (vt[vt_num].cy >= driverinfo.h) { /* scroll screen */
+			unsigned int amount = vt[vt_num].cy - (driverinfo.h - 1);
+			if(amount > driverinfo.h) amount = driverinfo.h;
+			buffer_add_lines(vt_num, amount);
+			ioctl(driverstream, IOCTL_DISPLAY_ROLL_UP, amount);
+			vt[vt_num].cy = driverinfo.h - 1;
+			vt_update_cursor();
+		}
+	}
+	else{
+		if (vt[vt_num].cy >= 25) { /* scroll screen */
+			int amount = vt[vt_num].cy - (25 - 1);
+			
+			memmove((char *)0xB8000, (char *)0xB8000 + amount * 160,
+					(25 - amount) * 160);
+			vt_fill_with_blank((char *)0xB8000 + (25 - amount) * 160, 80 * amount);
+
+			vt[vt_num].cy = 25 - 1;
+		}
+	}
+}
+
+//////////////////////////////////////
+
+unsigned int vt_out_get(void)
+{
+	if(!initialized) return 0;
+	if (threading_on()) {
+		return active_process_ptr->vt_num;
+	}
+
+	return VT_KERN_LOG;
+}
+
 unsigned char vt_get_color(unsigned int vt_num)
 {
 	if(!initialized) return -1;
-	if (vt_num >= VT_COUNT) {
-		return 0;
-	}
+	if (vt_num >= VT_COUNT) return -1;
 	return vt[vt_num].color;
 }
 
@@ -80,12 +187,7 @@ int vt_locate(unsigned int vt_num, unsigned int x, unsigned int y)
 	vt[vt_num].cx = x;
 	vt[vt_num].cy = y;
 	if(vt_num == cur_vt){
-		if(driverstream){
-			vt_update_display_cursor();
-		}
-		else{
-			vt_fallback_update_cursor();
-		}
+		vt_update_cursor();
 	}
 
 	return ret;
@@ -94,9 +196,7 @@ int vt_locate(unsigned int vt_num, unsigned int x, unsigned int y)
 void vt_cls(unsigned int vt_num)
 {
 	if(!initialized) return;
-	if (vt_num >= VT_COUNT) {
-		return;
-	}
+	if (vt_num >= VT_COUNT) return;
 	vt[vt_num].cx = 0;
 	vt[vt_num].cy = 0;
 	if(vt_num == cur_vt){
@@ -104,45 +204,13 @@ void vt_cls(unsigned int vt_num)
 			ioctl(driverstream, IOCTL_DISPLAY_CLS, NULL);
 		}
 		else{
-			int i;
-			for(i=0; i<80*25; i++){
-				*(char*)(0xB8000 + i * 2 + 0) = ' ';
-				*(char*)(0xB8000 + i * 2 + 1) = 0x7;
-			}
-			vt_fallback_update_cursor();
+			vt_fallback_cls();
 		}
 	}
-	if(vt[vt_num].buffer && initialized){
+	if(vt[vt_num].buffer){
 		vt_fill_with_blank(vt[vt_num].buffer + vt[vt_num].bufsize - driverinfo.h*vt[vt_num].bufw*2, driverinfo.h*vt[vt_num].bufw);
 	}
 }
-
-int vt_print(unsigned int vt_num, const char *string)
-{
-	if(!initialized) return 1;
-	if (vt_num >= VT_COUNT) return 1;
-	if (!vt[vt_num].in_kprintf) {
-		if (threading_on()) {
-			spinl_lock(&vt[vt_num].printlock);
-		}
-	}
-
-	char *s = (char *)string;
-	while (*s) {
-		vt_putch(vt_num, *s);
-		++s;
-	}
-
-	if (!vt[vt_num].in_kprintf) {
-		if (threading_on()) {
-			spinl_unlock(&vt[vt_num].printlock);
-		}
-	}
-
-	return s - string;
-}
-
-///
 
 unsigned int vt_get_display_height(void)
 {
@@ -150,73 +218,6 @@ unsigned int vt_get_display_height(void)
 	if(driverstream) return driverinfo.h;
 	else return 25;
 }
-
-
-void do_eop(void)
-{
-	if(!initialized) return;
-	/* if user wants to change vt while printing we queue it */
-	if (change_to_vt) {
-		vt_change(change_to_vt);
-	}
-}
-
-unsigned int vt_out_get(void)
-{
-	if(!initialized) return 0;
-	if (threading_on()) {
-		return active_process_ptr->vt_num;
-	}
-
-	return VT_KERN_LOG;
-}
-
-void update_from_current_buf(void)
-{
-	if(!initialized) return;
-	if(driverstream){
-		if(vt[cur_vt].buffer){
-			vt_locate_display(0, 0);
-			fwrite((char*)vt[cur_vt].buffer + vt[cur_vt].bufsize
-					- (driverinfo.h * driverinfo.w * 2)
-					- (vt[cur_vt].scroll * driverinfo.w * 2), 1,
-					(driverinfo.h * driverinfo.w * 2), driverstream);
-			vt_update_display_cursor();
-			
-			/*
-			int x, y;
-			for(y=0; y<driverinfo.h; y++){
-				for(x=0; x<driverinfo.w; x++){
-					vt_locate_display(x, y);
-					fwrite((char*)(vt[cur_vt].buffer + vt[cur_vt].bufsize - (driverinfo.h*driverinfo.w*2) - vt[cur_vt].scroll * (driverinfo.w*2) + y * driverinfo.w*2 + x*2), 1, 2, driverstream);
-					vt_update_display_cursor();
-				}
-			}
-			*/
-		}
-	}
-	else{
-		if(vt[cur_vt].buffer){
-			memcpy((char*)0xB8000, vt[cur_vt].buffer + vt[cur_vt].bufsize - 160*25,
-					160*25);
-			vt_fallback_update_cursor();
-		}
-	}
-}
-
-void buffer_add_lines(unsigned int vt_num, unsigned int lines)
-{
-	if(!initialized) return;
-	if(!driverstream) return; //ei bufferia fallbackina
-	if (vt_num >= VT_COUNT) return;
-	if(vt[cur_vt].buffer){
-		memmove(vt[cur_vt].buffer, vt[cur_vt].buffer + (lines * vt[cur_vt].bufw * 2),
-				vt[vt_num].bufsize - (lines * vt[vt_num].bufw * 2));
-		vt_fill_with_blank(vt[vt_num].buffer + vt[vt_num].bufsize
-				- (lines * vt[vt_num].bufw * 2), (lines * vt[vt_num].bufw));
-	}
-}
-
 
 void vt_change(unsigned int vt_num)
 {
@@ -249,10 +250,119 @@ void vt_scroll(int lines) {
 	update_from_current_buf();
 }
 
-void vt_putch(unsigned int vt_num, int c)
+/* (ei toimi eikä nopeuta)
+//- Piirtää nopeasti suoraan merkki-väri-muodossa.
+//- len on piirrettävän pituus tavuina.
+//- Toimii aioastaan normaalia display-driveriä käytettäessä
+int vt_fastprint(unsigned int vt_num, const char *buf, unsigned int len)
 {
-	if(!initialized) return;
-	if (vt_num >= VT_COUNT) return;
+	if(!initialized) return 1;
+	if(!driverstream) return 1;
+	if(vt_num >= VT_COUNT) return 1;
+
+	int cx = vt[vt_num].cx, cy = vt[vt_num].cy;
+	//int oldcx = cx, oldcy = cy;
+	cx += len/2;
+	int rowsmore = cx / driverinfo.w;
+	if(rowsmore > driverinfo.h) return 1;
+	cx -= rowsmore * driverinfo.w;
+	cy += rowsmore;
+	if(cy > (driverinfo.h - 1)){
+		int scrollamount = cy - (driverinfo.h - 1);
+		buffer_add_lines(vt_num, scrollamount);
+		ioctl(driverstream, IOCTL_DISPLAY_ROLL_UP, scrollamount);
+		cy -= scrollamount;
+	}
+	cy -= rowsmore;
+	vt_display_locate(cx, cy);
+
+	if (threading_on()) {
+		spinl_lock(&vt[vt_num].writelock);
+	}
+	fwrite(buf, 1, len, driverstream);
+	memcpy(vt[vt_num].buffer + vt[vt_num].bufsize - (driverinfo.h*driverinfo.w*2) + cy * (driverinfo.w*2) + cx * 2, buf, len);
+
+	vt[vt_num].cx = cx;
+	vt[vt_num].cy = cy+rowsmore;
+
+	if (threading_on()) {
+		spinl_unlock(&vt[vt_num].writelock);
+	}
+
+	return 0;
+}
+*/
+
+int vt_print(unsigned int vt_num, const char *string)
+{
+	if(!initialized) return 1;
+	if (vt_num >= VT_COUNT) return 1;
+	if (!vt[vt_num].in_kprintf) {
+		if (threading_on()) {
+			spinl_lock(&vt[vt_num].printlock);
+		}
+	}
+	
+	char tempbuf[160];
+	int i = 0, maxl;
+	char *s = (char *)string, *s2, *s3;
+	while (*s) {
+		//kirjoitetaan nopeammin erikoismerkittömiä pätkiä jos käytetään ajuria
+		if(driverstream && *s >= ' '){
+			//vt_putch(vt_num, '|');
+			maxl = sizeof(tempbuf);
+			if(maxl > vt[vt_num].bufw*2 - vt[vt_num].cx*2)
+				maxl = vt[vt_num].bufw*2 - vt[vt_num].cx*2;
+			i=0;
+			while(*s >= ' ' && i + 1 < maxl){
+				tempbuf[i++] = *s;
+				tempbuf[i++] = vt[vt_num].color;
+				s++;
+			}
+
+			if (threading_on()) {
+				spinl_lock(&vt[vt_num].writelock);
+			}
+
+			//ja bufferiin sama sössö
+			s2 = vt[vt_num].buffer + vt[vt_num].bufsize - (driverinfo.h*driverinfo.w*2)
+					+ vt[vt_num].cy * (driverinfo.w*2) + vt[vt_num].cx * 2;
+			s3 = tempbuf;
+			memcpy(s2, s3, i);
+
+			fwrite(tempbuf, 1, i, driverstream);
+
+			vt[vt_num].cx += i/2;
+			if(vt[vt_num].cx >= vt[vt_num].bufw){
+				vt[vt_num].cx = 0;
+				vt[vt_num].cy++;
+				vt_scroll_if_needed(vt_num);
+			}
+
+			if (threading_on()) {
+				spinl_unlock(&vt[vt_num].writelock);
+			}
+		}
+		//muuten jumitellaan putchilla
+		else{
+			vt_putch(vt_num, *s);
+			s++;
+		}
+	}
+
+	if (!vt[vt_num].in_kprintf) {
+		if (threading_on()) {
+			spinl_unlock(&vt[vt_num].printlock);
+		}
+	}
+
+	return s - string;
+}
+
+int vt_putch(unsigned int vt_num, int c)
+{
+	if(!initialized) return 1;
+	if (vt_num >= VT_COUNT) return 1;
 	if (threading_on()) {
 		spinl_lock(&vt[vt_num].writelock);
 	}
@@ -269,20 +379,20 @@ void vt_putch(unsigned int vt_num, int c)
 			vt[vt_num].cx = (driverinfo.w) - 1;
 			vt[vt_num].cy--;
 		}
-		vt_update_display_cursor();
+		vt_update_cursor();
 	}
 	else if (c == '\t') { /* tab */
 		vt[vt_num].cx = (vt[vt_num].cx + 8) & ~7;
-		vt_update_display_cursor();
+		vt_update_cursor();
 	}
 	else if (c == '\r') { /* return */
 		vt[vt_num].cx = 0;
-		vt_update_display_cursor();
+		vt_update_cursor();
 	}
 	else if (c == '\n') { /* new line */
 		vt[vt_num].cx = 0;
 		vt[vt_num].cy++;
-		vt_update_display_cursor();
+		vt_update_cursor();
 	}
 	else if (c >= ' ') { /* printable character */
 		if(vt_num == cur_vt) {
@@ -310,35 +420,20 @@ void vt_putch(unsigned int vt_num, int c)
 			vt[vt_num].cx = 0;
 			vt[vt_num].cy++;
 		}
-		if (vt[vt_num].cy >= driverinfo.h) { /* scroll screen */
-			unsigned int amount = vt[vt_num].cy - (driverinfo.h - 1);
-			if(amount > driverinfo.h) amount = driverinfo.h;
-			buffer_add_lines(vt_num, amount);
-			ioctl(driverstream, IOCTL_DISPLAY_ROLL_UP, amount);
-			vt[vt_num].cy = driverinfo.h - 1;
-			vt_update_display_cursor();
-		}
+		vt_scroll_if_needed(vt_num);
 	}
 	else{
 		if (vt[vt_num].cx >= 80) {
 			vt[vt_num].cx = 0;
 			vt[vt_num].cy++;
 		}
-		if (vt[vt_num].cy >= 25) { /* scroll screen */
-			int amount = vt[vt_num].cy - (25 - 1);
-			
-			memmove((char *)0xB8000, (char *)0xB8000 + amount * 160,
-					(25 - amount) * 160);
-			vt_fill_with_blank((char *)0xB8000 + (25 - amount) * 160, 80 * amount);
-
-			vt[vt_num].cy = 25 - 1;
-		}
+		vt_scroll_if_needed(vt_num);
 	}
 	if (threading_on()) {
 		spinl_unlock(&vt[vt_num].writelock);
 	}
-	vt_fallback_update_cursor();
 	do_eop();
+	return 0;
 }
 
 void vt_keyboard(int code, int down)
@@ -453,7 +548,7 @@ int vt_setdriver(char *fname)
 	if(was_in_fallback_mode && vt[0].buffer){
 		memcpy(vt[0].buffer + vt[0].bufsize - driverinfo.w*2 * driverinfo.h,
 				(char *)0xB8000, 160*25);
-		vt_update_display_cursor();
+		update_from_current_buf();
 		kprintf("vt_setdriver(): was in fallback mode: copied old display contents to buffer\n");
 	}
 	
