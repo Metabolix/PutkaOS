@@ -13,7 +13,7 @@ void run_sh(void)
 	char buffer[128];
 	char *bufptr;
 	const int buffer_size = 120;
-	int loc;
+	int loc, i;
 
 	struct sh_komento *komento;
 
@@ -76,6 +76,34 @@ void run_sh(void)
 				}
 				continue;
 			}
+			if(ch == KEY_LEFT){
+				if(loc > 0){
+					putch('\b');
+					loc--;
+				}
+				continue;
+			}
+			if(ch == KEY_RIGHT){
+				if(buffer[loc] != 0){
+					putch(buffer[loc]);
+					loc++;
+				}
+				continue;
+			}
+			if(ch == KEY_HOME){
+				while(loc>0){
+					print("\b");
+					loc--;
+				}
+				continue;
+			}
+			if(ch == KEY_END){
+				while(buffer[loc]){
+					putch(buffer[loc]);
+					loc++;
+				}
+				continue;
+			}
 			int hex = ch;
 			ch = ktoasc(ch);
 			if (ch == '\n' || hex == KEY_NUM_ENTER) {
@@ -86,15 +114,32 @@ void run_sh(void)
 			}
 			if (ch == '\b') {
 				if (loc > 0) {
-					print("\b \b");
-					buffer[--loc] = 0;
+					putch('\b');
+					loc--;
+					for(i=loc; i < buffer_size-1; i++){
+						buffer[i] = buffer[i+1];
+						if(buffer[i] == 0){
+							print(" \b");
+							break;
+						}
+						else putch(buffer[i]);
+					}
+					for(i-=loc; i > 0; i--) putch('\b');
 				}
 				continue;
 			}
 			if (loc < buffer_size - 1) {
 				putch(ch);
+				for(i=loc; i < buffer_size; i++){
+					if(buffer[i] == 0) break;
+					putch(buffer[i]);
+				}
+				for(; i > loc; i--){
+					buffer[i] = buffer[i-1];
+					putch('\b');
+				}
 				buffer[loc] = ch;
-				buffer[++loc] = 0;
+				loc++;
 			}
 		}
 		putch('\n');
