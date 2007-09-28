@@ -357,7 +357,7 @@ alku:
 	}
 
 	/* block size */
-	floppy_init_dma(buffer, 512, 0);
+	floppy_init_dma(buffer, 512, write);
 
 	kwait(0, 1000 * floppy_params->head_settle_time);
 	floppy_wait();
