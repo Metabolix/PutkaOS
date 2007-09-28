@@ -521,6 +521,9 @@ size_t minix_fwrite(const void *buf, size_t size, size_t count, struct minix_fil
 
 int minix_fflush(struct minix_file *stream)
 {
+	if (!(stream->std.mode & FILE_MODE_WRITE)) {
+		return 0;
+	}
 	fpos_t pos;
 
 	pos = stream->fs->pos_inodes + (stream->inode_n - 1) * MINIS_FS_INODE_SIZE;
