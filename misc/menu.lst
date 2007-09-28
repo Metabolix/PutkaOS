@@ -1,0 +1,12 @@
+default 0
+timeout 5
+
+title	PutkaOS v0.002 ; (fd0)/kernel root=/dev/fd0
+root	(fd0)
+kernel	/kernel root=/dev/fd0
+boot
+
+title	PutkaOS v0.002 ; (fd0)/kernel root=/dev/c0d0
+root	(fd0)
+kernel	/kernel root=/dev/c0d0
+boot

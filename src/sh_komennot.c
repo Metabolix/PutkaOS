@@ -17,9 +17,6 @@
 
 void sh_ei_tunnistettu(char *buf);
 
-void sh_cat(char *buf);
-void sh_hexcat(char *name);
-
 void sh_uptime(char *buf);
 
 void sh_outportb(char *buf);
@@ -38,6 +35,9 @@ void sh_key_names(char *buf);
 
 void sh_mkdir(char*a);
 void sh_ls(char *buf);
+
+void sh_cat(char *buf);
+void sh_hexcat(char *name);
 
 void sh_mount(char *buf);
 void sh_umount(char *buf);
