@@ -3,6 +3,7 @@
 #include <panic.h>
 #include <memory.h>
 #include <bit.h>
+#include <misc_asm.h>
 
 void init_pde(unsigned int pde);
 
@@ -22,28 +23,6 @@ unsigned int block_count = 0x8000; /* 0x8000 * 32 * 4096 = 4GB */
 
 unsigned int pages_free;
 
-unsigned long get_cr0(void);
-unsigned long get_cr3(void);
-void set_cr0(unsigned long);
-void set_cr3(unsigned long);
-
-__asm__(
-"get_cr0:\n"
-"    movl %cr0,%eax\n"
-"    ret\n"
-"set_cr0:\n"
-"    movl 4(%esp),%eax\n"
-"    movl %eax,%cr0\n"
-"    ret\n"
-"set_cr3:\n"
-"    movl 4(%esp),%eax\n"
-"    movl %eax,%cr3\n"
-"    ret\n"
-"get_cr3:\n"
-"    movl %cr3,%eax\n"
-"    ret\n"
-);
-
 
 /* Finds free block from physical ram */
 int find_free_block(void)
@@ -55,9 +34,9 @@ int find_free_block(void)
 		if (memory_table[i] != 0xffffffff) {  /* All is-reserved bits */
 			for(j = 0; j < sizeof(int) * 8; j++) {
 				if (get_bit(memory_table[i], j) == 0) {
-					/*  Tämä ei ole välttämättä hyvä idea... sen jälkeen kun on 20 taskia,
+					/*  Tï¿½mï¿½ ei ole vï¿½lttï¿½mï¿½ttï¿½ hyvï¿½ idea... sen jï¿½lkeen kun on 20 taskia,
 					    joista jokainen vapauttaa muistia miten haluaa, nopeiten sivu _saattaa_
-					    löytyä kuitenkin alusta. Katotaan miten toimii :P
+					    lï¿½ytyï¿½ kuitenkin alusta. Katotaan miten toimii :P
 					continue_block = i; */
 					return (i * 32) + j;
 				}
@@ -74,8 +53,8 @@ void reserve_block(unsigned int block)
 	if(get_bit(memory_table[block / 32], block % 32) == 0)
 	{
 		pages_free--;
-		memory_table[block / 32] = set_bit(memory_table[block / 32], block % 32, 1); 
-		
+		memory_table[block / 32] = set_bit(memory_table[block / 32], block % 32, 1);
+
 	}
 }
 
@@ -104,10 +83,10 @@ int mmap(void * real, void * virtual_address, int type)
 
 	// Do we have page directory already?
 	if(page_directory[((unsigned int)virtual_addr)>>22] == 0x0)
-	{	
+	{
 		// No. Create one
 		unsigned int dir_block = find_free_block();
-		
+
 		/* Out of memory */
 		if(dir_block==0)
 			return 1;
@@ -118,10 +97,10 @@ int mmap(void * real, void * virtual_address, int type)
 
 		// Write address of the new page table to the page table of memory window
 		page_table[1024 + (virtual_addr>>22)] = (dir_block * MEMORY_BLOCK_SIZE) | KERNEL_PAGE_PARAMS;
-		set_cr3(get_cr3());
+		asm_set_cr3(asm_get_cr3());
 	}
 	page_table[((virtual_addr>>22) * 1024) + ((virtual_addr>>12) & 1023)] = (((unsigned int)real) & 0xFFFFF000) | type;
-	set_cr3(get_cr3());
+	asm_set_cr3(asm_get_cr3());
 	return 0;
 }
 
@@ -132,21 +111,21 @@ void unmap(void * virtual_address)
 	unsigned int virtual_addr = (unsigned int)(virtual_address) & 0xFFFFF000;
 
 	page_table[((virtual_addr>>22) * 1024) + ((virtual_addr>>12) & 1023)] = 0x0;
-	set_cr3(get_cr3());
+	asm_set_cr3(asm_get_cr3());
 }
 
 // Searchs free area from virtual memory
 void * find_area(unsigned int area_size, unsigned char memory_type)
 {
 	unsigned int curr_pde, curr_pte, area_start, area_found, last_pde;
-	
+
 	area_start=0;
-	
+
 	if(memory_type==KERNEL_PAGE_PARAMS)
 	{
  		curr_pde=0;
 		last_pde=KERNEL_PDE_COUNT;
-	}	
+	}
 	else
 	{
 		curr_pde=KERNEL_PDE_COUNT;
@@ -177,7 +156,7 @@ void * find_area(unsigned int area_size, unsigned char memory_type)
 				}
 			}
 	}
-	
+
 	if(area_found==0)
 		return 0;
 	else
@@ -206,7 +185,7 @@ void memory_init(unsigned int max_mem)
 	for (a = 16; a < block_count; a++) {
 		memory_table[a] = 0x0;
 	}
-	
+
 	// Kernel may use 256MB
 	memset(kernel_page_tables, 0, MEMORY_BLOCK_SIZE * KERNEL_PDE_COUNT);
 
@@ -214,10 +193,10 @@ void memory_init(unsigned int max_mem)
 	for (a = 0; a < 511; a++, address += MEMORY_BLOCK_SIZE) {
 		kernel_page_tables[a] = address | KERNEL_PAGE_PARAMS;
 	}
-	
+
 	/* Memory area 3FF000h - 400000h refers to page directory */
 	kernel_page_tables[1023] = ((unsigned long) temporary_page_directory) | KERNEL_PAGE_PARAMS;
-	
+
 	/* Memory area 400000h - 800000h refers to current page tables */
 	for (a = 0, address= (unsigned int) kernel_page_tables; a < KERNEL_PDE_COUNT; a++, address += MEMORY_BLOCK_SIZE) {
 		kernel_page_tables[a + 1024] = address | KERNEL_PAGE_PARAMS;
@@ -228,10 +207,10 @@ void memory_init(unsigned int max_mem)
 	pagedir_init(temporary_page_directory);
 
 	/* Directories set. Let's bring up paging */
-	set_cr3((unsigned long) temporary_page_directory);
-	set_cr0(get_cr0() | 0x80000000);
-	
-	if (get_cr0() & 0x80000000) {
+	asm_set_cr3(temporary_page_directory);
+	asm_set_cr0((void*)((unsigned long) asm_get_cr0() | 0x80000000));
+
+	if ((unsigned long) asm_get_cr0() & 0x80000000) {
 		print("Memory paging is enabled!\n");
 	}
 

@@ -1,4 +1,4 @@
-#include <putkaos.h>
+#include <misc_asm.h>
 #include <gdt.h>
 #include <irq.h>
 #include <keyboard.h>
@@ -87,7 +87,7 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 	mount_init(mboot_device, mboot_cmdline);
 	print("testattava_koodi();\n");
 	testattava_koodi();
-	
+
 	//avataan oikea näyttöajuri ja asetetaan se vt-jutun käyttöön
 	display_init();
 	vt_setdriver("/dev/display");
@@ -115,7 +115,7 @@ void testattava_koodi()
 	fwrite(foo2, 1, strlen(foo2), vt_head1);
 	fwrite(foo2, 1, strlen(foo2), vt_head2);
 	fwrite(foo, 1, strlen(foo), vt_head2);
-	
+
 	char bar[20];
 
 	fread(bar, 1, strlen(foo)-1, vt_head2);

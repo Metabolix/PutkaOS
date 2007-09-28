@@ -1,7 +1,6 @@
 #include <screen.h>
 #include <stdarg.h>
 #include <string.h>
-#include <putkaos.h>
 #include <vt.h>
 
 #define BUF_KOKO 32
@@ -128,9 +127,9 @@ int kprintf(const char *fmt, ...)
 {
 	int retval = 0, numbytes = 0, len, apu;
 	int vt_out = vt_out_get();
-	if(threading_on()) {
-		vt_kprintflock(vt_out);
-	}
+
+	vt_kprintflock(vt_out);
+
 	union {
 		char c;
 		unsigned int ui;
@@ -412,9 +411,8 @@ int kprintf(const char *fmt, ...)
 			++fmt;
 	}
 	va_end(args);
-	if(threading_on()) {
-		vt_kprintfunlock(vt_out);
-	}
+
+	vt_kprintfunlock(vt_out);
 
 	return retval;
 }

@@ -3,7 +3,6 @@
 #include <io.h>
 #include <irq.h>
 #include <thread.h>
-#include <putkaos.h>
 #include <devices/devmanager.h>
 #include <stdio.h>
 #include <string.h>
@@ -34,7 +33,7 @@ int display_locate(unsigned int y, unsigned int x)
 
 	display.cx = x;
 	display.cy = y;
-	
+
 	return 0;
 }
 
@@ -68,15 +67,15 @@ size_t display_fwrite(const void *buf, size_t size, size_t count, FILE *stream)
 	//- count on bufferin koko tavuina ja size pitäisi olla sizeof(char) eli 1.
 	//- Bufferin koko on aina parillinen
 	//- Näyttöä ohjaava juttu (vt) pitää huolen ettei mennä bufferin yli.
-	
+
 	//Tosin voi sen tietenkin tarkistaa...
 	if(display.cy * DISPLAY_MEM_W + display.cx*2 + count > DISPLAY_MEM_SIZE)
 		count = DISPLAY_MEM_SIZE - (display.cy * DISPLAY_MEM_W + display.cx*2);
-	
+
 	//koska ei mennä bufferin yli, voidaan kopioida buf vaan suoraan paikalleen.
 	memcpy((char*)(0xB8000 + display.cy * DISPLAY_MEM_W + display.cx * 2), buf,
 			size*count);
-	
+
 	//ja kursori pitää asettaa uuteen paikkaansa.
 	display.cx += size*count/2;
 	int ychange = display.cx / DISPLAY_W;
@@ -84,7 +83,7 @@ size_t display_fwrite(const void *buf, size_t size, size_t count, FILE *stream)
 	display.cy += ychange;
 	display.cy %= DISPLAY_H;
 	display_move_cursor();
-	
+
 	//palautetaan piirrettyjen tavujen määrä
 	return count;
 }
@@ -175,7 +174,7 @@ FILE *display_open(DEVICE *device, uint_t mode)
 	func->fclose = (fclose_t)&display_fclose;
 
 	stream->func = func;
-	
+
 	display.num_open++;
 
 	kprintf("display_open(): opened\n");
@@ -191,13 +190,13 @@ int display_remove(DEVICE *device)
 void display_init(void) {
 	memset(&display, 0, sizeof(display));
 	display.color = 0;
-	
+
 	char name_[] = "display";
 	int namelen = strlen(name_);
 	int r;
 
 	//tehdään device ja tungetaan se device_insertille
-	
+
 	DEVICE *dev = (DEVICE*)kmalloc(sizeof(DEVICE));
 	memset(dev, 0, sizeof(DEVICE));
 

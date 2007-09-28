@@ -4,6 +4,7 @@
 #include <timer.h>
 #include <io.h>
 #include <mem.h>
+#include <misc_asm.h>
 
 #include <int64.h>
 #define TICKS_TO_MICROSECS(ticks) (((uint64_t)1000000) * ticks / ((uint64_t)TIMER_TICK_RATE))
@@ -197,9 +198,9 @@ void kwait(time_t sec, time_t usec)
 	jatkoaika.sec += sec;
 	jatkoaika.sec += (jatkoaika.usec / 1000000);
 	jatkoaika.usec %= 1000000;
-	extern void taikatemppu();
-	while (jatkoaika.sec > uptime.sec) taikatemppu();
-	while ((jatkoaika.sec == uptime.sec) && (jatkoaika.usec > uptime.usec)) taikatemppu();
+
+	while (jatkoaika.sec > uptime.sec) asm_hlt();
+	while ((jatkoaika.sec == uptime.sec) && (jatkoaika.usec > uptime.usec)) asm_hlt();
 }
 
 int kwait_until_0(time_t sec, time_t usec, waitfunc_t until_0, waitparam_t param)

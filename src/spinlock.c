@@ -1,6 +1,6 @@
 #include <spinlock.h>
 #include <thread.h>
-#include <putkaos.h>
+#include <misc_asm.h>
 
 void spinl_init(struct spinlock * spinl) {
 	spinl->count = 0;
@@ -11,7 +11,7 @@ void spinl_unlock(struct spinlock * spinl) {
 }
 
 void spinl_spin(struct spinlock * spinl) {
-	while(spinl->count);
+	while (spinl->count) asm_nop(spinl);
 }
 
 void spinl_lock(struct spinlock * spinl) {
@@ -27,6 +27,6 @@ void spinl_lock(struct spinlock * spinl) {
 	}
 }
 
-char spinl_locked(struct spinlock * spinl) {
+int spinl_locked(struct spinlock * spinl) {
 	return spinl->count;
 }

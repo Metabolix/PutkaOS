@@ -14,7 +14,7 @@ DIRS=devices devices/blockdev devices/ports filesys
 ASM=nasm
 ASMFLAGS=-f elf
 
-ASM_SRC=start.asm gdt.asm irq.asm isrs.asm bit.asm thread.asm io.asm read_cmos.asm misc.asm math.asm build_tweaks.asm syscall.asm
+ASM_SRC=start.asm gdt.asm irq.asm isrs.asm bit.asm thread.asm io.asm read_cmos.asm misc_asm.asm math.asm build_tweaks.asm syscall.asm
 
 CO_SRC_STDROUTINES=string.c mem.c ctype.c
 CO_SRC_MEM=memory.c malloc.c

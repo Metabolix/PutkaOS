@@ -7,7 +7,7 @@
 #include <bit.h>
 #include <timer.h>
 #include <panic.h>
-#include <putkaos.h>
+#include <misc_asm.h>
 #include <stdint.h>
 
 /*

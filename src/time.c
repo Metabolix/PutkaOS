@@ -1,4 +1,6 @@
 #include <time.h>
+#include <timer.h>
+
 extern int days_in_month(int month, int year);
 extern int karkausvuosi(int year);
 
@@ -56,4 +58,14 @@ time_t mktime(struct tm *timeptr)
 	timeptr->tm_wday = 1;
 	timeptr->tm_yday = 1;
 	return stamp;
+}
+
+time_t time(time_t *timer)
+{
+	struct tm tm;
+	get_sys_time(&tm);
+	if (!timer) {
+		return mktime(&tm);
+	}
+	return (*timer = mktime(&tm));
 }

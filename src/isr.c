@@ -3,6 +3,7 @@
 #include <screen.h>
 #include <regs.h>
 #include <thread.h>
+#include <misc_asm.h>
 
 struct isr_t {
 	const char *name;
@@ -120,16 +121,9 @@ struct isr_t isrs[32] = {
 	{"Reserved", 0}
 };
 
-void* get_cr2(void);
-__asm__(
-"get_cr2:\n"
-"    movl %cr2, %eax\n"
-"    ret\n"
-);
-
 void page_fault_handler(struct regs_t *regs)
 {
-	void* cr2 = get_cr2();
+	void* cr2 = asm_get_cr2();
 	kprintf("Page Fault!\nThread %i, process %i\n", active_thread, active_process);
 	dump_regs(regs);
 

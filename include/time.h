@@ -57,6 +57,7 @@ struct timeval {
 )
 
 extern time_t mktime(struct tm *timeptr);
+extern time_t time(time_t *timer);
 /*
 clock_t clock(void);
 double difftime(time_t time0, time_t time1);

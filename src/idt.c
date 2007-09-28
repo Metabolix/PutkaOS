@@ -1,15 +1,9 @@
 #include <idt.h>
 #include <mem.h>
+#include <misc_asm.h>
 
 struct idt_entry idt[256]; /* table of idt_entries */
 struct idt_ptr idt_pointer;
-
-void idt_load(void);
-__asm__(
-"idt_load:\n"
-"    lidt idt_pointer\n"
-"    ret\n"
-);
 
 void idt_set_gate(unsigned char num, unsigned long base, unsigned short sel, unsigned char flags)
 {
@@ -29,6 +23,6 @@ void idt_install(void)
 
 	memset(&idt, 0, sizeof(struct idt_entry) * 256); /* init them */
 
-	idt_load(); /* points processor register to our IDT */
+	asm_idt_load(&idt_pointer); /* points processor register to our IDT */
 }
 

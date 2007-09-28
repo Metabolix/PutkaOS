@@ -76,10 +76,14 @@ void *memmove(void *dest0, const void *src0, size_t n)
 
 void *memset(void *s, int c, size_t n)
 {
-	unsigned char * p = (unsigned char *) s;
+	if (n <= 0) return s;
 
-	for(; n; n--)
-		*(p++) = (unsigned char)c;
+	unsigned char * p = (unsigned char *) s + n;
+
+	while (p != s) {
+		*(--p) = c;
+	}
+
 	return s;
 }
 

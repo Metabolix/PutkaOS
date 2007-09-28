@@ -4,10 +4,9 @@ int64_t __divdi3(const int64_t a, const int64_t b);
 uint64_t __udivdi3(const uint64_t a, const uint64_t b);
 int64_t __moddi3(const int64_t a, const int64_t b);
 uint64_t __umoddi3(const uint64_t a, const uint64_t b);
-//uint64_t __uint64_div_rem(uni_uint64_t a, uni_uint64_t b, uint64_t *rem);
 
 uint64_t uint64_div_rem(uint64_t a, uint64_t b, uint64_t *rem);
-//__asm__("uint64_div_rem:\n    jmp __uint64_div_rem\n");
+
 uint64_t uint64_div_rem(uint64_t a, uint64_t b, uint64_t *rem)
 {
 	#define RETURN(res_i, rem_i); {if(rem){*rem=(rem_i);}return(res_i);}

@@ -4,7 +4,7 @@
 #include <panic.h>
 #include <screen.h>
 #include <vt.h>
-#include <putkaos.h>
+#include <misc_asm.h>
 
 struct process_t processes[K_MAX_PROCESSES];
 struct thread_t threads[K_MAX_THREADS];
@@ -172,6 +172,7 @@ void next_thread(void)
 	active_thread_ptr = threads + active_thread;
 	active_process = active_thread_ptr->process;
 	active_process_ptr = processes + active_process;
-	if(processes[active_thread_ptr->process].pd)
-		__asm__("movl %0, %%cr3" : : "r"(processes[active_thread_ptr->process].pd)); 
+	if (processes[active_thread_ptr->process].pd) {
+		asm_set_cr3(processes[active_thread_ptr->process].pd);
+	}
 }

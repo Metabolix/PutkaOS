@@ -1,5 +1,5 @@
 #include <screen.h>
-#include <putkaos.h>
+#include <misc_asm.h>
 
 void panic(const char * msg)
 {

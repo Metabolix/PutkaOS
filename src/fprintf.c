@@ -1,12 +1,12 @@
 #include <filesys/file.h>
 #include <stdarg.h>
 #include <string.h>
-#include <putkaos.h>
 #include <stdint.h>
 
 typedef uint32_t wint_t;
 
 // TODO: jokainen fprintf_stub.
+// TODO: fwrite-virheenkäsittely paddauksissa, ettei tule ikuisia silmukoita!
 
 #define FPRINTF_GETARG_U(type) \
 	((type)((sizeof(type) >= sizeof(unsigned int)) \
@@ -171,6 +171,7 @@ static char *fmt_oct_64(char * restrict bufend, uint64_t num)
 
 static int fprintf_heX(FILE *f, struct printf_format_tag *tag, uintmax_t num)
 {
+	// TODO
 	char buf[32], *ptr;
 	buf[31] = 0;
 	ptr = fmt_hex_64(buf + 31, num, 'X');
@@ -183,6 +184,7 @@ static int fprintf_heX(FILE *f, struct printf_format_tag *tag, uintmax_t num)
 
 static int fprintf_hex(FILE *f, struct printf_format_tag *tag, uintmax_t num)
 {
+	// TODO
 	char buf[32], *ptr;
 	buf[31] = 0;
 	ptr = fmt_hex_64(buf + 31, num, 'x');
@@ -195,6 +197,7 @@ static int fprintf_hex(FILE *f, struct printf_format_tag *tag, uintmax_t num)
 
 static int fprintf_oct(FILE *f, struct printf_format_tag *tag, uintmax_t num)
 {
+	// TODO
 	char buf[32], *ptr;
 	buf[31] = 0;
 	ptr = fmt_oct_64(buf + 31, num);
@@ -281,14 +284,17 @@ static int fprintf_int(FILE *f, struct printf_format_tag *tag, intmax_t num)
 
 static int fprintf_fnan(FILE *f, struct printf_format_tag *tag)
 {
+	// TODO
 	return fprintf_stub(f, "fnan");
 }
 static int fprintf_finf(FILE *f, struct printf_format_tag *tag, int sign)
 {
+	// TODO
 	return fprintf_stub(f, "finf");
 }
 static int fprintf_fzero(FILE *f, struct printf_format_tag *tag, int sign)
 {
+	// TODO
 	return fprintf_stub(f, "fzero");
 }
 
@@ -310,6 +316,7 @@ d = floor(log10(f))
 c = f / 10^d
 #endif
 
+	// TODO: math ja sieltä nämä tunnistusfunktiot
 	if (val != val) { // NAN
 		return fprintf_fnan(f, tag);
 	}
@@ -325,7 +332,7 @@ c = f / 10^d
 	if (memcmp(&val, &nzero, sizeof(val)) == 0) {
 		return fprintf_fzero(f, tag, -1);
 	}
-	// TÄHÄN ASTI HYVÄ.
+	// TÄHÄN ASTI LÄHES HYVÄ.
 
 	const uint32_t max_len = 128;
 	char buf[max_len], str[max_len];
@@ -451,7 +458,7 @@ static int fprintf_str(FILE *f, struct printf_format_tag *tag, const char *str)
 	}
 	if (!tag->left_align) {
 		if ((i = fwrite(str, slen, 1, f)) != slen) {
-			return i;
+			return i; // TODO: laske se oikein. >_<
 		}
 	}
 	return len;
@@ -564,7 +571,6 @@ static const char *fprintf_flags(const char *fmt, struct printf_format_tag *tag)
 	return fmt;
 }
 
-#include <screen.h>
 int vfprintf(FILE * restrict f, const char * restrict fmt, va_list args)
 {
 	int retval = 0, numbytes = 0;

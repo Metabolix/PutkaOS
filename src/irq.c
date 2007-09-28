@@ -1,10 +1,11 @@
 #include <screen.h>
+#include <irq.h>
 #include <idt.h>
 #include <io.h>
 #include <panic.h>
 #include <thread.h>
 #include <regs.h>
-#include <putkaos.h>
+#include <misc_asm.h>
 
 #define io_wait() asm_nop()
 
@@ -35,22 +36,6 @@ void irq_remap(unsigned char offset1, unsigned char offset2)
 	print("IRQs remapped\n");
 }
 
-/*
-void asm_wait_irq(unsigned int irq);
-__asm__(
-"asm_wait_irq:\n"
-"    movl 4(%esp), %eax\n"
-"    lea irq_wait(,%eax,1), %eax\n"
-"asm_wait_irq_loop:\n"
-"    movl (%eax), %edx\n"
-"    cmp $0, %edx\n"
-"    jz asm_wait_irq_ret\n"
-"    hlt\n"
-"    jmp asm_wait_irq_loop\n"
-"asm_wait_irq_ret:\n"
-"    ret\n"
-);
-*/
 #define asm_wait_irq(x) asm_hlt_until_true((char*)&irq_wait[x])
 
 void wait_irq(unsigned int irq)

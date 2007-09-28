@@ -4,7 +4,6 @@
 #include <idt.h>
 #include <screen.h>
 #include <panic.h>
-#include <putkaos.h>
 #include <sh.h>
 #include <thread.h>
 #include <mem.h>
