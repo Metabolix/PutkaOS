@@ -5,6 +5,7 @@
 #include <screen.h>
 #include <vt.h>
 #include <misc_asm.h>
+#include <irq.h>
 
 struct process_t processes[K_MAX_PROCESSES];
 struct thread_t threads[K_MAX_THREADS];
@@ -14,7 +15,7 @@ thread_id_t active_thread = NO_THREAD;
 
 struct process_t * active_process_ptr = 0;
 struct thread_t * active_thread_ptr = 0;
-int threading_started = 0;
+
 size_t num_processes = 0;
 size_t num_threads = 0;
 
@@ -175,4 +176,14 @@ void next_thread(void)
 	if (processes[active_thread_ptr->process].pd) {
 		asm_set_cr3(processes[active_thread_ptr->process].pd);
 	}
+}
+
+int has_threading(void)
+{
+	return active_thread_ptr || 0;
+}
+
+int is_threading(void)
+{
+	return has_threading() && !is_in_irq_handler();
 }

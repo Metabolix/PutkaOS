@@ -11,7 +11,12 @@
 
 irq_handler_t irq_handlers[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 volatile char irq_wait[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-unsigned char irq_handling = 0;
+int irq_handling = -1;
+
+int is_in_irq_handler(void)
+{
+	return irq_handling >= 0;
+}
 
 void irq_remap(unsigned char offset1, unsigned char offset2)
 {
@@ -52,11 +57,6 @@ void prepare_wait_irq(unsigned int irq)
 	if (irq < 16 && irq >= 0) {
 		irq_wait[irq] = 1;
 	}
-}
-
-unsigned char in_irq_handler(void)
-{
-	return irq_handling;
 }
 
 void irq_install(void)
@@ -122,7 +122,7 @@ void uninstall_irq_handler(unsigned int irq)
 
 void irq_handler(struct regs_t *regs) /* NOTICE: This should be called only from our assembly code! */
 {
-	irq_handling = 1;
+	irq_handling = regs->int_no;
 	if (regs->int_no & 0xfffffff0) {
 		kprintf("Irq_handler got irq %u which doesn't exist\n", regs->int_no);
 		dump_regs(regs);
@@ -139,5 +139,5 @@ void irq_handler(struct regs_t *regs) /* NOTICE: This should be called only from
 		irq_wait[regs->int_no] = 0;
 	}
 	next_thread();
-	irq_handling = 0;
+	irq_handling = -1;
 }

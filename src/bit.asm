@@ -38,8 +38,3 @@ get_bit_jatka:
 	shr eax, cl
 	and eax, 1
 	ret
-
-;extern void taikatemppu();
-global taikatemppu
-taikatemppu:
-	ret

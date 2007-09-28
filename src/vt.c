@@ -1,5 +1,6 @@
 #include <vt.h>
 #include <screen.h>
+#include <misc_asm.h>
 
 int initialized = 0;
 
@@ -83,7 +84,7 @@ void update_from_current_buf(void)
 					- (vt[cur_vt].scroll * driverinfo.w * 2), 1,
 					(driverinfo.h * driverinfo.w * 2), driverstream);
 			vt_update_cursor();
-			
+
 			/*
 			int x, y;
 			for(y=0; y<driverinfo.h; y++){
@@ -133,7 +134,7 @@ void vt_scroll_if_needed(unsigned int vt_num)
 	else{
 		if (vt[vt_num].cy >= 25) { /* scroll screen */
 			int amount = vt[vt_num].cy - (25 - 1);
-			
+
 			memmove((char *)0xB8000, (char *)0xB8000 + amount * 160,
 					(25 - amount) * 160);
 			vt_fill_with_blank((char *)0xB8000 + (25 - amount) * 160, 80 * amount);
@@ -148,7 +149,7 @@ void vt_scroll_if_needed(unsigned int vt_num)
 unsigned int vt_out_get(void)
 {
 	if(!initialized) return 0;
-	if (threading_on()) {
+	if (is_threading()) {
 		return active_process_ptr->vt_num;
 	}
 
@@ -276,7 +277,7 @@ int vt_fastprint(unsigned int vt_num, const char *buf, unsigned int len)
 	cy -= rowsmore;
 	vt_display_locate(cx, cy);
 
-	if (threading_on()) {
+	if (is_threading()) {
 		spinl_lock(&vt[vt_num].writelock);
 	}
 	fwrite(buf, 1, len, driverstream);
@@ -285,7 +286,7 @@ int vt_fastprint(unsigned int vt_num, const char *buf, unsigned int len)
 	vt[vt_num].cx = cx;
 	vt[vt_num].cy = cy+rowsmore;
 
-	if (threading_on()) {
+	if (is_threading()) {
 		spinl_unlock(&vt[vt_num].writelock);
 	}
 
@@ -298,11 +299,11 @@ int vt_print(unsigned int vt_num, const char *string)
 	if(!initialized) return 1;
 	if (vt_num >= VT_COUNT) return 1;
 	if (!vt[vt_num].in_kprintf) {
-		if (threading_on()) {
+		if (is_threading()) {
 			spinl_lock(&vt[vt_num].printlock);
 		}
 	}
-	
+
 	char tempbuf[160];
 	int i = 0, maxl;
 	char *s = (char *)string, *s2, *s3;
@@ -320,7 +321,7 @@ int vt_print(unsigned int vt_num, const char *string)
 				s++;
 			}
 
-			if (threading_on()) {
+			if (is_threading()) {
 				spinl_lock(&vt[vt_num].writelock);
 			}
 
@@ -339,7 +340,7 @@ int vt_print(unsigned int vt_num, const char *string)
 				vt_scroll_if_needed(vt_num);
 			}
 
-			if (threading_on()) {
+			if (is_threading()) {
 				spinl_unlock(&vt[vt_num].writelock);
 			}
 		}
@@ -351,7 +352,7 @@ int vt_print(unsigned int vt_num, const char *string)
 	}
 
 	if (!vt[vt_num].in_kprintf) {
-		if (threading_on()) {
+		if (is_threading()) {
 			spinl_unlock(&vt[vt_num].printlock);
 		}
 	}
@@ -363,7 +364,7 @@ int vt_putch(unsigned int vt_num, int c)
 {
 	if(!initialized) return 1;
 	if (vt_num >= VT_COUNT) return 1;
-	if (threading_on()) {
+	if (is_threading()) {
 		spinl_lock(&vt[vt_num].writelock);
 	}
 
@@ -371,7 +372,7 @@ int vt_putch(unsigned int vt_num, int c)
 		vt[vt_num].scroll = 0;
 		vt_scroll(0);
 	}
-	
+
 	if (c == '\b') { /* backspace */
 		if (vt[vt_num].cx > 0) {
 			vt[vt_num].cx--;
@@ -414,7 +415,7 @@ int vt_putch(unsigned int vt_num, int c)
 		vt[vt_num].cx++;
 	}
 
-	
+
 	if(driverstream){
 		if (vt[vt_num].cx >= (driverinfo.w)) {
 			vt[vt_num].cx = 0;
@@ -429,7 +430,7 @@ int vt_putch(unsigned int vt_num, int c)
 		}
 		vt_scroll_if_needed(vt_num);
 	}
-	if (threading_on()) {
+	if (is_threading()) {
 		spinl_unlock(&vt[vt_num].writelock);
 	}
 	do_eop();
@@ -459,10 +460,9 @@ int vt_kb_get(unsigned int vt_num)
 {
 	if(!initialized) return -1;
 	int ret;
-	extern void taikatemppu();
 
 	while (!vt[vt_num].kb_buf_count) {
-		taikatemppu(&vt[vt_num].kb_buf_count);
+		asm_hlt(&vt[vt_num].kb_buf_count);
 	}
 
 	ret = vt[vt_num].kb_buf[vt[vt_num].kb_buf_start];
@@ -485,7 +485,7 @@ int vt_kb_get(unsigned int vt_num)
 void vt_kprintflock(unsigned int vt_num)
 {
 	if(!initialized) return;
-	if(threading_on()) {
+	if(is_threading()) {
 		spinl_lock(&vt[vt_num].printlock);
 		vt[vt_num].in_kprintf = 1;
 	}
@@ -494,7 +494,7 @@ void vt_kprintflock(unsigned int vt_num)
 void vt_kprintfunlock(unsigned int vt_num)
 {
 	if(!initialized) return;
-	if(threading_on()) {
+	if(is_threading()) {
 		spinl_unlock(&vt[vt_num].printlock);
 		vt[vt_num].in_kprintf = 0;
 	}
@@ -526,7 +526,7 @@ int vt_setdriver(char *fname)
 		driverstream = NULL;
 		return 0;
 	}
-	
+
 	if(!initialized) return 1;
 
 	int was_in_fallback_mode = (driverstream == NULL);
@@ -560,7 +560,7 @@ int vt_setdriver(char *fname)
 		update_from_current_buf();
 		kprintf("vt_setdriver(): was in fallback mode: copied old display contents to buffer\n");
 	}
-	
+
 	kprintf("vt_setdriver(): driver set\n");
 
 	return 0;

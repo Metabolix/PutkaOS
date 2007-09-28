@@ -13,7 +13,7 @@ typedef enum {
 	pstate_none = 0,
 	pstate_running = 1,
 	pstate_sleeping = 2
-	
+
 } process_state_t;
 
 /**
@@ -72,5 +72,8 @@ extern void next_thread(void);
 
 extern void threading_init(void);
 extern void start_threading(void);
+
+extern int has_threading(void); /* Onko aloitettu */
+extern int is_threading(void);  /* Onko päällä, siis HUOMIOI IRQ:t! */
 
 #endif

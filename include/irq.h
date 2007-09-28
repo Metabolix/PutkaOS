@@ -9,6 +9,7 @@ extern void uninstall_irq_handler(unsigned int irq);
 extern void irq_install(void);
 extern void wait_irq(unsigned int irq);
 extern void prepare_wait_irq(unsigned int irq);
-extern unsigned char in_irq_handler(void);
+
+extern int is_in_irq_handler(void);
 
 #endif

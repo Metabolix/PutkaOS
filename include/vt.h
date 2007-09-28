@@ -7,7 +7,6 @@
 #include <io.h>
 #include <irq.h>
 #include <thread.h>
-#include <putkaos.h>
 #include <malloc.h>
 
 #define VT_BUF_H 60 //pitää olla >= SCREEN_H

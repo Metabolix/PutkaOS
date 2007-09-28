@@ -6,6 +6,7 @@
 #include <string.h>
 #include <endian.h>
 #include <debugprint.h>
+#include <misc_asm.h>
 
 #include <screen.h>
 
@@ -136,8 +137,7 @@ int ide_reset(uint_t controller)
 	kwait(0, 1000);
 
 	//odotetaan kunnes laite on toimintavalmiina
-	extern void taikatemppu(void);
-	while (inportb(ide_ports[controller].altComStat) & IDE_CTRL_BSY) taikatemppu();
+	while (inportb(ide_ports[controller].altComStat) & IDE_CTRL_BSY) asm_nop();
 
 	if (inportb(ide_ports[controller].altComStat) & IDE_DRV_ERR) {
 		kprintf("Virhe ide_reset:ssa!\n");
