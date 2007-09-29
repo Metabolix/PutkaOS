@@ -1,4 +1,4 @@
-#include <texteditor.h>
+#include <utils/texteditor.h>
 #include <filesys/file.h>
 #include <malloc.h>
 #include <string.h>

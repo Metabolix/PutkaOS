@@ -9,7 +9,7 @@ CFLAGS_ALL=-Wall -ffreestanding -nostdinc -I./include -g -m32 -pedantic -std=c99
 CFLAGS=$(CFLAGS_ALL)
 CFLAGS_OPTI=
 
-DIRS=devices devices/blockdev devices/ports filesys
+DIRS=devices devices/blockdev devices/ports filesys utils
 
 ASM=nasm
 ASMFLAGS=-f elf
@@ -37,13 +37,17 @@ CO_SRC_DEVICES=$(addprefix devices/,$(CO_SRC_DEVICES_1))
 CO_SRC_FS_1=mount.c filesystem.c file.c dir.c fat.c fat16.c ext2.c minix.c
 CO_SRC_FS=$(addprefix filesys/,$(CO_SRC_FS_1))
 
+# Utils
+CO_SRC_UTILS_1=texteditor.c
+CO_SRC_UTILS=$(addprefix utils/,$(CO_SRC_UTILS_1))
+
 # Misc
-C_SRC_OTHER=gdt.c isr.c main.c panic.c idt.c irq.c keyboard.c display.c regs.c spinlock.c lcdscreen.c syscall.c vt.c screen.c texteditor.c
+C_SRC_OTHER=gdt.c isr.c main.c panic.c idt.c irq.c keyboard.c display.c regs.c spinlock.c lcdscreen.c syscall.c vt.c screen.c
 #mouse.c
 CO_SRC_OTHER=int64.c timer.c kprintf.c sh.c sh_komennot.c time.c endian.c list.c fprintf.c math.c xprintf_xscanf.c
 
 C_SRC=$(C_SRC_MEM) $(C_SRC_MULTITASK) $(C_SRC_DEVICES) $(C_SRC_OTHER)
-CO_SRC=$(CO_SRC_MEM) $(CO_SRC_OTHER) $(CO_SRC_STDROUTINES) $(CO_SRC_FS) $(CO_SRC_DEVICES)
+CO_SRC=$(CO_SRC_MEM) $(CO_SRC_OTHER) $(CO_SRC_STDROUTINES) $(CO_SRC_FS) $(CO_SRC_UTILS) $(CO_SRC_DEVICES)
 
 # file.c => build/file.c.o
 ASM_OBJS=$(addsuffix .o,$(addprefix build/,$(ASM_SRC)))

@@ -10,7 +10,7 @@
 #include <keyboard.h>
 #include <vt.h>
 #include <stdint.h>
-#include <texteditor.h>
+#include <utils/texteditor.h>
 
 /***********************
 ** JULKISET ESITTELYT **
