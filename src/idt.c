@@ -1,5 +1,5 @@
 #include <idt.h>
-#include <mem.h>
+#include <string.h>
 #include <misc_asm.h>
 
 struct idt_entry idt[256]; /* table of idt_entries */

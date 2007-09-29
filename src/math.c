@@ -1,5 +1,5 @@
 #include <math.h>
-#include <mem.h>
+#include <string.h>
 
 void asm_float_div_by_zero(void);
 void asm_float_invalid(void);

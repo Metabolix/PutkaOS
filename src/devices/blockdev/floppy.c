@@ -1,6 +1,6 @@
 #include <devices/blockdev/floppy.h>
 #include <devices/blockdev/blockdev.h>
-#include <mem.h>
+#include <string.h>
 #include <io.h>
 #include <irq.h>
 #include <screen.h>

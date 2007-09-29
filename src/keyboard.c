@@ -6,7 +6,7 @@
 #include <panic.h>
 #include <sh.h>
 #include <thread.h>
-#include <mem.h>
+#include <string.h>
 #include <bit.h>
 #include <vt.h>
 
@@ -356,7 +356,7 @@ void keyboard_handle(void)
 					vt_change(code - KEY_F1);
 				}
 		}
-		
+
 		vt_keyboard(code, down);
 	}
 }

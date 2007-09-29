@@ -1,5 +1,4 @@
-#include <display.h>
-#include <mem.h>
+#include <devices/display/text/pc_display.h>
 #include <io.h>
 #include <irq.h>
 #include <thread.h>

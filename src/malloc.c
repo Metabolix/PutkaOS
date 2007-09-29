@@ -1,9 +1,9 @@
 #include <memory.h>
-#include <mem.h>
+#include <string.h>
 #include <panic.h>
 #include <screen.h>
 
-typedef struct 
+typedef struct
 {
 	void * virtual_start;
 	size_t size;
@@ -27,7 +27,7 @@ static void * sysmalloc(size_t size, unsigned char type)
 {
 	if(memory_free() < size)
 		return 0; /* Out of physical memory */
-	
+
 	void * area_start = find_area(size, type);
 	unsigned int block, address, cnt0;
 
@@ -35,7 +35,7 @@ static void * sysmalloc(size_t size, unsigned char type)
 		return 0; /* Out of linear memory */
 
 	for(cnt0=0; memory_allocations[cnt0].size!=0x0 && cnt0< MAX_ALLOCATIONS; cnt0++) ;
-	
+
 	if(cnt0>=MAX_ALLOCATIONS)
 		return 0; /* Woops... allocation table is full :/ */
 
@@ -71,11 +71,11 @@ static void sysfree(void * pointer, unsigned char type)
 
 	if(((unsigned int)pointer)<KERNEL_PDE_COUNT*1024*MEMORY_BLOCK_SIZE && type==USER_PAGE_PARAMS)
 		return; /* Someone tries to do something nasty by releasing kernel memory */
-	
+
 	for(cnt0=0; memory_allocations[cnt0].physical_start!=physical_addr && cnt0< MAX_ALLOCATIONS; cnt0++) ;
 
 	if(physical_addr==memory_allocations[cnt0].physical_start)
-	{	
+	{
 		for(address=((unsigned int)memory_allocations[cnt0].virtual_start); address<(((unsigned int)memory_allocations[cnt0].virtual_start)+memory_allocations[cnt0].size); address+=MEMORY_BLOCK_SIZE)
 		{
 			block = ((unsigned int) get_physical_address((void *)address)) / MEMORY_BLOCK_SIZE;
@@ -128,7 +128,7 @@ void * krealloc(void *ptr, size_t size)
 void * kcalloc(size_t nmemb, size_t size)
 {
 	void *retval = kmalloc(nmemb * size);
-	if (retval) 
+	if (retval)
 		memset(retval, 0, nmemb * size);
 	return retval;
 }
@@ -136,7 +136,7 @@ void * kcalloc(size_t nmemb, size_t size)
 void * calloc(size_t nmemb, size_t size)
 {
 	void *retval = malloc(nmemb * size);
-	if (retval) 
+	if (retval)
 		memset(retval, 0, nmemb * size);
 	return retval;
 }

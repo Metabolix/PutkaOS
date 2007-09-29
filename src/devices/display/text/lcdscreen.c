@@ -1,4 +1,4 @@
-#include <lcdscreen.h>
+#include <devices/display/text/lcdscreen.h>
 #include <io.h>
 #include <timer.h>
 #include <screen.h>
@@ -36,12 +36,12 @@ void send8(char data, int breg, int id)
 {
 	char control_normal = 0x00 + 0x01 /*+ 0x02*/;
 	char control_enable;
-	
+
 	if(!started) return;
-	
+
 	if(!breg) control_normal += 0x08; //_instruction/register bit on
 	control_enable = control_normal;
-	
+
 	if(id == 0){
 		control_enable -= 0x01;
 	}
@@ -58,16 +58,16 @@ void send8(char data, int breg, int id)
 	/*
 	kprintf("sending %#x to %i: en=%#x no=%#x \t",
 			data, id, control_enable, control_normal);
-	
+
 	printbinary(data, 2);
 	printbinary(control_enable, 2);
 	printbinary(control_normal, 1);
 	*/
 	outportb(lcd_port, data);
-	
+
 	outportb(lcd_port + 2, control_enable);
 	kwait(0, 500);
-	
+
 	outportb(lcd_port + 2, control_normal);
 	//kwait(0, 500);
 }
@@ -137,7 +137,7 @@ void init(int id)
 	kwait(0, 160);
 	inst8(0x30, id);
 	kwait(0, 160);
-	
+
 	IfaceLen(1, 1, 0, id);
 	Shift(0, 0, id); // :o?
 	Clear(id);
@@ -330,13 +330,13 @@ void lcd_putch(int c){
 	else if(c >= ' '){
 		FullPutchar(c);
 	}
-	
+
 	if(cx >= lcdw){
 		cy++;
 		cx = 0;
 		moving_needed = 1;
 	}
-	
+
 	if(cx < 0){
 		if(cy>0){
 			cy--;
@@ -345,14 +345,14 @@ void lcd_putch(int c){
 		else cx = 0;
 		moving_needed = 1;
 	}
-	
+
 	if(cy >= lcdh){
 		FullScrollBufferUpAndDraw();
 		FullMove(lcdh - 1, 0);
 	}
-	
+
 	if(moving_needed) FullMove(cy, cx);
-	
+
 	unlocklcd();
 }
 
@@ -367,11 +367,11 @@ unsigned char lcd_get_color(){
 void lcd_init(int port, int count, int mode)
 {
 	if(count <= 0 || count > 2) return;
-	
+
 	locklcd();
-	
+
 	started = 1;
-	
+
 	lcd_port = port;
 	lcd_count = count;
 	lcd_mode = mode;
@@ -383,11 +383,11 @@ void lcd_init(int port, int count, int mode)
 		lcdh = count * LCD_ROWS;
 		lcdw = LCD_COLS;
 	}
-	
+
 	init(-1);
-	
+
 	FullClearAll();
-	
+
 	unlocklcd();
 }
 

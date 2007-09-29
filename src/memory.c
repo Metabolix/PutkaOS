@@ -1,4 +1,4 @@
-#include <mem.h>
+#include <string.h>
 #include <screen.h>
 #include <panic.h>
 #include <memory.h>

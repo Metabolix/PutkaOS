@@ -3,7 +3,7 @@
 
 #include <filesys/filesystem.h>
 #include <spinlock.h>
-#include <mem.h>
+#include <string.h>
 #include <io.h>
 #include <irq.h>
 #include <thread.h>

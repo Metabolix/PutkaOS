@@ -13,7 +13,6 @@
 #include <multiboot.h>
 #include <regs.h>
 #include <sh.h>
-#include <lcdscreen.h>
 #include <thread.h>
 #include <devices/devmanager.h>
 #include <string.h>
@@ -22,7 +21,8 @@
 #include <devices/blockdev/ide.h>
 #include <devices/blockdev/floppy.h>
 #include <devices/ports/serial.h>
-#include <display.h>
+#include <devices/display/text/pc_display.h>
+#include <devices/display/text/lcdscreen.h>
 #include <vt.h>
 #include <screen.h>
 

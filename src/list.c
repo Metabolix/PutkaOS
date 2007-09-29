@@ -1,7 +1,7 @@
 #include <list.h>
 #include <stddef.h>
 #include <malloc.h>
-#include <mem.h>
+#include <string.h>
 #include <debugprint.h>
 
 int _list_destroy_func(list_of_void *l)

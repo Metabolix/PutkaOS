@@ -2,7 +2,7 @@
 #define _LIST_H 1
 
 #include <stddef.h>
-#include <mem.h>
+#include <string.h>
 
 struct list_of_void;
 struct list_member_of_void;

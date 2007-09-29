@@ -3,7 +3,7 @@
 #include <idt.h>
 #include <timer.h>
 #include <io.h>
-#include <mem.h>
+#include <string.h>
 #include <misc_asm.h>
 
 #include <int64.h>
