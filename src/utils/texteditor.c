@@ -1,5 +1,5 @@
 #include <utils/texteditor.h>
-#include <filesys/file.h>
+#include <stdio.h>
 #include <malloc.h>
 #include <string.h>
 #include <screen.h>
@@ -163,11 +163,11 @@ int editor_main(char *filename)
 	//kprintf("displayw=%d, displayh=%d\n", displayw, displayh);
 
 	//tehdään jotain
-	
+
 	memset(&efile, 0, sizeof(efile));
 	efile.name = malloc(strlen(filename));
 	memcpy(efile.name, filename, strlen(filename));
-	
+
 	//avataan filu
 
 	efile.stream = fopen(filename, "rw");
@@ -182,7 +182,7 @@ int editor_main(char *filename)
 	else efile.writable = 1;
 
 	//katsotaan filun koko
-	
+
 	fseek(efile.stream, 0, SEEK_END);
 	fpos_t size;
 	fgetpos(efile.stream, &size);
@@ -192,7 +192,7 @@ int editor_main(char *filename)
 	}
 
 	//luetaan filu
-	
+
 	fseek(efile.stream, 0, SEEK_SET);
 	kprintf("reading...\n");
 	char *buf = (char*)malloc(size);
@@ -231,7 +231,7 @@ int editor_main(char *filename)
 	editor_set_cursor_pos_on_screen();
 
 	//looppi
-	
+
 	for(;;){
 		int hex = kb_get();
 		if(hex == 0) continue;
@@ -356,7 +356,7 @@ int editor_main(char *filename)
 						efile.rowcount*sizeof(struct row_t));
 				efile.currentrow--;
 				efile.currentcol = oldlength - 1;
-				
+
 				editor_print_fileview();
 			}
 		}
@@ -404,11 +404,11 @@ int editor_main(char *filename)
 
 			editor_print_fileview();
 		}
-		
+
 		editor_print_statusline();
 		editor_set_cursor_pos_on_screen();
 	}
-	
+
 quiteditor:
 	locate(displayw-1, displayh-1);
 	print("\neditor quitting\n");

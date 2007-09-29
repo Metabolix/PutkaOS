@@ -7,7 +7,7 @@ CFLAGS_ALL=-Wall -ffreestanding -nostdinc -I./include -g -m32 -pedantic -std=c99
 #-pedantic -std=c99 -Werror
 
 CFLAGS=$(CFLAGS_ALL)
-CFLAGS_OPTI=
+CFLAGS_OPTI=-O
 
 DIRS=devices devices/blockdev devices/ports devices/display devices/display/text filesys utils
 

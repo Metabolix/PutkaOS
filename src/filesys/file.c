@@ -54,7 +54,7 @@ int fclose(FILE *stream)
 
 size_t fread(void *buf, size_t size, size_t count, FILE *stream)
 {
-	if (!stream) return 0;
+	if (!stream || !(stream->mode & FILE_MODE_READ)) return 0;
 	if (size == 0 || count == 0) return 0;
 	if (stream->func->fread) {
 		return stream->func->fread(buf, size, count, stream);
@@ -64,7 +64,7 @@ size_t fread(void *buf, size_t size, size_t count, FILE *stream)
 
 size_t fwrite(const void *buf, size_t size, size_t count, FILE *stream)
 {
-	if (!stream) return 0;
+	if (!stream || !(stream->mode & FILE_MODE_WRITE)) return 0;
 	if (size == 0 || count == 0) return 0;
 	if (stream->mode & FILE_MODE_APPEND) {
 		if (fsetpos(stream, &stream->size)) {
@@ -97,10 +97,13 @@ int fsetpos(FILE *stream, const fpos_t *pos)
 
 int fflush(FILE *stream)
 {
-	if (stream && stream->func->fflush) {
-		return stream->func->fflush(stream);
+	if (!stream || !stream->func || !stream->func->fflush) {
+		return EOF;
 	}
-	return EOF;
+	if (!(stream->mode & FILE_MODE_WRITE)) {
+		return 0;
+	}
+	return stream->func->fflush(stream);
 }
 
 int fseek(FILE *stream, long int offset, int origin)

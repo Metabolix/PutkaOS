@@ -126,6 +126,8 @@ struct minix_file {
 	uint16_t inode_n;
 	struct minix_inode *inode;
 	list_iter_of_minix_list_inode inode_iter;
+
+	int written;
 };
 
 struct minix_dir {

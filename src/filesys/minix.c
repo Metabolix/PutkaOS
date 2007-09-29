@@ -516,20 +516,24 @@ size_t minix_fread(void *buf, size_t size, size_t count, struct minix_file *stre
 
 size_t minix_fwrite(const void *buf, size_t size, size_t count, struct minix_file *stream)
 {
+	stream->written = 1;
 	return minix_freadwrite((char *)buf, size, count, stream, (fread_t) fwrite, 1);
 }
 
 int minix_fflush(struct minix_file *stream)
 {
-	if (!(stream->std.mode & FILE_MODE_WRITE)) {
+	if (!stream->written) {
+		kprintf("Suljettiin tiedosto; Ei flushata.\n");
 		return 0;
 	}
+	kprintf("Suljettiin tiedosto; Flushataan.\n");
 	fpos_t pos;
 
 	pos = stream->fs->pos_inodes + (stream->inode_n - 1) * MINIS_FS_INODE_SIZE;
 	if (fsetpos(stream->dev, &pos)) return EOF;
 	if (fwrite(stream->inode, MINIS_FS_INODE_SIZE, 1, stream->dev) != 1) return EOF;
 
+	stream->written = 0;
 	return fflush(stream->dev);
 }
 
@@ -649,7 +653,7 @@ static uint16_t minix_alloc_zone(struct minix_zone_allocer_t * const zal)
 			if ((*zal->map & (1 << zal->map_bit)) == 0) {
 				*zal->map |= 1 << zal->map_bit;
 				zal->fs->zone_map_changed = 1;
-				return (zal->map_pos << 3) + zal->map_bit;
+				return ((zal->map_pos << 3) + zal->map_bit) + zal->fs->super.first_data_zone - 1;
 			}
 		}
 		++zal->map;
