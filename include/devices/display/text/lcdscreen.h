@@ -1,6 +1,8 @@
 #ifndef _LCDSCREEN_H
 #define _LCDSCREEN_H
 
+//http://celer.oni.biz/~celeron55/kuvagalleria/PutkaOS/orig/putkaos-lcd-standardi.png
+
 #define LCD_ROWS 2
 #define LCD_COLS 16
 

@@ -122,7 +122,14 @@ outofscreen: {}
 void editor_set_cursor_pos_on_screen(void)
 {
 	cx = editor_get_real_col();
-	cy = efile.currentrow - efile.scrollpos + 1;
+	int wraps = cx / displayw;
+	cx -= wraps * displayw;
+	int realrow = 1;
+	int i;
+	for(i=0; i<efile.currentrow; i++){
+		realrow += row_get_height(efile.rows[i]);
+	}
+	cy = realrow - efile.scrollpos + wraps;
 	locate(cx, cy);
 }
 
