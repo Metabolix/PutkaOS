@@ -63,7 +63,7 @@ void editor_print_statusline(void)
 	set_colour(0x70);
 	locate(0, 0);
 	kprintf("[%s] [%d] [%d,%d(%d)] [rlen=%d rh=%d] [%s]",
-			efile.writable?"writable":"not writable!", efile.scrollpos,
+			efile.writable?"writable":"read only", efile.scrollpos,
 			efile.currentrow, efile.currentcol, editor_get_real_col(),
 			efile.rows[efile.currentrow].len,
 			row_get_height(efile.rows[efile.currentrow]),
@@ -172,6 +172,7 @@ int editor_main(char *filename)
 		}
 		efile.writable = 0;
 	}
+	else efile.writable = 1;
 
 	//katsotaan filun koko
 	
@@ -298,7 +299,15 @@ int editor_main(char *filename)
 		else if(hex == KEY_END){
 			efile.currentcol = efile.rows[efile.currentrow].len-1;
 		}
-		else if(ch == '\b'){
+		else if(ch == '\b' || hex == KEY_DEL){
+			if(hex == KEY_DEL){
+				efile.currentcol++;
+				if(efile.currentcol >= efile.rows[efile.currentrow].len){
+					if(efile.currentrow == efile.rowcount - 1) continue;
+					efile.currentrow++;
+					efile.currentcol = 0;
+				}
+			}
 			if(efile.currentcol>0){
 				efile.currentcol--;
 				efile.rows[efile.currentrow].len--;

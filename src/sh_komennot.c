@@ -92,7 +92,7 @@ struct sh_komento komentotaulu[] = {
 	{"f.setpos", "f.setpos sijainti; aseta sijainti tiedostoon", sh_fsetpos},
 	{"f.close", "f.close; sulje tiedosto", sh_fclose},
 
-	{"editor", "editor tiedoston_nimi; avaa tiedosto hienoon editoriin", sh_editor},
+	{"editor", "editor tiedoston_nimi; avaa tiedosto hienoon editoriin. esc + q = poistu, esc + w = kirjoita", sh_editor},
 
 	{0, 0, sh_ei_tunnistettu} /* Terminaattori */
 };
