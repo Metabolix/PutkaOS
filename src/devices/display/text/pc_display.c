@@ -14,6 +14,26 @@ struct display_str {
 	unsigned int color;
 } display;
 
+void display_move_cursor(void);
+int display_locate(unsigned int y, unsigned int x);
+void fill_with_blank(char *buf, unsigned int length);
+void display_cls(void);
+size_t display_fwrite(const void *buf, size_t size, size_t count, FILE *stream);
+int display_ioctl(FILE *stream, int request, uintptr_t param);
+int display_fclose(FILE *stream);
+FILE *display_open(DEVICE *device, uint_t mode);
+int display_remove(DEVICE *device);
+void display_init(void);
+
+DEVICE pc_display_dev = {
+	.name = "display",
+	.dev_class = DEV_CLASS_DISPLAY,
+	.dev_type = DEV_TYPE_TEXT_DISPLAY,
+	// .index
+	.devopen = (devopen_t) display_open,
+	.remove = (devrm_t) display_remove,
+};
+
 void display_move_cursor(void)
 {
 	unsigned int temp = display.cy * DISPLAY_W + display.cx;
@@ -186,30 +206,24 @@ int display_remove(DEVICE *device)
 	return 0;
 }
 
-void display_init(void) {
+void display_init(void)
+{
 	memset(&display, 0, sizeof(display));
-	display.color = 0;
 
-	char name_[] = "display";
-	int namelen = strlen(name_);
-	int r;
-
-	//tehdään device ja tungetaan se device_insertille
-
-	DEVICE *dev = (DEVICE*)kmalloc(sizeof(DEVICE));
-	memset(dev, 0, sizeof(DEVICE));
-
-	char *name = (char*)kmalloc(sizeof(char)*namelen+1);
-	sprintf(name, "%s", name_);
-
-	dev->name = name;
-	dev->dev_class = DEV_CLASS_OTHER;
-	dev->dev_type = DEV_TYPE_OTHER;
-	dev->devopen = (devopen_t)&display_open;
-	dev->remove = (devrm_t)&display_remove;
-	r = device_insert(dev);
-	if(r){
-		kprintf("display_init(): error inserting device\n");
+	switch (device_insert(&pc_display_dev)) {
+		case 0:
+			break;
+		case DEV_ERR_TOTAL_FAILURE:
+			kprintf("display_init(): unknown error inserting device\n");
+			break;
+		case DEV_ERR_BAD_NAME:
+			kprintf("display_init(): error inserting device: bad name\n");
+			break;
+		case DEV_ERR_EXISTS:
+			kprintf("display_init(): error inserting device: device exists\n");
+			break;
+		case DEV_ERR_BAD_STRUCT:
+			kprintf("display_init(): error inserting device: bad info struct\n");
+			break;
 	}
 }
-

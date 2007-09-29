@@ -5,7 +5,7 @@ read_cmos:
 	xor ecx, ecx
 	mov edx, [esp+4]
 	cli
-read_cmos_loop:
+.loop:
 	mov al, cl
 	out 0x70, al
 	nop
@@ -16,6 +16,7 @@ read_cmos_loop:
 	inc edx
 	inc ecx
 	cmp cl, 0x80
-	jne read_cmos_loop
+	jne .loop
 	sti
 	ret
+

@@ -7,18 +7,26 @@
 typedef enum {
 	DEV_CLASS_NONE = 0,
 	DEV_CLASS_OTHER = 1,
+
 	DEV_CLASS_BLOCK = 2,
+	DEV_CLASS_DISPLAY = 3,
+
 	DEV_CLASS_ERROR = -1
 } dev_class_t;
 
 typedef enum {
 	DEV_TYPE_NONE = 0,
 	DEV_TYPE_OTHER = 1,
+
 	DEV_TYPE_FLOPPY = 2,
 	DEV_TYPE_HARDDISK = 3,
 	DEV_TYPE_CDROM = 4,
 	DEV_TYPE_HARDDISK_REMOVABLE = 5,
+
 	DEV_TYPE_VT = 6,
+
+	DEV_TYPE_TEXT_DISPLAY = 7,
+
 	DEV_TYPE_ERROR = -1
 } dev_type_t;
 
