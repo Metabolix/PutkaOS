@@ -10,6 +10,7 @@
 #include <keyboard.h>
 #include <vt.h>
 #include <stdint.h>
+#include <texteditor.h>
 
 /***********************
 ** JULKISET ESITTELYT **
@@ -50,6 +51,8 @@ void sh_fgetpos(char*a);
 void sh_fsetpos(char*a);
 void sh_fclose(char*a);
 
+void sh_editor(char *buf);
+
 /**********
 ** LISTA **
 **********/
@@ -88,6 +91,8 @@ struct sh_komento komentotaulu[] = {
 	{"f.getpos", "f.getpos; ilmoita sijainti tiedostossa", sh_fgetpos},
 	{"f.setpos", "f.setpos sijainti; aseta sijainti tiedostoon", sh_fsetpos},
 	{"f.close", "f.close; sulje tiedosto", sh_fclose},
+
+	{"editor", "editor tiedoston_nimi; avaa tiedosto hienoon editoriin", sh_editor},
 
 	{0, 0, sh_ei_tunnistettu} /* Terminaattori */
 };
@@ -636,6 +641,11 @@ void sh_mkdir(char*a)
 	}
 }
 
+void sh_editor(char *buf)
+{
+	kprintf("launching editor with filename \"%s\"\n", buf);
+	editor_main(buf);
+}
 
 /***************
 ** STAATTISET **

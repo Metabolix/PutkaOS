@@ -355,23 +355,10 @@ void keyboard_handle(void)
 				else if (code >= KEY_F1 && code <= KEY_F6) { /* f1-f6 */
 					vt_change(code - KEY_F1);
 				}
-				else{
-					vt_keyboard(code, down);
-				}
 		}
-
-		vt_keyboard(vt_out_get(), code);
+		
+		vt_keyboard(code, down);
 	}
-}
-
-int kb_peek(void)
-{
-	return vt_kb_peek(vt_out_get());
-}
-
-int kb_get(void)
-{
-	return vt_kb_get(vt_out_get());
 }
 
 void keyboard_install(void)

@@ -172,18 +172,44 @@ void vt_set_color(unsigned int vt_num, unsigned char c)
 	vt[vt_num].color = c;
 }
 
+void vt_getdisplaysize(unsigned int vt_num, unsigned int *w, unsigned int *h)
+{
+	if(!initialized) return;
+	if(vt_num >= VT_COUNT) return;
+	if(driverstream){
+		*w = driverinfo.w;
+		*h = driverinfo.h;
+	}
+	else{
+		*w = 80;
+		*h = 25;
+	}
+}
+
 int vt_locate(unsigned int vt_num, unsigned int x, unsigned int y)
 {
 	if(!initialized) return 1;
 	if(vt_num >= VT_COUNT) return 1;
 	int ret = 0;
-	if(x >= driverinfo.w){
-		x = driverinfo.w - 1;
-		ret = 1;
+	if(driverstream){
+		if(x >= driverinfo.w){
+			x = driverinfo.w - 1;
+			ret = 1;
+		}
+		if(y >= driverinfo.h){
+			y = driverinfo.h - 1;
+			ret = 1;
+		}
 	}
-	if(y >= driverinfo.h){
-		y = driverinfo.h - 1;
-		ret = 1;
+	else{
+		if(x >= 80){
+			x = 79;
+			ret = 1;
+		}
+		if(y >= 25){
+			y = 24;
+			ret = 1;
+		}
 	}
 	vt[vt_num].cx = x;
 	vt[vt_num].cy = y;
@@ -192,6 +218,15 @@ int vt_locate(unsigned int vt_num, unsigned int x, unsigned int y)
 	}
 
 	return ret;
+}
+
+int vt_getpos(unsigned int vt_num, unsigned int *x, unsigned int *y)
+{
+	if(!initialized) return 1;
+	if(vt_num >= VT_COUNT) return 1;
+	*x = vt[vt_num].cx;
+	*y = vt[vt_num].cy;
+	return 0;
 }
 
 void vt_cls(unsigned int vt_num)
@@ -310,6 +345,7 @@ int vt_print(unsigned int vt_num, const char *string)
 	while (*s) {
 		//kirjoitetaan nopeammin erikoismerkittömiä pätkiä jos käytetään ajuria
 		if(driverstream && *s >= ' '){
+			vt_scroll_if_needed(vt_num);
 			//vt_putch(vt_num, '|');
 			maxl = sizeof(tempbuf);
 			if(maxl > vt[vt_num].bufw*2 - vt[vt_num].cx*2)
@@ -337,7 +373,6 @@ int vt_print(unsigned int vt_num, const char *string)
 			if(vt[vt_num].cx >= vt[vt_num].bufw){
 				vt[vt_num].cx = 0;
 				vt[vt_num].cy++;
-				vt_scroll_if_needed(vt_num);
 			}
 
 			if (is_threading()) {
@@ -392,10 +427,12 @@ int vt_putch(unsigned int vt_num, int c)
 	}
 	else if (c == '\n') { /* new line */
 		vt[vt_num].cx = 0;
+		vt_scroll_if_needed(vt_num);
 		vt[vt_num].cy++;
 		vt_update_cursor();
 	}
 	else if (c >= ' ') { /* printable character */
+		vt_scroll_if_needed(vt_num);
 		if(vt_num == cur_vt) {
 			if(driverstream){
 				char cc[2];
@@ -415,21 +452,19 @@ int vt_putch(unsigned int vt_num, int c)
 		vt[vt_num].cx++;
 	}
 
-
 	if(driverstream){
 		if (vt[vt_num].cx >= (driverinfo.w)) {
 			vt[vt_num].cx = 0;
 			vt[vt_num].cy++;
 		}
-		vt_scroll_if_needed(vt_num);
 	}
 	else{
 		if (vt[vt_num].cx >= 80) {
 			vt[vt_num].cx = 0;
 			vt[vt_num].cy++;
 		}
-		vt_scroll_if_needed(vt_num);
 	}
+
 	if (is_threading()) {
 		spinl_unlock(&vt[vt_num].writelock);
 	}
@@ -441,7 +476,8 @@ void vt_keyboard(int code, int down)
 {
 	if(!initialized) return;
 	if(!vt[cur_vt].kb_buf) return;
-	vt[cur_vt].kb_buf[vt[cur_vt].kb_buf_end] = code | (down ? 0 : 256);
+	if(code == 0) return;
+	vt[cur_vt].kb_buf[vt[cur_vt].kb_buf_end] = code | (down ? 0 : 0x100);
 	++vt[cur_vt].kb_buf_count;
 	++vt[cur_vt].kb_buf_end;
 	vt[cur_vt].kb_buf_end %= KB_BUFFER_SIZE;

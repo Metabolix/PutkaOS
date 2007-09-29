@@ -46,7 +46,9 @@ struct vt_t {
 
 extern unsigned char vt_get_color(unsigned int vt_num);
 extern void vt_set_color(unsigned int vt_num, unsigned char c);
+extern void vt_getdisplaysize(unsigned int vt_num, unsigned int *w, unsigned int *h);
 extern int vt_locate(unsigned int vt_num, unsigned int x, unsigned int y);
+extern int vt_getpos(unsigned int vt_num, unsigned int *x, unsigned int *y);
 extern void vt_cls(unsigned int vt_num);
 //extern int vt_fastprint(unsigned int vt_num, const char *buf, unsigned int len);
 extern int vt_print(unsigned int vt_num, const char *string);
