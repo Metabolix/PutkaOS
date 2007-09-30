@@ -146,7 +146,8 @@ int editor_write()
 		return 1;
 	}
 	for(i=0; i<efile.rowcount; i++){
-		fwrite(efile.rows[i].buf, 1, efile.rows[i].len, efile.stream);
+		fwrite(efile.rows[i].buf, 1, efile.rows[i].len-1, efile.stream);
+		if(i!=efile.rowcount-1) fwrite("\n", 1, 1, efile.stream);
 	}
 	fclose(efile.stream);
 	efile.stream = 0;
@@ -170,7 +171,7 @@ int editor_main(char *filename)
 
 	//avataan filu
 
-	efile.stream = fopen(filename, "rw");
+	efile.stream = fopen(filename, "r+");
 	if(efile.stream==NULL){
 		efile.stream = fopen(filename, "r");
 		if(efile.stream==NULL){
