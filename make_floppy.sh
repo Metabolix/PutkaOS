@@ -10,7 +10,7 @@ which ${GRUB} > /dev/null 2>&1
 if [ $? -ne 0 ] ; then
 	GRUB='/sbin/grub'
 	if [ -e "$GRUB" ] ; then
-		echo "Grubia ei löydy, tee itse levysi!\n"
+		echo "Grubia ei löydy, tee itse levysi!"
 		exit -1
 	fi
 fi
@@ -19,7 +19,7 @@ which ${MKFS} > /dev/null 2>&1
 if [ $? -ne 0 ] ; then
 	MKFS='/sbin/mkfs'
 	if [ -e "$MKFS" ] ; then
-		echo "Komentoa mkfs ei löydy, tee itse levysi!\n"
+		echo "Komentoa mkfs ei löydy, tee itse levysi!"
 		exit -1
 	fi
 fi
