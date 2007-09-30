@@ -357,7 +357,7 @@ void sh_list_colours(char *buf)
 
 void sh_exit(char *buf)
 {
-	sh_shutdown_things(void);
+	sh_shutdown_things();
 	unsigned char vari[256] = {0};
 	vari[' '] = 0;
 	vari['.'] = 0x44;
