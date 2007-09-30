@@ -28,18 +28,22 @@ struct _BD_DEVICE {
 	write_blocks_t write_blocks;
 };
 
+#define BLOCKDEV_NO_BLOCK ((uint64_t)(-1))
+
 struct _BD_FILE {
 	/* Yleiset */
 	FILE std;
 
 	/* Omat jutut */
-	struct _BD_DEVICE *phys;
+	struct _BD_DEVICE *dev;
 
 	uint64_t pos_in_block;
-	uint64_t block_in_dev;
+	uint64_t block_in_file;
 
-	int has_read, has_written;
-	char *buffer;
+	uint64_t block_in_buffer;
+	int buffer_changed;
+
+	char *buf;
 };
 
 extern BD_FILE *blockdev_fopen(BD_DEVICE *dev, uint_t mode);

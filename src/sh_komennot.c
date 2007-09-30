@@ -107,6 +107,7 @@ FILE *sh_f = 0;
 static void sh_mount_real(char *dev, char *point, uint_t mode, int remount);
 static int sh_read_int(char **bufptr);
 static void sh_printmount(const char *fs_name, const char *dev_name, const char *absolute_path, const char *relative_path, int level);
+static void sh_shutdown_things(void);
 
 /*************
 ** JULKISET **
@@ -356,6 +357,7 @@ void sh_list_colours(char *buf)
 
 void sh_exit(char *buf)
 {
+	sh_shutdown_things(void);
 	unsigned char vari[256] = {0};
 	vari[' '] = 0;
 	vari['.'] = 0x44;
@@ -440,6 +442,7 @@ void sh_inportb(char *buf)
 
 void sh_reboot(char *buf)
 {
+	sh_shutdown_things();
 	outportb(0x64, 0x60);
 	kwait(0, 500);
 	outportb(0x60, 0x14);
@@ -713,4 +716,9 @@ static void sh_mount_real(char *dev, char *point, uint_t mode, int remount)
 			kprintf("sh: mount: Muu virhe.\n");
 			break;
 	}
+}
+
+static void sh_shutdown_things(void)
+{
+	mount_uninit();
 }

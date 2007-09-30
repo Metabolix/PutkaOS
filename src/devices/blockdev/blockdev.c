@@ -5,13 +5,13 @@
 
 #include <screen.h>
 
-static int blockdev_getblock(BD_FILE *device);
-static void blockdev_update_pos(BD_FILE *device);
+static int blockdev_fill_buffer(BD_FILE *f);
+static size_t blockdev_freadwrite(void *buffer, size_t size, size_t count, BD_FILE *f, int write);
 
-int blockdev_dummy_read_one_block(BD_DEVICE *self, uint64_t num, void * buf);
-int blockdev_dummy_write_one_block(BD_DEVICE *self, uint64_t num, const void * buf);
-size_t blockdev_dummy_read_blocks(BD_DEVICE *self, uint64_t num, size_t count, void * buf);
-size_t blockdev_dummy_write_blocks(BD_DEVICE *self, uint64_t num, size_t count, const void * buf);
+int blockdev_dummy_read_one_block(BD_DEVICE *dev, uint64_t num, void * buf);
+int blockdev_dummy_write_one_block(BD_DEVICE *dev, uint64_t num, const void * buf);
+size_t blockdev_dummy_read_blocks(BD_DEVICE *dev, uint64_t num, size_t count, void * buf);
+size_t blockdev_dummy_write_blocks(BD_DEVICE *dev, uint64_t num, size_t count, const void * buf);
 
 struct filefunc blockdev_func = {
 	.fopen = (fopen_t) blockdev_fopen,
@@ -23,328 +23,249 @@ struct filefunc blockdev_func = {
 	.ioctl = (ioctl_t) blockdev_ioctl
 };
 
-int blockdev_ioctl(BD_FILE *device, int request, uintptr_t param)
+int blockdev_ioctl(BD_FILE *dev, int request, uintptr_t param)
 {
 	// TODO: blockdev_ioctl
 	return -1;
 }
 
-void blockdev_update_pos(BD_FILE *device)
-{
-	device->std.pos =
-		+ device->pos_in_block
-		+ device->block_in_dev * device->phys->block_size;
-}
-
-int blockdev_fsetpos(BD_FILE *device, const fpos_t *pos)
+int blockdev_fsetpos(BD_FILE *f, const fpos_t *pos)
 {
 	uint64_t block, pos_in;
-	block = uint64_div_rem(*pos, device->phys->block_size, &pos_in);
-	if (block > device->phys->block_count) {
+	block = uint64_div_rem(*pos, f->dev->block_size, &pos_in);
+	if (block > f->dev->block_count) {
 		return -1;
 	}
-	if (block == device->phys->block_count) {
+	if (block == f->dev->block_count) {
 		if (pos_in > 0) {
 			return -1;
-		} else {
-			device->std.eof = EOF;
 		}
+		f->std.eof = EOF;
 	}
-	if (block != device->block_in_dev) {
-		blockdev_fflush(device);
-		device->block_in_dev = block;
-		device->has_read = 0;
-	}
-	device->pos_in_block = pos_in;
-	device->std.pos = *pos;
+	f->block_in_file = block;
+	f->pos_in_block = pos_in;
+	f->std.pos = *pos;
 	return 0;
 }
 
-int blockdev_getblock(BD_FILE *device)
+int blockdev_fflush(BD_FILE *f)
 {
-	int retval;
-	blockdev_fflush(device);
-	device->has_read = 0;
-	if (device->block_in_dev >= device->phys->block_count) {
-		return EOF;
-	}
-	retval = device->phys->read_one_block(device->phys, device->phys->first_block_num + device->block_in_dev, device->buffer);
-	if (!retval) {
-		device->has_read = 1;
-	}
-	return retval;
-}
-
-int blockdev_fflush(BD_FILE *device)
-{
-	if (device->has_read && device->has_written) {
-		if (device->phys->write_one_block(device->phys, device->phys->first_block_num + device->block_in_dev, device->buffer)) {
-			kprintf("blockdev_fflush: failure: device %s block %#010x\n", device->phys->std.name, device->block_in_dev);
+	if (f->buffer_changed) {
+		if (f->dev->write_one_block(f->dev, f->dev->first_block_num + f->block_in_buffer, f->buf)) {
+			kprintf("blockdev_fflush: failure: device %s block %#010llx\n", f->dev->std.name, f->block_in_buffer);
 			return -1;
 		}
-		device->has_written = 0;
+		f->buffer_changed = 0;
 	}
+	return 0;
+}
+
+static int blockdev_fill_buffer(BD_FILE *f)
+{
+	if (f->block_in_file == f->block_in_buffer) {
+		return 0;
+	}
+	if (f->block_in_file >= f->dev->block_count) {
+		return EOF;
+	}
+	if (f->buffer_changed) {
+		blockdev_fflush(f); // f->buffer_changed = 0;
+	}
+	f->block_in_buffer = BLOCKDEV_NO_BLOCK;
+
+	if (f->dev->read_one_block(f->dev, f->dev->first_block_num + f->block_in_file, f->buf) != 0) {
+		return -1;
+	}
+	f->block_in_buffer = f->block_in_file;
 	return 0;
 }
 
 /* TODO: Mode */
-BD_FILE *blockdev_fopen(BD_DEVICE *phys, uint_t mode)
+BD_FILE *blockdev_fopen(BD_DEVICE *dev, uint_t mode)
 {
-	BD_FILE *retval;
-
-	if (!phys ||
-	(phys->std.dev_class != DEV_CLASS_BLOCK && phys->std.dev_class != DEV_CLASS_OTHER) ||
-	phys->std.dev_type == DEV_TYPE_NONE ||
-	phys->std.dev_type == DEV_TYPE_ERROR ||
-	!phys->block_size) {
+	if (!dev ||
+	(dev->std.dev_class != DEV_CLASS_BLOCK && dev->std.dev_class != DEV_CLASS_OTHER) ||
+	dev->std.dev_type == DEV_TYPE_NONE ||
+	dev->std.dev_type == DEV_TYPE_ERROR ||
+	!dev->block_size) {
 		return 0;
 	}
 
-	if (!phys->write_one_block) {
-		if (!phys->write_blocks) {
+	BD_FILE real = {
+		.std.mode = mode,
+		.std.size = dev->block_size * dev->block_count,
+		.std.func = &blockdev_func,
+		.dev = dev,
+		.block_in_buffer = BLOCKDEV_NO_BLOCK,
+		.buffer_changed = 0,
+	}, *f = &real;
+
+	if (!dev->write_one_block) {
+		if (!dev->write_blocks) {
 			if (mode & FILE_MODE_WRITE) {
 				return 0;
 			}
 		} else {
-			phys->write_one_block = blockdev_dummy_write_one_block;
+			dev->write_one_block = blockdev_dummy_write_one_block;
 		}
 	} else {
-		if (!phys->write_blocks) {
-			phys->write_blocks = blockdev_dummy_write_blocks;
+		if (!dev->write_blocks) {
+			dev->write_blocks = blockdev_dummy_write_blocks;
 		}
 	}
-	if (!phys->read_one_block) {
-		if (!phys->read_blocks) {
+	if (!dev->read_one_block) {
+		if (!dev->read_blocks) {
 			if (mode & FILE_MODE_READ) {
 				return 0;
 			}
 		} else {
-			phys->read_one_block = blockdev_dummy_read_one_block;
+			dev->read_one_block = blockdev_dummy_read_one_block;
 		}
 	} else {
-		if (!phys->read_blocks) {
-			phys->read_blocks = blockdev_dummy_read_blocks;
+		if (!dev->read_blocks) {
+			dev->read_blocks = blockdev_dummy_read_blocks;
 		}
 	}
 
-	retval = kcalloc(1, sizeof(BD_FILE) + phys->block_size);
-	if (!retval) {
+	f = kcalloc(1, sizeof(BD_FILE) + dev->block_size);
+	if (!f) {
 		return 0;
 	}
-	retval->std.size = phys->block_size * phys->block_count;
-	retval->std.func = &blockdev_func;
-	retval->phys = phys;
+	memcpy(f, &real, sizeof(BD_FILE));
+	f->buf = (char*)f + sizeof(BD_FILE);
 
-	retval->buffer = (char*)retval + sizeof(BD_FILE);
-
-	return retval;
+	return f;
 }
 
-int blockdev_fclose(BD_FILE *device)
+int blockdev_fclose(BD_FILE *f)
 {
 	int retval;
-	retval = blockdev_fflush(device);
-	kfree(device);
+	retval = blockdev_fflush(f);
+	kfree(f);
 	return retval;
 }
 
-size_t blockdev_fread(void *buffer, size_t size, size_t count, BD_FILE *device)
+static size_t blockdev_freadwrite(void *buffer, size_t size, size_t count, BD_FILE *f, int write)
 {
-#define POS_MUUTOS (device->std.pos - pos_aluksi)
-#define RETURN blockdev_update_pos(device); return
-	char *buf = (char*)buffer;
-	uint64_t tavuja_yhteensa, kokonaisia_paloja;
-	size_t lue;
-	fpos_t pos_aluksi = device->std.pos;
+	char *buf = (char*) buffer;
+	size_t tavuja = size * count;
+	const fpos_t alkupos = f->std.pos;
+	BD_DEVICE * const dev = f->dev;
 
-	// Voidaan lukea suoraan laitteelta annettuun bufferiin
-	tavuja_yhteensa = size * count;
-	if (tavuja_yhteensa < device->phys->block_size) {
-		kokonaisia_paloja = 0;
-	} else {
-		kokonaisia_paloja = (tavuja_yhteensa - (device->phys->block_size - device->pos_in_block)) / device->phys->block_size;
+	if (!tavuja) {
+		return 0;
 	}
 
-	if (!kokonaisia_paloja || device->pos_in_block) {
-		// Jos se ei ole vielä muistissa
-		if (!device->has_read) {
-			if (blockdev_getblock(device)) {
-				RETURN 0;
-			}
+	if (f->pos_in_block) {
+		const size_t jaljella = dev->block_size - f->pos_in_block;
+		const size_t hoida = (tavuja < jaljella) ? tavuja : jaljella;
+
+		if (blockdev_fill_buffer(f) != 0) {
+			goto error_etc;
 		}
-
-		// Otetaan puskurista sen verran, kuin saadaan... Kaikkiko?
-		lue = device->phys->block_size - device->pos_in_block;
-		if (lue >= tavuja_yhteensa) {
-			if (lue == tavuja_yhteensa) {
-				memcpy(buffer, device->buffer + device->pos_in_block, tavuja_yhteensa);
-				blockdev_fflush(device);
-
-				++device->block_in_dev;
-				device->pos_in_block = 0;
-				device->has_read = 0;
-
-				RETURN count;
-			}
-			memcpy(buffer, device->buffer + device->pos_in_block, tavuja_yhteensa);
-			device->pos_in_block += tavuja_yhteensa;
-
-			RETURN count;
-		}
-		memcpy(buf, device->buffer, lue);
-		buf += lue;
-
-		blockdev_fflush(device);
-
-		++device->block_in_dev;
-		device->pos_in_block = 0;
-	}
-
-	device->has_read = 0;
-	while (kokonaisia_paloja) {
-		if (device->phys->read_one_block(device->phys, device->block_in_dev, buf)) {
-			kprintf("blockdev_fread: failure: device %s block %#010x\n", device->phys->std.name, device->block_in_dev);
-			RETURN POS_MUUTOS / size;
-		}
-		++device->block_in_dev;
-		if (device->block_in_dev >= device->phys->block_count) {
-			kprintf("blockdev_fread: eof (%s)\n", device->phys->std.name);
-			RETURN POS_MUUTOS / size;
-		}
-		buf += device->phys->block_size;
-		--kokonaisia_paloja;
-	}
-
-	lue = tavuja_yhteensa - POS_MUUTOS;
-	if (lue) {
-		if (blockdev_getblock(device)) {
-			kprintf("blockdev_fread: failure: device %s block %#010x\n", device->phys->std.name, device->block_in_dev);
-			RETURN POS_MUUTOS / size;
-		}
-		memcpy(buf, device->buffer, lue);
-		device->pos_in_block += lue;
-	}
-
-	RETURN POS_MUUTOS / size;
-}
-
-size_t blockdev_fwrite(const void *buffer, size_t size, size_t count, BD_FILE *device)
-{
-	char *buf = (char*)buffer;
-	uint64_t tavuja_yhteensa, kokonaisia_paloja;
-	size_t kirjoita;
-	fpos_t pos_aluksi = device->std.pos;
-
-	// Voidaan lukea suoraan laitteelta annettuun bufferiin
-	tavuja_yhteensa = size * count;
-	if (tavuja_yhteensa < device->phys->block_size) {
-		kokonaisia_paloja = 0;
-	} else {
-		if (device->pos_in_block) {
-			kokonaisia_paloja = (tavuja_yhteensa + device->pos_in_block) / device->phys->block_size - 1;
+		if (write) {
+			f->buffer_changed = 1;
+			memcpy(f->buf + f->pos_in_block, buf, hoida);
 		} else {
-			kokonaisia_paloja = tavuja_yhteensa / device->phys->block_size;
+			memcpy(buf, f->buf + f->pos_in_block, hoida);
 		}
+		buf += hoida;
+		tavuja -= hoida;
+		if (hoida < jaljella) {
+			f->pos_in_block += hoida;
+			goto return_etc;
+		}
+		f->pos_in_block = 0;
+		++f->block_in_file;
 	}
 
-	if (!kokonaisia_paloja || device->pos_in_block) {
-		// Jos se ei ole vielä muistissa
-		if (!device->has_read) {
-			if (blockdev_getblock(device)) {
-				RETURN 0;
-			}
+	if (tavuja >= dev->block_size) {
+		const size_t maara = tavuja / (size_t)dev->block_size;
+		const uint64_t block = dev->first_block_num + f->block_in_file;
+		size_t onnistui;
+		size_t tavuja_onnistui;
+
+		if (write) {
+			onnistui = dev->write_blocks(dev, block, maara, buf);
+		} else {
+			onnistui = dev->read_blocks(dev, block, maara, buf);
 		}
-
-		// Otetaan puskurista sen verran, kuin saadaan... Kaikkiko?
-		kirjoita = device->phys->block_size - device->pos_in_block;
-		if (kirjoita >= tavuja_yhteensa) {
-			if (kirjoita == tavuja_yhteensa) {
-				// Jos sattuu juuri kohdalleen, kirjoitellaan ja valitaan seuraava sektori
-				memcpy(device->buffer + device->pos_in_block, buffer, tavuja_yhteensa);
-				device->has_written = 1;
-				blockdev_fflush(device);
-
-				++device->block_in_dev;
-				device->pos_in_block = 0;
-				device->has_read = 0;
-
-				RETURN count;
-			}
-			// Kirjoitellaan puskuriin vain.
-			memcpy(device->buffer + device->pos_in_block, buffer, tavuja_yhteensa);
-			device->pos_in_block += tavuja_yhteensa;
-			device->has_written = 1;
-			RETURN count;
+		tavuja_onnistui = onnistui * dev->block_size;
+		tavuja -= tavuja_onnistui;
+		buf += tavuja_onnistui;
+		f->block_in_file += onnistui;
+		if (onnistui < maara) {
+			goto error_etc;
 		}
-		// Kirjoitellaan sen verran, kuin mahtuu
-		memcpy(device->buffer + device->pos_in_block, buf, kirjoita);
-		buf += kirjoita;
-		device->has_written = 1;
-		blockdev_fflush(device);
-
-		++device->block_in_dev;
-		device->pos_in_block = 0;
 	}
-
-	device->has_read = 0;
-
-	while (kokonaisia_paloja) {
-		if (device->phys->write_one_block(device->phys, device->block_in_dev, buf)) {
-			kprintf("blockdev_fwrite: failure: device %s block %#010x\n", device->phys->std.name, device->block_in_dev);
-			RETURN POS_MUUTOS / size;
-		}
-		++device->block_in_dev;
-		if (device->block_in_dev >= device->phys->block_count) {
-			kprintf("blockdev_fwrite: eof (%s)\n", device->phys->std.name);
-			RETURN POS_MUUTOS / size;
-		}
-		buf += device->phys->block_size;
-		--kokonaisia_paloja;
+	if (!tavuja) {
+		goto return_etc;
 	}
-
-	// Jos on jäljellä, lataillaan se seuraava blokki
-	kirjoita = tavuja_yhteensa - POS_MUUTOS;
-	if (kirjoita) {
-		if (blockdev_getblock(device)) {
-			kprintf("blockdev_fwrite: failure: device %s block %#010x\n", device->phys->std.name, device->block_in_dev);
-			RETURN POS_MUUTOS / size;
-		}
-		memcpy(device->buffer, buf, kirjoita);
-		device->pos_in_block += kirjoita;
-		device->has_written = 1;
+	if (blockdev_fill_buffer(f) != 0) {
+		goto error_etc;
 	}
+	if (write) {
+		f->buffer_changed = 1;
+		memcpy(f->buf, buf, tavuja);
+	} else {
+		memcpy(buf, f->buf, tavuja);
+	}
+	buf += tavuja;
+	f->pos_in_block += tavuja;
+	tavuja = 0;
+	goto return_etc;
 
-	RETURN POS_MUUTOS / size;
+error_etc:
+return_etc:
+	f->std.pos = f->pos_in_block + f->block_in_file * dev->block_size;
+	return (f->std.pos - alkupos) / size;
 }
 
-int blockdev_dummy_read_one_block(BD_DEVICE *self, uint64_t num, void * buf)
+size_t blockdev_fread(void *buffer, size_t size, size_t count, BD_FILE *f)
 {
-	return self->read_blocks(self, num, 1, buf) ? 0 : -1;
+	return blockdev_freadwrite((void*) buffer, size, count, f, 0);
+}
+size_t blockdev_fwrite(const void *buffer, size_t size, size_t count, BD_FILE *f)
+{
+	return blockdev_freadwrite((void*) buffer, size, count, f, 1);
 }
 
-int blockdev_dummy_write_one_block(BD_DEVICE *self, uint64_t num, const void * buf)
+int blockdev_dummy_read_one_block(BD_DEVICE *dev, uint64_t num, void * buf)
 {
-	return self->write_blocks(self, num, 1, buf) ? 0 : -1;
+	return (dev->read_blocks(dev, num, 1, buf) == 1) ? 0 : -1;
 }
 
-size_t blockdev_dummy_read_blocks(BD_DEVICE *self, uint64_t num, size_t count, void * buf)
+int blockdev_dummy_write_one_block(BD_DEVICE *dev, uint64_t num, const void * buf)
 {
-	size_t i;
-	for (i = 0; count; ++i, --count, ++num, buf = (char*)buf + self->block_size) {
-		if (self->read_one_block(self, num, buf)) {
+	return (dev->write_blocks(dev, num, 1, buf) == 1) ? 0 : -1;
+}
+
+size_t blockdev_dummy_read_blocks(BD_DEVICE *dev, uint64_t num, size_t count, void * buf)
+{
+	char *ptr = buf;
+	size_t i = 0;
+	while (count--) {
+		if (dev->read_one_block(dev, num, ptr) != 0) {
 			return i;
 		}
+		++i;
+		++num;
+		ptr += dev->block_size;
 	}
 	return i;
 }
 
-size_t blockdev_dummy_write_blocks(BD_DEVICE *self, uint64_t num, size_t count, const void * buf)
+size_t blockdev_dummy_write_blocks(BD_DEVICE *dev, uint64_t num, size_t count, const void * buf)
 {
-	size_t i;
-	for (i = 0; count; ++i, --count, ++num, buf = (const char*)buf + self->block_size) {
-		if (self->write_one_block(self, num, buf)) {
+	const char *ptr = buf;
+	size_t i = 0;
+	while (count--) {
+		if (dev->write_one_block(dev, num, ptr) != 0) {
 			return i;
 		}
+		++i;
+		++num;
+		ptr += dev->block_size;
 	}
 	return i;
 }

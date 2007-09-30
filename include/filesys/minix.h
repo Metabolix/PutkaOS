@@ -83,7 +83,7 @@ struct minix_superblock {
 
 #define MINIX_ZONE_SIZE 1024
 
-#define MINIS_FS_INODE_SIZE (sizeof(struct minix_inode))
+#define MINIX_FS_INODE_SIZE (sizeof(struct minix_inode))
 #define MINIX_DIRENTRY_SIZE (sizeof(struct minix_direntry))
 
 struct minix_list_inode {
@@ -103,6 +103,8 @@ struct minix_fs {
 	fpos_t pos_zone_map;
 	fpos_t pos_inodes;
 	fpos_t pos_data;
+
+	size_t inode_map_size, zone_map_size;
 
 	int filename_maxlen;
 
