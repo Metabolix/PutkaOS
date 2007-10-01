@@ -22,10 +22,20 @@ static int umount(struct mount *mnt, struct mount *ret);
 
 char tyhja_string[1] = "";
 struct mount root = {
-	tyhja_string, "/", tyhja_string,
-	0, 0,
-	0,
-	0, 0
+	.dev_name = tyhja_string,
+	.absolute_path = "/",
+	.relative_path = tyhja_string,
+};
+struct mount devman = {
+	.dev_name = "devman",
+	.absolute_path = "/dev",
+	.relative_path = "dev",
+	.subtree_size = 0,
+	.subtree = 0,
+	.parent = &root,
+
+	.dev = 0,
+	.fs = &devfs,
 };
 
 /**
@@ -156,15 +166,7 @@ int mount_init(unsigned long mboot_device, const char *mboot_cmdline)
 		panic("mount: Out of kernel memory!\n");
 	}
 
-	root.subtree->dev_name = kmalloc(7 + 5); // "devman" + "/dev"
-	root.subtree->absolute_path = root.subtree->dev_name + 7;
-	root.subtree->relative_path = root.subtree->absolute_path + 1;
-	root.subtree->subtree_size = 0;
-	root.subtree->subtree = 0;
-	root.subtree->dev = 0;
-	root.subtree->fs = &devfs;
-	strcpy(root.subtree->dev_name, "devman");
-	strcpy(root.subtree->absolute_path, "/dev");
+	memcpy(root.subtree, &devman, sizeof(struct mount));
 
 	/* Sitten / */
 	flags = FILE_MODE_READ | FILE_MODE_WRITE;
@@ -423,6 +425,9 @@ int umount(struct mount *mnt, struct mount *ret)
 			return MOUNT_ERR_MOUNTED_SUBPOINTS;
 		}
 	}
+	if (strcmp(devman.dev_name, mnt->dev_name) == 0) {
+		goto vapauta_alipuu;
+	}
 	switch (i = mnt->fs->fs_umount(mnt->fs)) {
 		case MOUNT_ERR_BUSY:
 			return MOUNT_ERR_BUSY;
@@ -433,12 +438,7 @@ int umount(struct mount *mnt, struct mount *ret)
 			MAKE_NULL(kfree, mnt->dev_name);
 			mnt->absolute_path = mnt->relative_path = 0;
 			if (!ret) {
-				mnt->subtree_size = 0;
-				MAKE_NULL(kfree, mnt->subtree);
-				if (mnt->parent) {
-					--mnt->parent->subtree_size;
-					*mnt = mnt->parent->subtree[mnt->parent->subtree_size];
-				}
+				goto vapauta_alipuu;
 			}
 			return 0;
 		default:
@@ -446,15 +446,16 @@ int umount(struct mount *mnt, struct mount *ret)
 			kprintf("umount: ... Just told us %d, F*cking fs driver!\n", i);
 			return MOUNT_ERR_TOTAL_FAILURE;
 	}
-#if 0
-	switch (i = fclose(mnt->dev)) {
-		case 0:
-			return 0;
-		default:
-			kprintf("umount: fclose failed (WTF? :D) at device '%s' (%s)\n", mnt->dev_name, mnt->absolute_path);
-	}
-#endif
 	return MOUNT_ERR_TOTAL_FAILURE;
+
+vapauta_alipuu:
+	mnt->subtree_size = 0;
+	MAKE_NULL(kfree, mnt->subtree);
+	if (mnt->parent) {
+		--mnt->parent->subtree_size;
+		*mnt = mnt->parent->subtree[mnt->parent->subtree_size];
+	}
+	return 0;
 }
 
 /**

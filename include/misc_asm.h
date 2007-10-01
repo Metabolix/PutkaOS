@@ -5,6 +5,7 @@ extern void asm_sti();
 extern void asm_cli();
 extern void asm_hlt();
 extern void asm_nop();
+extern void asm_ud0();
 extern void asm_hlt_until_true(const char*);
 
 extern void * asm_get_cr0(void);

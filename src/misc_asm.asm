@@ -3,6 +3,7 @@ global asm_sti
 global asm_cli
 global asm_hlt
 global asm_nop
+global asm_ud0
 global asm_hlt_until_true
 
 global asm_get_cr0
@@ -25,6 +26,9 @@ asm_hlt:
 	ret
 asm_nop:
 	nop
+	ret
+asm_ud0:
+	ud0
 	ret
 
 asm_hlt_until_true:
