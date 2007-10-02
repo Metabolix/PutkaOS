@@ -4,6 +4,7 @@
 #include <screen.h>
 #include <stddef.h>
 #include <string.h>
+#include <bit.h>
 #include <debugprint.h>
 
 
@@ -31,6 +32,8 @@ struct ext2_fs ext2_op = {
 	.super_block = 0,
 	.group_desc = 0,
 	.group_desc_n = 0,
+	.inode_bitmap_read = 0,
+	.block_bitmap_read = 0,
 	.block_size = 0,
 	.device = 0
 };
@@ -39,6 +42,27 @@ int ext2_ioctl(struct ext2_file *f, int request, uintptr_t param)
 {
 	// TODO: ext2_ioctl
 	return -1;
+}
+
+inline int ext2_block_offset(struct ext2_fs * ext2, int block)
+{
+	return ext2->block_size*block;
+}
+
+void ext2_set_bg(struct ext2_fs * ext2, unsigned int desc_n)
+{
+	fpos_t pos;
+
+	if(desc_n != ext2->group_desc_n) {
+		pos = ((fpos_t)ext2->super_block->s_blocks_per_group) *  ext2->block_size * desc_n;
+		fsetpos(ext2->device, &pos);
+		fread(ext2->group_desc, sizeof(struct ext2_group_desc), 1, ext2->device);
+
+		ext2->group_desc_n = desc_n;
+		ext2->inode_bitmap_read = 0;
+		ext2->block_bitmap_read = 0;
+	}
+	
 }
 
 /* get_ext2_inode gets inode number `num' from filesystem */
@@ -53,13 +77,7 @@ struct ext2_inode get_ext2_inode(struct ext2_fs * ext2, unsigned int num) {
 		return inode;
 	}
 
-	if(desc_n != ext2->group_desc_n) {
-		pos = ((fpos_t)ext2->super_block->s_blocks_per_group) *  ext2->block_size * desc_n;
-		fsetpos(ext2->device, &pos);
-		fread(ext2->group_desc, sizeof(struct ext2_group_desc), 1, ext2->device);
-
-		ext2->group_desc_n = desc_n;
-	}
+	ext2_set_bg(ext2, desc_n);
 
 	pos = ((fpos_t)ext2->block_size) * ext2->group_desc->bg_inode_table + (num - 1) % ext2->super_block->s_inodes_per_group * ext2->super_block->s_inode_size;
 	fsetpos(ext2->device, &pos);
@@ -67,6 +85,8 @@ struct ext2_inode get_ext2_inode(struct ext2_fs * ext2, unsigned int num) {
 
 	return inode;
 }
+
+
 /* Get_block: Get a block from device*/
 char * get_block(unsigned long long int num, size_t size, struct ext2_fs * ext2, void * buffer) {
 	fpos_t pos = size * num;
@@ -79,12 +99,119 @@ char * get_block(unsigned long long int num, size_t size, struct ext2_fs * ext2,
 
 /* Get_part_block: Get a part of a block */
 char * get_part_block(unsigned int num, size_t size, struct ext2_fs * ext2, void * buffer, size_t read, unsigned int offset) {
+	kprintf("Get part of a block, num %d, size %d, read %d, offset %d\n", num, size, read, offset);
 	fpos_t pos = size*num + offset;
 	fsetpos(ext2->device, &pos);
 	if(fread(buffer, read, 1, ext2->device) < 1) {
 		return (char*)0;
 	}
 	return buffer;
+}
+
+void ext2_read_inode_bitmap(struct ext2_fs *ext2)
+{
+	fpos_t pos = (ext2->group_desc->bg_inode_bitmap) * ext2->block_size;
+	if(ext2->inode_bitmap_read)
+		return;
+	if(!ext2->ext2_inode_bitmap) {
+		ext2->ext2_inode_bitmap = kmalloc(ext2->super_block->s_inodes_per_group/8);
+	}
+	fsetpos(ext2->device, &pos);
+	if(fread(ext2->ext2_inode_bitmap, ext2->super_block->s_inodes_per_group/8, 1, ext2->device) < 1) {
+		memset(ext2->ext2_inode_bitmap, 0xFF, ext2->block_size);
+	}
+	ext2->inode_bitmap_read = 1;
+}
+
+void ext2_read_block_bitmap(struct ext2_fs *ext2)
+{
+	fpos_t pos = (ext2->group_desc->bg_block_bitmap) * ext2->block_size;
+	if(ext2->block_bitmap_read)
+		return;
+	if(!ext2->ext2_block_bitmap) {
+		ext2->ext2_block_bitmap = kmalloc(ext2->super_block->s_blocks_per_group/8);
+	}
+	fsetpos(ext2->device, &pos);
+	if(fread(ext2->ext2_block_bitmap, ext2->super_block->s_blocks_per_group/8, 1, ext2->device) < 1) {
+		memset(ext2->ext2_block_bitmap, 0xFF, ext2->block_size);
+	}
+	ext2->block_bitmap_read = 1;
+}
+
+void ext2_reserve_inode(struct ext2_fs *ext2, int num)
+{
+	int byte = num / 8;
+	int bit = num - byte*8;
+	fpos_t pos = ext2->group_desc_n * (fpos_t)ext2->super_block->s_blocks_per_group *  ext2->block_size + 2 * ext2->block_size;
+	fsetpos(ext2->device, &pos);
+	
+	ext2->group_desc->bg_free_inodes_count--;
+	
+	fwrite(ext2->group_desc, sizeof(struct ext2_group_desc), 1, ext2->device);
+	fflush(ext2->device);
+	
+	ext2->ext2_inode_bitmap[byte] = set_bit(ext2->ext2_inode_bitmap[byte], bit, 1); 
+	
+	pos = ext2->group_desc->bg_inode_bitmap * ext2->block_size;
+	fsetpos(ext2->device, &pos);
+	fwrite(ext2->ext2_inode_bitmap, ext2->super_block->s_inodes_per_group/8, 1, ext2->device);
+	fflush(ext2->device);
+}
+
+void ext2_release_inode(struct ext2_fs *ext2, int num)
+{
+	int byte = num / 8;
+	int bit = num - byte*8;
+	fpos_t pos = ext2->group_desc_n * (fpos_t)ext2->super_block->s_blocks_per_group *  ext2->block_size;
+	fsetpos(ext2->device, &pos);
+	
+	ext2->group_desc->bg_free_inodes_count++;
+	
+	fwrite(ext2->group_desc, ext2->block_size, 1, ext2->device);
+	
+	ext2->ext2_inode_bitmap[byte] = set_bit(ext2->ext2_inode_bitmap[byte], bit, 0); 
+	
+	pos = ext2->group_desc->bg_inode_bitmap * ext2->block_size;
+	fsetpos(ext2->device, &pos);
+	fwrite(ext2->ext2_inode_bitmap, ext2->block_size, 1, ext2->device);
+}
+
+void ext2_reserve_block(struct ext2_fs *ext2, int num)
+{
+	int byte = num / 8;
+	int bit = num - byte*8;
+	fpos_t pos = ext2->group_desc_n * (fpos_t)ext2->super_block->s_blocks_per_group *  ext2->block_size + 2 * ext2->block_size;
+	fsetpos(ext2->device, &pos);
+	
+	ext2->group_desc->bg_free_blocks_count--;
+	
+	fwrite(ext2->group_desc, sizeof(struct ext2_group_desc), 1, ext2->device);
+	fflush(ext2->device);
+	
+	ext2->ext2_block_bitmap[byte] = set_bit(ext2->ext2_block_bitmap[byte], bit, 1); 
+	
+	pos = ext2->group_desc->bg_block_bitmap * ext2->block_size;
+	fsetpos(ext2->device, &pos);
+	fwrite(ext2->ext2_block_bitmap, ext2->super_block->s_blocks_per_group/8, 1, ext2->device);
+	fflush(ext2->device);
+}
+
+void ext2_release_block(struct ext2_fs *ext2, int num)
+{
+	int byte = num / 8;
+	int bit = num - byte*8;
+	fpos_t pos = ext2->group_desc_n * (fpos_t)ext2->super_block->s_blocks_per_group *  ext2->block_size;
+	fsetpos(ext2->device, &pos);
+	
+	ext2->group_desc->bg_free_blocks_count++;
+	
+	fwrite(ext2->group_desc, ext2->block_size, 1, ext2->device);
+	
+	ext2->ext2_block_bitmap[byte] = set_bit(ext2->ext2_block_bitmap[byte], bit, 0); 
+	
+	pos = ext2->group_desc->bg_block_bitmap * ext2->block_size;
+	fsetpos(ext2->device, &pos);
+	fwrite(ext2->ext2_block_bitmap, ext2->block_size, 1, ext2->device);
 }
 
 /* Get_iblock returns inode's block number `block'
@@ -128,6 +255,69 @@ int get_iblock(struct ext2_inode * inode, unsigned int block, struct ext2_fs * e
 		return -1;
 }
 
+long long ext2_alloc_inode(struct ext2_fs * ext2)
+{
+	int byte;
+	int bit;
+
+	ext2_read_inode_bitmap(ext2);
+	if(ext2->group_desc->bg_free_inodes_count == 0) {
+		DEBUGF("No free inodes in current group"); /* search next group */
+		return 0;
+	} else {
+		int bytes = ext2->super_block->s_inodes_per_group / 8;
+		for(byte = 0; byte < bytes; byte++) {
+			for(bit = 0; bit < 8; bit++) {
+				if(!get_bit(ext2->ext2_inode_bitmap[byte], bit)) {
+					goto found;
+				}
+			}
+		}
+		return 0; /* didn't find any, TODO: search next group */
+	}
+found:
+	ext2_reserve_inode(ext2, byte * 8 + bit);
+	ext2->super_block->s_free_inodes_count--;
+	fseek(ext2->device, 1024, SEEK_SET);
+	if(fwrite(ext2->super_block, 512, 2, ext2->device) < 2) {
+		return 0;
+	}
+
+	return byte * 8 + bit + 1;
+}
+
+long long ext2_alloc_block(struct ext2_fs * ext2)
+{
+	int byte;
+	int bit;
+
+	ext2_read_block_bitmap(ext2);
+	if(ext2->group_desc->bg_free_blocks_count == 0) {
+		DEBUGF("No free blocks in current group"); /* search next group */
+		return 0;
+	} else {
+		int bytes = ext2->super_block->s_blocks_per_group / 8;
+		for(byte = 0; byte < bytes; byte++) {
+			for(bit = 0; bit < 8; bit++) {
+				if(!get_bit(ext2->ext2_block_bitmap[byte], bit)) {
+					goto found;
+				}
+			}
+		}
+		return 0; /* didn't find any, TODO: search next group */
+	}
+found:
+	ext2_reserve_block(ext2, byte * 8 + bit);
+	ext2->super_block->s_free_blocks_count--;
+	fseek(ext2->device, 1024, SEEK_SET);
+	if(fwrite(ext2->super_block, 512, 2, ext2->device) < 2) {
+		return 0;
+	}
+
+	return byte * 8 + bit + 1;
+}
+	
+
 struct fs *ext2_mount(FILE *device, uint_t mode) {
 	struct ext2_fs * ext2_fs = kmalloc(sizeof(struct ext2_fs));
 
@@ -149,7 +339,7 @@ struct fs *ext2_mount(FILE *device, uint_t mode) {
 	if(ext2_fs->super_block->s_log_block_size < 3)
 		ext2_fs->block_size = 1024 << ext2_fs->super_block->s_log_block_size;
 	else {
-		DEBUGP("S_log_block_size is something wierd\n");
+		DEBUGP("S_log_block_size is something weird\n");
 		return 0;
 	}
 
@@ -163,50 +353,43 @@ struct fs *ext2_mount(FILE *device, uint_t mode) {
 		DEBUGP("Read error\n");
 		return 0;
 	}
+	ext2_fs->ext2_inode_bitmap = kmalloc(ext2_fs->super_block->s_inodes_per_group / 8);
+
 	return (struct fs*)ext2_fs;
 }
 
 int ext2_umount(struct ext2_fs *this) {
+	if(this->ext2_inode_bitmap)
+		kfree(this->ext2_inode_bitmap);
 	kfree(this->group_desc);
 	kfree(this->super_block);
+	kfree(this->ext2_inode_bitmap);
 	kfree(this);
 
 	return 0;
 }
 /* looks for entry at end of the filename, returns inode number */
-int ext2_search_entry(struct ext2_fs * ext2, const char * filename)
+int ext2_search_entry(struct ext2_fs * ext2, const char * filename, unsigned int inode_n)
 {
 	char entry[EXT2_NAME_LEN + 1];
 	unsigned int chars;
-	unsigned int inode_n = EXT2_ROOT_INO;
 	unsigned int last_inode = -1;
 	unsigned int entry_len;
 	struct ext2_inode inode;
 	struct ext2_dir_entry_2 * dir;
 	unsigned int cur_block = 0;
-	char * block = kmalloc(ext2->block_size);
-	int first = 1;
-
+	char * block;
+	
+	kprintf("hello %s\n", filename);
 	if(filename[0] == 0)
 		return EXT2_ROOT_INO;
+	print("ok, not root inode\n");
+	block = kmalloc(ext2->block_size);
 
-	while(first || filename[0]) { /* while something to parse */
+	while(filename[0]) { /* while something to parse */
 		roll:
-		first = 0;
-		if(last_inode == inode_n || inode_n == 0) {
-			if(inode_n == 0)
-				inode_n = last_inode;
-			if(!filename[0])
-				break;
-			goto error;
-		}
-
 		last_inode = inode_n;
 		chars = 0;
-
-		if(!filename[0]) {
-			break;
-		}
 
 		while(filename[0] && filename[0] != '/') {
 			entry[chars++] = filename[0];
@@ -215,6 +398,9 @@ int ext2_search_entry(struct ext2_fs * ext2, const char * filename)
 		if(filename[0] == '/')
 			filename++;
 		entry[chars] = 0;
+
+		if(chars == 0)
+			break;
 
 		entry_len = strlen(entry);
 		inode = get_ext2_inode(ext2, inode_n);
@@ -246,18 +432,67 @@ int ext2_search_entry(struct ext2_fs * ext2, const char * filename)
 			}
 			cur_block++;
 		}
+		if(last_inode == inode_n)
+			goto error;
 	}
 	kfree(block);
+	kprintf("return %d\n", inode_n);
 	return inode_n;
 error:
 	kfree(block);
 	return 0;
 }
 
+void ext2_make_direntry(struct ext2_fs *ext2, const char * name, unsigned int dirinode, unsigned int targetinode, unsigned char type)
+{
+	unsigned int name_len = strlen(name);
+	unsigned int entry_len = EXT2_DIR_REC_LEN(name_len);
+	struct ext2_inode inode = get_ext2_inode(ext2, dirinode);
+	struct ext2_dir_entry_2 * dir;
+	unsigned int cur_block = 0;
+	char * block = kmalloc(ext2->block_size);
+	unsigned int real_block;
+	fpos_t pos;
+
+	while(cur_block * ext2->block_size < inode.i_size) {
+		real_block = get_iblock(&inode, cur_block, ext2);
+		if(!get_block(real_block, ext2->block_size, ext2, block)) {
+			goto out;
+		}
+		dir = (struct ext2_dir_entry_2 *)block;
+		while((unsigned int)dir < ((unsigned int)block + ext2->block_size)) {
+			if(dir->rec_len - EXT2_DIR_REC_LEN(dir->name_len) >= entry_len) {
+				/* Found a place */
+				int len;
+				len = dir->rec_len - EXT2_DIR_REC_LEN(dir->name_len);
+				dir->rec_len = EXT2_DIR_REC_LEN(dir->name_len);
+				dir = (struct ext2_dir_entry_2*)((unsigned int) dir + dir->rec_len);
+				dir->rec_len = len;
+				dir->name_len = name_len;
+				dir->inode = targetinode;
+				dir->file_type = type;
+				strcpy(dir->name, name);
+
+				/* Ok, let's write it */
+				kprintf("Write block %d\n", real_block);
+				pos = real_block * ext2->block_size;
+				fsetpos(ext2->device, &pos);
+				fwrite(block, ext2->block_size, 1, ext2->device);
+				DEBUGF("Write to %d, targetinode is %d\n", real_block, targetinode);
+				goto out;
+			}
+			dir = (struct ext2_dir_entry_2*)((unsigned int) dir + dir->rec_len);
+		}
+		cur_block++;
+	}
+out:
+	kfree(block);
+}
+
 void *ext2_fopen(struct ext2_fs *ext2, const char * filename, uint_t mode) {
 	struct ext2_file * file;
 	struct ext2_inode inode;
-	int inode_n = ext2_search_entry(ext2, filename);
+	int inode_n = ext2_search_entry(ext2, filename, EXT2_ROOT_INO);
 	if(!inode_n) {
 		return 0;
 	}
@@ -286,23 +521,28 @@ size_t ext2_fread(void *buf, size_t size, size_t count, struct ext2_file *stream
 	unsigned int block, offset;
 	size_t read = 0;
 	int to_read = size * count;
+	size_t howmuch;
 
 	if(stream->std.pos >= stream->std.size)
 		return 0;
 	block = stream->std.pos / stream->fs->block_size;
-	offset = block * stream->fs->block_size - stream->std.pos;
+	offset = stream->std.pos - block * stream->fs->block_size;
+	kprintf("block %d offset %d to_read %d blocksize %d std.pos %d\n", block, offset, to_read, stream->fs->block_size, stream->std.pos);
 	while(to_read > 0) {
-		if(!get_part_block(get_iblock(stream->inode, block, stream->fs), stream->fs->block_size, stream->fs, buf, ((stream->fs->block_size - offset) > to_read) ? to_read : (stream->fs->block_size - offset), offset))
-			break;
+		howmuch = ((stream->fs->block_size - offset) > to_read) ? to_read : (stream->fs->block_size - offset);
+		if(!get_part_block(get_iblock(stream->inode, block, stream->fs), stream->fs->block_size, stream->fs, buf, size, offset)) {
+			return read/size;
+		}
+		kprintf("read %d\n", ((stream->fs->block_size - offset) > to_read) ? to_read : (stream->fs->block_size - offset), offset);
 		buf = (void*)((unsigned int)buf + stream->fs->block_size - offset);
 		block++;
-		read++;
+		read += howmuch;
 		to_read -= stream->fs->block_size - offset; /* if we don't read whole block this still goes under 1 and we quit, so we don't have to care about it */
 		offset = 0;
+		stream->std.pos += howmuch;
 	}
-	stream->std.pos += size * count;
 
-	return read;
+	return read/size;
 }
 
 size_t ext2_fwrite(void *buf, size_t size, size_t count, struct ext2_file *stream) {
@@ -343,8 +583,113 @@ int ext2_fseek(struct ext2_file * stream, long int offset, int origin) {
 	return 0;
 }
 
-int ext2_dmake(struct ext2_fs * this, const char * dirname, uint_t owned, uint_t rights) {
-	return -1;
+void ext2_write_inode(struct ext2_fs * ext2, unsigned int inode, void * buffer)
+{
+	unsigned short desc_n = (inode  - 1)/ ext2->super_block->s_inodes_per_group;
+	fpos_t pos;
+
+	if(inode < 1) {
+		DEBUGF("Bad inode number (%d)!\n", inode);
+		return;
+	}
+
+	ext2_set_bg(ext2, desc_n);
+
+	pos = ((fpos_t)ext2->block_size) * ext2->group_desc->bg_inode_table + ((inode - 1) % ext2->super_block->s_inodes_per_group * ext2->super_block->s_inode_size);
+	fsetpos(ext2->device, &pos);
+	fwrite(buffer, ext2->super_block->s_inode_size, 1, ext2->device);
+	fflush(ext2->device);
+	DEBUGF("Write to block %d offset %d\n", ext2->group_desc->bg_inode_table, ((inode - 1) % ext2->super_block->s_inodes_per_group) * ext2->super_block->s_inode_size);
+}
+
+int ext2_make_entry(struct ext2_fs * this, const char * dirname, unsigned char type, uint_t owned, uint_t rights)
+{
+	char * dname;
+	char * entry;
+	char * cur = (char*)dirname;
+	char * last = cur;
+	unsigned int dir_inode;
+	int block;
+	struct ext2_dir_entry_2 direntry[2];
+	unsigned int inode;
+	unsigned int retval = 0;
+	struct ext2_inode ino;
+	fpos_t pos;
+
+	while(*cur) {
+		if(*cur == '/')
+			last = cur;
+		cur++;
+	}
+	dname = kmalloc(last - (char*) dirname + 2);
+	memcpy(dname + 1, dirname, last - (char*)dirname);
+	dname[0] = '/';
+	dname[last - (char*)dirname + 1] = 0;
+
+	entry = kmalloc(cur - last + 1);
+	memcpy(entry, last, cur - last + 1);
+
+	*(last) = 0;
+	dir_inode = ext2_search_entry(this, dname, EXT2_ROOT_INO);
+	kprintf("dir_inode %d, %s\n", dir_inode, dname);
+	if(!dir_inode) {
+		retval = DIR_ERR_CANT_MAKE;
+		goto out;
+	}
+	if(ext2_search_entry(this, entry, dir_inode)) {
+		retval = DIR_ERR_EXISTS;
+		goto out;
+	}
+	inode = ext2_alloc_inode(this);
+	if(!inode) {
+		retval = DIR_ERR_CANT_MAKE;
+		goto out;
+	}
+	block = ext2_alloc_block(this);
+	kprintf("found block %d\n", block);
+	if(!block) {
+		retval = DIR_ERR_CANT_MAKE;
+		goto out;
+	}
+
+	ext2_make_direntry(this, entry, dir_inode, inode, type);
+
+	direntry[0].inode = inode;
+	strcpy(direntry[0].name, ".");
+	direntry[0].name_len = 1;
+	direntry[0].file_type = EXT2_FT_DIR;
+	direntry[0].rec_len = EXT2_DIR_REC_LEN(direntry[0].name_len);
+	direntry[1].inode = dir_inode;
+	strcpy(direntry[1].name, "..");
+	direntry[1].name_len = 2;
+	direntry[1].file_type = EXT2_FT_DIR;
+	direntry[1].rec_len = this->block_size - direntry[0].rec_len;
+
+	pos = ext2_block_offset(this, block);
+	fsetpos(this->device, &pos);
+	fwrite(&direntry[0], sizeof(struct ext2_dir_entry_2), 1, this->device);
+	pos += direntry[0].rec_len;
+	fsetpos(this->device, &pos);
+	fwrite(&direntry[1], sizeof(struct ext2_dir_entry_2), 1, this->device);
+
+	memset(&ino, 0, sizeof(ino));
+	ino.i_mode = rights | type << 13;
+	ino.i_uid = owned;
+	ino.i_links_count = 1;
+	ino.i_blocks = 1;
+	ino.i_size = direntry[0].rec_len + direntry[1].rec_len;
+	ino.i_block[0] = block;
+	ext2_write_inode(this, inode, &ino);
+
+out:
+	kfree(dname);
+	kfree(entry);
+	return retval;
+}
+
+int ext2_dmake(struct ext2_fs * this, const char * dirname, uint_t owned, uint_t rights)
+{
+	return ext2_make_entry(this, dirname, EXT2_FT_DIR, owned, rights);
 }
 
 DIR *ext2_dopen(struct ext2_fs * this, const char * dirname)
@@ -352,7 +697,7 @@ DIR *ext2_dopen(struct ext2_fs * this, const char * dirname)
 	struct ext2_dir * dir;
 	struct ext2_inode inode;
 
-	int inode_n = ext2_search_entry(this, dirname);
+	int inode_n = ext2_search_entry(this, dirname, EXT2_ROOT_INO);
 	if(!inode_n) {
 		return 0;
 	}
