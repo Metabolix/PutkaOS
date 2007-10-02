@@ -71,8 +71,7 @@ static int minix_check_filename(const char *filename, int maxlen, int *parts)
 		if (parts) *parts = 0;
 		return 0;
 	}
-	int i, c;
-	c = 1;
+	int i = 0, c = 1;
 	while (*filename) {
 		if (*filename == '/') {
 			++c;
