@@ -6,6 +6,7 @@
 #define _EXT2_FS_H
 
 #include <filesys/filesystem.h>
+#include <spinlock.h>
 
 /*
  * The second extended filesystem constants/structures
@@ -509,8 +510,13 @@ struct ext2_fs {
 
 	struct ext2_super_block * super_block;
 	struct ext2_group_desc * group_desc;
+	char * ext2_inode_bitmap;
+	char * ext2_block_bitmap;
+	unsigned int inode_bitmap_read;
+	unsigned int block_bitmap_read;
 	unsigned int group_desc_n;
 	unsigned short int block_size;
+	struct spinlock lock;
 
 	FILE *device;
 };
