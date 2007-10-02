@@ -99,7 +99,6 @@ char * get_block(unsigned long long int num, size_t size, struct ext2_fs * ext2,
 
 /* Get_part_block: Get a part of a block */
 char * get_part_block(unsigned int num, size_t size, struct ext2_fs * ext2, void * buffer, size_t read, unsigned int offset) {
-	kprintf("Get part of a block, num %d, size %d, read %d, offset %d\n", num, size, read, offset);
 	fpos_t pos = size*num + offset;
 	fsetpos(ext2->device, &pos);
 	if(fread(buffer, read, 1, ext2->device) < 1) {
@@ -380,10 +379,8 @@ int ext2_search_entry(struct ext2_fs * ext2, const char * filename, unsigned int
 	unsigned int cur_block = 0;
 	char * block;
 	
-	kprintf("hello %s\n", filename);
 	if(filename[0] == 0)
 		return EXT2_ROOT_INO;
-	print("ok, not root inode\n");
 	block = kmalloc(ext2->block_size);
 
 	while(filename[0]) { /* while something to parse */
@@ -436,7 +433,6 @@ int ext2_search_entry(struct ext2_fs * ext2, const char * filename, unsigned int
 			goto error;
 	}
 	kfree(block);
-	kprintf("return %d\n", inode_n);
 	return inode_n;
 error:
 	kfree(block);
@@ -474,11 +470,9 @@ void ext2_make_direntry(struct ext2_fs *ext2, const char * name, unsigned int di
 				strcpy(dir->name, name);
 
 				/* Ok, let's write it */
-				kprintf("Write block %d\n", real_block);
 				pos = real_block * ext2->block_size;
 				fsetpos(ext2->device, &pos);
 				fwrite(block, ext2->block_size, 1, ext2->device);
-				DEBUGF("Write to %d, targetinode is %d\n", real_block, targetinode);
 				goto out;
 			}
 			dir = (struct ext2_dir_entry_2*)((unsigned int) dir + dir->rec_len);
@@ -527,13 +521,11 @@ size_t ext2_fread(void *buf, size_t size, size_t count, struct ext2_file *stream
 		return 0;
 	block = stream->std.pos / stream->fs->block_size;
 	offset = stream->std.pos - block * stream->fs->block_size;
-	kprintf("block %d offset %d to_read %d blocksize %d std.pos %d\n", block, offset, to_read, stream->fs->block_size, stream->std.pos);
 	while(to_read > 0) {
 		howmuch = ((stream->fs->block_size - offset) > to_read) ? to_read : (stream->fs->block_size - offset);
 		if(!get_part_block(get_iblock(stream->inode, block, stream->fs), stream->fs->block_size, stream->fs, buf, size, offset)) {
 			return read/size;
 		}
-		kprintf("read %d\n", ((stream->fs->block_size - offset) > to_read) ? to_read : (stream->fs->block_size - offset), offset);
 		buf = (void*)((unsigned int)buf + stream->fs->block_size - offset);
 		block++;
 		read += howmuch;
@@ -599,7 +591,6 @@ void ext2_write_inode(struct ext2_fs * ext2, unsigned int inode, void * buffer)
 	fsetpos(ext2->device, &pos);
 	fwrite(buffer, ext2->super_block->s_inode_size, 1, ext2->device);
 	fflush(ext2->device);
-	DEBUGF("Write to block %d offset %d\n", ext2->group_desc->bg_inode_table, ((inode - 1) % ext2->super_block->s_inodes_per_group) * ext2->super_block->s_inode_size);
 }
 
 int ext2_make_entry(struct ext2_fs * this, const char * dirname, unsigned char type, uint_t owned, uint_t rights)
@@ -631,7 +622,6 @@ int ext2_make_entry(struct ext2_fs * this, const char * dirname, unsigned char t
 
 	*(last) = 0;
 	dir_inode = ext2_search_entry(this, dname, EXT2_ROOT_INO);
-	kprintf("dir_inode %d, %s\n", dir_inode, dname);
 	if(!dir_inode) {
 		retval = DIR_ERR_CANT_MAKE;
 		goto out;
@@ -646,7 +636,6 @@ int ext2_make_entry(struct ext2_fs * this, const char * dirname, unsigned char t
 		goto out;
 	}
 	block = ext2_alloc_block(this);
-	kprintf("found block %d\n", block);
 	if(!block) {
 		retval = DIR_ERR_CANT_MAKE;
 		goto out;
