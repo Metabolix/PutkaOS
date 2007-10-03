@@ -257,7 +257,7 @@ found:
 		return 0;
 	}
 
-	return byte * 8 + bit + 1;
+	return byte * 8 + bit;
 }
 
 static int ext2_alloc_block(struct ext2_fs * ext2)
@@ -410,6 +410,7 @@ static int ext2_inode_add_block(struct ext2_inode * inode, int inodenum, struct 
 			}
 		}
 	}
+	inode->i_size = 0;
 	ext2_write_inode(ext2, inodenum, inode); // add block count and possibly modify i_block
 
 	return new_block;
@@ -725,6 +726,8 @@ static void ext2_release_all_blocks(struct ext2_fs *ext2, int inode_n, struct ex
 		}
 		kfree(buffer[0]);
 	}
+	inode->i_size = 0;
+	inode->i_blocks = 0;
 	ext2_write_inode(ext2, inode_n, inode); // add block count and possibly modify i_block
 }
 
@@ -762,6 +765,9 @@ void *ext2_fopen(struct ext2_fs *ext2, const char * filename, uint_t mode)
 			*(last) = 0;
 			dir_inode = ext2_search_entry(ext2, dname, EXT2_ROOT_INO);
 			ext2_make_direntry(ext2, entry, dir_inode, inode_n, EXT2_FT_REG_FILE);
+			inode.i_blocks = 0;
+			inode.i_size = 0;
+
 			kfree(dname);
 			kfree(entry);
 		} else {
@@ -820,7 +826,9 @@ size_t ext2_fread(void *buf, size_t size, size_t count, struct ext2_file *stream
 	offset = stream->std.pos - block * stream->fs->block_size;
 	while(to_read > 0) {
 		howmuch = ((stream->fs->block_size - offset) > to_read) ? to_read : (stream->fs->block_size - offset);
-		if(!get_part_block(get_iblock(stream->inode, block, stream->fs), stream->fs->block_size, stream->fs, buf, size, offset)) {
+		if(howmuch + stream->std.pos >= stream->inode->i_size)
+			howmuch = stream->inode->i_size - stream->std.pos;
+		if(!get_part_block(get_iblock(stream->inode, block, stream->fs), stream->fs->block_size, stream->fs, buf, howmuch, offset)) {
 			return read/size;
 		}
 		buf = (void*)((unsigned int)buf + stream->fs->block_size - offset);
@@ -845,7 +853,7 @@ size_t ext2_fwrite(void *buf, size_t size, size_t count, struct ext2_file *strea
 	offset = stream->std.pos - block * stream->fs->block_size;
 	while(to_write > 0) {
 		howmuch = ((stream->fs->block_size - offset) > to_write) ? to_write : (stream->fs->block_size - offset);
-		if(!ext2_write_part_block(get_iblock(stream->inode, block, stream->fs), stream->fs->block_size, stream->fs, buf, size, offset)) {
+		if(!ext2_write_part_block(get_iblock(stream->inode, block, stream->fs), stream->fs->block_size, stream->fs, buf, howmuch, offset)) {
 			return write/size;
 		}
 		buf = (void*)((unsigned int)buf + stream->fs->block_size - offset);
