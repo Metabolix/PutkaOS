@@ -47,7 +47,6 @@ void wait_irq(unsigned int irq)
 {
 	if (irq < 16) {
 		asm_wait_irq(irq);
-		//while(irq_wait[irq])__asm__("hlt\n");
 	} else {
 		kprintf("wait_irq: Invalid irq: %u (%#x)\n", irq, irq);
 	}
@@ -97,8 +96,6 @@ void irq_install(void)
 	idt_set_gate(0x2D, (unsigned)irq13, 0x08, 0x8E);
 	idt_set_gate(0x2E, (unsigned)irq14, 0x08, 0x8E);
 	idt_set_gate(0x2F, (unsigned)irq15, 0x08, 0x8E);
-
-	idt_set_gate(60, 0, 0x08, 0x8E);
 }
 
 void install_irq_handler(unsigned int irq, irq_handler_t handler)
@@ -130,9 +127,6 @@ void irq_handler(struct regs_t *regs) /* NOTICE: This should be called only from
 		kprintf("Irq_handler got irq %u which doesn't exist\n", regs->int_no);
 		dump_regs(regs);
 	} else {
-		if(regs->int_no) {
-		//	kprintf("IRQ %d\n", regs->int_no);
-		}
 		if (irq_handlers[regs->int_no]) {
 			irq_handlers[regs->int_no](regs);
 		} else {

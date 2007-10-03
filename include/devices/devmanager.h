@@ -55,7 +55,9 @@ struct device {
 	size_t index; // device_insert sets this.
 	devopen_t devopen;
 	devrm_t remove;
+#if 0
 	devrm_t real_remove;
+#endif
 };
 
 extern struct fs devfs;
@@ -63,7 +65,9 @@ extern int devmanager_init(void);
 extern int device_insert(struct device *device);
 extern int devmanager_uninit(void);
 
-extern int device_fill(DEVICE *devices, dev_class_t class, dev_type_t type, const char *devname, devopen_t devopen, devrm_t remove, size_t count, int offset);
+#if 0
+extern int device_fill(DEVICE *devices, dev_class_t class, dev_type_t type, const char *devname, devopen_t devopen, devrm_t remove, size_t count);
+#endif
 
 /*
  * Internals
@@ -73,4 +77,5 @@ FILE *dev_fopen(struct fs *this, const char * filename, uint_t mode);
 struct devfs_dir *dev_dopen(struct fs *this, const char * dirname);
 int dev_dread(struct devfs_dir *listing);
 int dev_dclose(struct devfs_dir *listing);
+
 #endif

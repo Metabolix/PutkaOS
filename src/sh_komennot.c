@@ -505,7 +505,7 @@ void sh_fread(char*a)
 		lue = (maara > sizeof(b) ? sizeof(b) : maara);
 		luettu = fread(b, 1, lue, sh_f);
 		if (luettu != lue) {
-			kprintf("Virhe lukemisessa. (%d/%d)\n", luettu, lue);
+			print("Virhe lukemisessa.\n");
 			maara = luettu;
 		}
 		maara -= luettu;
