@@ -516,6 +516,8 @@ struct ext2_fs {
 	unsigned int block_bitmap_read;
 	unsigned int group_desc_n;
 	unsigned short int block_size;
+	unsigned int refs_open;
+	uint_t mode;
 	struct spinlock lock;
 
 	FILE *device;
@@ -525,6 +527,8 @@ struct ext2_file {
 	FILE std;
 
 	struct ext2_inode *inode;
+	int inode_num;
+	uint_t mode;
 	struct ext2_fs *fs;
 };
 
