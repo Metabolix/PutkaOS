@@ -135,33 +135,22 @@ int device_insert(DEVICE *device)
 	return 0;
 }
 
-#if 0
 int device_fill_remove(DEVICE * device) {
 		int ret = device->real_remove(device);
 		kfree((void*)device->name);
 		return ret;
 }
 
-int device_fill(DEVICE *devices, dev_class_t class, dev_type_t type, const char *devname, devopen_t devopen, devrm_t remove, size_t count)
+int device_fill(DEVICE *devices, dev_class_t class, dev_type_t type, const char *devname, devopen_t devopen, devrm_t remove, size_t count, int offset)
 {
-	char * name = strdup(devname);
-	char * new_name;
-	int name_len = strlen(name) - 1;
-	int nums = 1;
+	int nums = count >= 10 ? 1 : 2;
+	int name_len = strlen(devname) - 1;
+	char * name = kmalloc(name_len + 1 + nums);
 	int inserted = 0;
-
-	if (!isdigit(name[name_len])) {
-		kfree(name);
-		return -1;
-	}
-
-	if (isdigit(name[name_len]) && isdigit(name[name_len - 1])) {
-		//int number =  (name[name_len - 1] - '0') * 10 - name[name_len] - '0';
-		nums++;
-		name_len--;
-	}
+	int num = 0;
 
 	while (count--) {
+		sprintf(name, "%s%d", devname, num);
 		devices->dev_class = class;
 		devices->dev_type = type;
 		devices->devopen = devopen;
@@ -173,35 +162,9 @@ int device_fill(DEVICE *devices, dev_class_t class, dev_type_t type, const char 
 			inserted++;
 		}
 
-		devices++;
-
-		if (name[name_len + nums - 1] < '9') {
-			//new_name = strdup(name);
-			new_name = kmalloc(name_len + nums + 1);
-			strncpy(new_name, name, name_len + nums + 1);
-			new_name[name_len + nums - 1]++;
-			name = new_name;
-		} else if (name[name_len + nums - 1] == '9') {
-			if (nums == 1) {
-				nums++;
-			}
-
-			if (name[name_len + nums - 1] == '9' && name[name_len + nums - 2] == '9') {
-				return inserted;
-			}
-
-			new_name = kmalloc(name_len + nums + 1);
-			strncpy(new_name, name, name_len + nums + 1);
-			name = new_name;
-			if (name[name_len + nums - 2] == '9') {
-				name[name_len + nums - 2] = '1';
-			} else {
-				name[name_len + nums - 2]++;
-			}
-			name[name_len + nums - 1] = '0';
-		}
+		devices = (DEVICE*)((char*)devices + offset);
+		name = kmalloc(name_len + 1 + nums);
 	}
 
 	return inserted;
 }
-#endif

@@ -466,7 +466,7 @@ int ext2_umount(struct ext2_fs *this) {
 	if(this->ext2_inode_bitmap)
 		kfree(this->ext2_inode_bitmap);
 	if(this->ext2_block_bitmap)
-		kfree(this->ext2-inode_bitmap);
+		kfree(this->ext2_block_bitmap);
 	kfree(this->group_desc);
 	kfree(this->super_block);
 	kfree(this);

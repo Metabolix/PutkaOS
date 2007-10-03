@@ -85,8 +85,6 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 
 	floppy_reset();
 	mount_init(mboot_device, mboot_cmdline);
-	print("testattava_koodi();\n");
-	testattava_koodi();
 
 	//avataan oikea näyttöajuri ja asetetaan se vt-jutun käyttöön
 	display_init();
@@ -94,6 +92,8 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 
 	kprintf("%s %s is up and running _o/\n", systeemi, versio);
 	sh_tid = new_thread(run_sh, 0, 0);
+	print("testattava_koodi();\n");
+	testattava_koodi();
 	start_threading();
 }
 

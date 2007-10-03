@@ -271,7 +271,7 @@ void floppy_prepare_motor_off(uint_t drive)
 		ktimer_stop(floppy_drives[drive].motor_off_timer);
 		floppy_drives[drive].motor_off_timer = 0;
 	}
-	floppy_drives[drive].motor_off_timer = ktimer_start(floppy_motor_off_x[drive], 5000, 1);
+	floppy_drives[drive].motor_off_timer = ktimer_start(floppy_motor_off_x[drive], 500000, 1);
 }
 
 void floppy_motor_off(uint_t drive)
@@ -333,7 +333,7 @@ alku:
 		/* disk was changed */
 		floppy_seek_track(drive, 1);
 		floppy_calibrate(drive);
-		floppy_motor_off(drive);
+		//floppy_motor_off(drive);
 		if (inportb(FLOPPY_FIRST + DIGITAL_INPUT_REGISTER) & 0x80) {
 			kprintf("FDD: No floppy in fd%u\n", drive);
 			return -2;
@@ -412,6 +412,7 @@ int floppy_write_one_block(struct floppy *self, uint64_t num64, const void * buf
 	int head;
 	int cylinder;
 	size_t num = num64;
+	kprintf("Write at %d\n", num);
 
 	head = (num / floppy_params->sectors_per_track) & 1;
 	cylinder = num / (floppy_params->sectors_per_track * 2);
