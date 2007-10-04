@@ -566,4 +566,10 @@ DIR *ext2_dopen(struct ext2_fs * this, const char * dirname);
 int ext2_dread(struct ext2_dir * listing);
 int ext2_dclose(struct ext2_dir *listing);
 
+int ext2_link(struct ext2_fs *ext2, const char *src, const char *dest);
+int ext2_symlink(struct ext2_fs *ext2, const char *src, const char *dest);
+int ext2_unlink(struct ext2_fs *ext2, const char *file);
+int ext2_getprops(struct ext2_fs *ext2, const char *file, struct file_props *val);
+int ext2_setprops(struct ext2_fs *ext2, const char *file, const struct file_props *val);
+
 #endif	/* _EXT2_FS_H */
