@@ -625,7 +625,7 @@ void sh_fclose(char*a)
 void sh_mkdir(char*a)
 {
 	while (*a && isspace(*a)) ++a;
-	switch (dmake(a, 0, 0777)) {
+	switch (dmake(a)) {
 	case DIR_ERR_TOTAL_FAILURE:
 		print("mkdir: tuntematon virhe!\n");
 		break;

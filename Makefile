@@ -40,7 +40,7 @@ CO_SRC_DEVICES_1=specialdevs.c specialdevs_func.c $(CO_SRC_BLOCKDEV) $(CO_SRC_DI
 CO_SRC_DEVICES=$(addprefix devices/,$(CO_SRC_DEVICES_1))
 
 # File system
-CO_SRC_FS_1=mount.c filesystem.c file.c dir.c fat.c fat16.c ext2.c minix.c
+CO_SRC_FS_1=mount.c filesystem.c file.c dir.c fileutils.c fat.c fat16.c ext2.c minix.c
 CO_SRC_FS=$(addprefix filesys/,$(CO_SRC_FS_1))
 
 # Core

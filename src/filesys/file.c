@@ -139,5 +139,6 @@ int ioctl(FILE * stream, int request, uintptr_t param)
 	if (stream && stream->func->ioctl) {
 		return stream->func->ioctl(stream, request, param);
 	}
+	// TODO: error code for the FS not supporting this?
 	return -1; // TODO: errno EBADF
 }

@@ -561,7 +561,7 @@ int ext2_fseek(struct ext2_file *stream, long int offset, int origin);
 int ext2_fsetpos(struct ext2_file *stream, const fpos_t *pos);
 int ext2_ioctl(struct ext2_file *f, int request, uintptr_t param);
 
-int ext2_dmake(struct ext2_fs * this, const char * dirname, uint_t owned, uint_t rights);
+int ext2_dmake(struct ext2_fs * this, const char * dirname);
 DIR *ext2_dopen(struct ext2_fs * this, const char * dirname);
 int ext2_dread(struct ext2_dir * listing);
 int ext2_dclose(struct ext2_dir *listing);

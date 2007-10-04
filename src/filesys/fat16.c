@@ -640,7 +640,7 @@ int fat16_fsetpos(struct fat16_file *stream, const fpos_t *pos)
 	return 0;
 }
 
-int fat16_dmake(struct fat16_fs *this, const char * dirname, uint_t owner, uint_t rights)
+int fat16_dmake(struct fat16_fs *this, const char * dirname)
 {
 	void *f = fat16_fopen_all(this, dirname, FILE_MODE_READ, 1);
 	if (f) {

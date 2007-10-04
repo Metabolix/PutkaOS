@@ -528,7 +528,7 @@ size_t minix_fwrite(const void *buf, size_t size, size_t count, struct minix_fil
 	return minix_freadwrite((char *)buf, size, count, stream, (fread_t) fwrite, 1);
 }
 
-int minix_dmake(struct minix_fs *this, const char * dirname, uint_t owner, uint_t rights)
+int minix_dmake(struct minix_fs *this, const char * dirname)
 {
 	// TODO: minix_dmake: virheiden hoitelu...
         struct minix_file *file;

@@ -90,7 +90,7 @@ int fat16_fflush(struct fat16_file *stream);
 int fat16_fsetpos(struct fat16_file *stream, const fpos_t *pos);
 int fat16_ioctl(struct fat16_file *f, int request, uintptr_t param);
 
-int fat16_dmake(struct fat16_fs *this, const char * dirname, uint_t owner, uint_t rights);
+int fat16_dmake(struct fat16_fs *this, const char * dirname);
 struct fat16_dir *fat16_dopen(struct fat16_fs *this, const char * dirname);
 int fat16_dread(struct fat16_dir *listing);
 int fat16_dclose(struct fat16_dir *listing);

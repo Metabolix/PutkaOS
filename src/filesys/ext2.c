@@ -590,7 +590,7 @@ out:
 	kfree(block);
 }
 
-static int ext2_make_entry(struct ext2_fs * this, const char * dirname, unsigned char type, uint_t owned, uint_t rights)
+static int ext2_make_entry(struct ext2_fs * this, const char * dirname, unsigned char type)
 {
 	char * dname;
 	char * entry;
@@ -659,8 +659,7 @@ static int ext2_make_entry(struct ext2_fs * this, const char * dirname, unsigned
 	fwrite(&direntry[1], sizeof(struct ext2_dir_entry_2), 1, this->device);
 
 	memset(&ino, 0, sizeof(ino));
-	ino.i_mode = rights | type << 13;
-	ino.i_uid = owned;
+	ino.i_mode = type << 13;
 	ino.i_links_count = 1;
 	ino.i_blocks = 1;
 	ino.i_size = direntry[0].rec_len + direntry[1].rec_len;
@@ -905,9 +904,9 @@ int ext2_fseek(struct ext2_file * stream, long int offset, int origin) {
 	return 0;
 }
 
-int ext2_dmake(struct ext2_fs * this, const char * dirname, uint_t owned, uint_t rights)
+int ext2_dmake(struct ext2_fs * this, const char * dirname)
 {
-	return ext2_make_entry(this, dirname, EXT2_FT_DIR, owned, rights);
+	return ext2_make_entry(this, dirname, EXT2_FT_DIR);
 }
 
 DIR *ext2_dopen(struct ext2_fs * this, const char * dirname)

@@ -155,7 +155,7 @@ int minix_fflush(struct minix_file *stream);
 //int minix_fsetpos(struct minix_file *stream, const fpos_t *pos);
 int minix_ioctl(struct minix_file *f, int request, uintptr_t param);
 
-int minix_dmake(struct minix_fs *this, const char * dirname, uint_t owner, uint_t rights);
+int minix_dmake(struct minix_fs *this, const char * dirname);
 struct minix_dir *minix_dopen(struct minix_fs *this, const char * dirname);
 int minix_dread(struct minix_dir *listing);
 int minix_dclose(struct minix_dir *listing);

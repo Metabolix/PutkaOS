@@ -12,7 +12,7 @@ DIR *dopen(const char * dirname)
 	return mnt->fs->dirfunc.dopen(mnt->fs, newdirname);
 }
 
-int dmake(const char * dirname, uint_t owner, uint_t rights)
+int dmake(const char * dirname)
 {
 	const struct mount *mnt;
 	const char *newdirname = dirname;
@@ -20,7 +20,7 @@ int dmake(const char * dirname, uint_t owner, uint_t rights)
 	if (!mnt || !mnt->fs || !mnt->fs->dirfunc.dopen) {
 		return DIR_ERR_NO_FUNCTIONS;
 	}
-	return mnt->fs->dirfunc.dmake(mnt->fs, newdirname, owner, rights);
+	return mnt->fs->dirfunc.dmake(mnt->fs, newdirname);
 }
 
 int dread(DIR *listing)

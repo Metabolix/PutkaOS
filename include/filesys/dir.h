@@ -3,8 +3,11 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <time.h>
-#include <filesys/file.h>
+
+struct fs;
+typedef struct _DIR DIR;
 
 enum DIR_ERRORS {
 	DIR_ERR_TOTAL_FAILURE = -1,
@@ -16,7 +19,19 @@ enum DIR_ERRORS {
 	DIR_ERR__ = -100
 };
 
-typedef struct _DIR {
+typedef int (*dmake_t)(struct fs *fs, const char * dirname);
+typedef DIR *(*dopen_t)(struct fs *fs, const char * dirname);
+typedef int (*dread_t)(DIR *listing);
+typedef int (*dclose_t)(DIR *listing);
+
+struct dirfunc {
+        dmake_t dmake;
+        dopen_t dopen;
+        dclose_t dclose;
+        dread_t dread;
+};
+
+struct _DIR {
 	char *name;
 	fpos_t size;
 	uint_t uid, gid;
@@ -25,9 +40,9 @@ typedef struct _DIR {
 	uint_t references;
 
 	const struct dirfunc *func;
-} DIR;
+};
 
-extern int dmake(const char * dirname, uint_t owner, uint_t rights);
+extern int dmake(const char * dirname);
 extern DIR *dopen(const char * dirname);
 extern int dread(DIR *listing);
 extern int dclose(DIR *listing);
