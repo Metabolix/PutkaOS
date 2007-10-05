@@ -51,6 +51,8 @@ void sh_fgetpos(char*a);
 void sh_fsetpos(char*a);
 void sh_fclose(char*a);
 
+void sh_cp(char *buf);
+
 void sh_editor(char *buf);
 
 /**********
@@ -91,6 +93,7 @@ struct sh_komento komentotaulu[] = {
 	{"f.getpos", "f.getpos; ilmoita sijainti tiedostossa", sh_fgetpos},
 	{"f.setpos", "f.setpos sijainti; aseta sijainti tiedostoon", sh_fsetpos},
 	{"f.close", "f.close; sulje tiedosto", sh_fclose},
+	{"cp", "cp lahde kohde; kopioi tiedosto", sh_cp},
 
 	{"editor", "editor tiedoston_nimi; avaa tiedosto hienoon editoriin. esc + q = poistu, esc + w = kirjoita", sh_editor},
 
@@ -721,4 +724,51 @@ static void sh_mount_real(char *dev, char *point, uint_t mode, int remount)
 static void sh_shutdown_things(void)
 {
 	mount_uninit();
+}
+
+void sh_cp(char *buffer)
+{
+	char *src = buffer;
+	char *dest = buffer;
+	int lai = 0;
+	FILE * src_f = 0;
+	FILE * dest_f = 0;
+
+	while (*dest) {
+		if (!lai && *dest == ' ') {
+			*dest = 0;
+			++dest;
+			break;
+		}
+		if (*dest == '"') {
+			lai = !lai;
+		}
+		++dest;
+	}
+	if (*dest) {
+		src_f = fopen(src, "r");
+		if (!src_f) {
+			print("Lahdetiedoston avaaminen ei onnistunut!\n");
+		} else {
+			dest_f = fopen(dest, "w");
+			if (!dest_f) {
+				print("Kohdetiedoston avaaminen ei onnistunut!\n");
+				fclose(src_f);
+			} else {
+				char * block = kmalloc(1024);
+				int read;
+				while((read = fread(block, 1, 1024, src_f)) > 0) {
+					if(fwrite(block, read, 1, dest_f) < 1) {
+						print("Kirjoitusongelma!\n");
+						break;
+					}
+				}
+				fclose(src_f);
+				fclose(dest_f);
+			}
+		}
+	} else {
+
+		print("Vialliset parametrit!\n");
+	}
 }
