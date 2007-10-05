@@ -518,6 +518,11 @@ struct ext2_fs {
 	unsigned short int block_size;
 	unsigned int refs_open;
 	uint_t mode;
+
+	int write_sb;
+	int write_gd;
+	int write_bb, write_ib;
+
 	struct spinlock lock;
 
 	FILE *device;

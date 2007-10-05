@@ -44,7 +44,11 @@ struct ext2_fs ext2_op = {
 	.block_bitmap_read = 0,
 	.block_size = 0,
 	.device = 0,
-	.refs_open = 0
+	.refs_open = 0,
+	.write_sb = 0, 
+	.write_gd = 0,
+	.write_bb = 0, 
+	.write_ib = 0
 };
 
 int ext2_ioctl(struct ext2_file *f, int request, uintptr_t param)
@@ -58,11 +62,53 @@ inline static int ext2_block_offset(struct ext2_fs * ext2, int block)
 	return ext2->block_size*block;
 }
 
+static void ext2_flush_gd(struct ext2_fs * ext2)
+{
+	fpos_t pos;
+	if(ext2->write_gd) {
+		pos = ext2->group_desc_n * (fpos_t)ext2->super_block->s_blocks_per_group *  ext2->block_size + 2 * ext2->block_size;
+		fsetpos(ext2->device, &pos);
+		fwrite(ext2->group_desc, sizeof(struct ext2_group_desc), 1, ext2->device);
+		ext2->write_gd = 0;
+	}
+
+}
+	
+static void ext2_flush_sb(struct ext2_fs * ext2)
+{
+	fpos_t pos;
+	if(ext2->write_sb) {
+		pos = ext2->block_size;
+		fsetpos(ext2->device, &pos);
+		fwrite(ext2->super_block, sizeof(struct ext2_super_block), 1, ext2->device);
+		ext2->write_gd = 0;
+	}
+
+}
+
+static void ext2_flush_bitmaps(struct ext2_fs * ext2)
+{
+	fpos_t pos;
+	if(ext2->write_bb) {
+		pos = (ext2->group_desc->bg_block_bitmap) * ext2->block_size;
+		fsetpos(ext2->device, &pos);
+		fwrite(ext2->ext2_block_bitmap, ext2->block_size, 1, ext2->device);
+		ext2->write_bb = 0;
+	}
+	if(ext2->write_ib) {
+		pos = (ext2->group_desc->bg_inode_bitmap) * ext2->block_size;
+		fsetpos(ext2->device, &pos);
+		fwrite(ext2->ext2_inode_bitmap, ext2->block_size, 1, ext2->device);
+		ext2->write_ib = 0;
+	}
+}
+
 static void ext2_set_bg(struct ext2_fs * ext2, unsigned int desc_n)
 {
 	fpos_t pos;
 
 	if(desc_n != ext2->group_desc_n) {
+		ext2_flush_gd(ext2);
 		pos = ((fpos_t)ext2->super_block->s_blocks_per_group) *  ext2->block_size * desc_n;
 		fsetpos(ext2->device, &pos);
 		fread(ext2->group_desc, sizeof(struct ext2_group_desc), 1, ext2->device);
@@ -78,7 +124,7 @@ static void ext2_set_bg(struct ext2_fs * ext2, unsigned int desc_n)
 
 static struct ext2_inode ext2_get_inode(struct ext2_fs * ext2, unsigned int num) {
 	static struct ext2_inode inode;
-	unsigned short desc_n = (num  - 1)/ ext2->super_block->s_inodes_per_group;
+	unsigned short desc_n = (num)/ ext2->super_block->s_inodes_per_group;
 	fpos_t pos;
 
 	if(num < 1) {
@@ -162,78 +208,54 @@ static void ext2_reserve_inode(struct ext2_fs *ext2, int num)
 {
 	int byte = num / 8;
 	int bit = num - byte*8;
+	kprintf("num %d byte %d bit %d\n", num, byte, bit);
 	fpos_t pos = ext2->group_desc_n * (fpos_t)ext2->super_block->s_blocks_per_group *  ext2->block_size + 2 * ext2->block_size;
 	fsetpos(ext2->device, &pos);
 	
 	ext2->group_desc->bg_free_inodes_count--;
-	
-	fwrite(ext2->group_desc, sizeof(struct ext2_group_desc), 1, ext2->device);
-	fflush(ext2->device);
-	
+	ext2->write_gd = 1;
+
 	ext2->ext2_inode_bitmap[byte] = set_bit(ext2->ext2_inode_bitmap[byte], bit, 1); 
 	
-	pos = ext2->group_desc->bg_inode_bitmap * ext2->block_size;
-	fsetpos(ext2->device, &pos);
-	fwrite(ext2->ext2_inode_bitmap, ext2->super_block->s_inodes_per_group/8, 1, ext2->device);
-	fflush(ext2->device);
+	ext2->write_ib = 1;
 }
 
 static void ext2_release_inode(struct ext2_fs *ext2, int num)
 {
 	int byte = num / 8;
 	int bit = num - byte*8;
-	fpos_t pos = ext2->group_desc_n * (fpos_t)ext2->super_block->s_blocks_per_group *  ext2->block_size;
-	fsetpos(ext2->device, &pos);
 	
 	ext2->group_desc->bg_free_inodes_count++;
-	
-	fwrite(ext2->group_desc, ext2->block_size, 1, ext2->device);
+	ext2->write_gd = 1;
 	
 	ext2->ext2_inode_bitmap[byte] = set_bit(ext2->ext2_inode_bitmap[byte], bit, 0); 
 	
-	pos = ext2->group_desc->bg_inode_bitmap * ext2->block_size;
-	fsetpos(ext2->device, &pos);
-	fwrite(&ext2->ext2_inode_bitmap[byte], 1, 1, ext2->device);
-	fflush(ext2->device);
+	ext2->write_ib = 1;
 }
 
 static void ext2_reserve_block(struct ext2_fs *ext2, int num)
 {
 	int byte = num / 8;
 	int bit = num - byte*8;
-	fpos_t pos = ext2->group_desc_n * (fpos_t)ext2->super_block->s_blocks_per_group *  ext2->block_size + 2 * ext2->block_size;
-	fsetpos(ext2->device, &pos);
 	
 	ext2->group_desc->bg_free_blocks_count--;
-	
-	fwrite(ext2->group_desc, sizeof(struct ext2_group_desc), 1, ext2->device);
-	fflush(ext2->device);
+	ext2->write_gd = 1;
 	
 	ext2->ext2_block_bitmap[byte] = set_bit(ext2->ext2_block_bitmap[byte], bit, 1); 
 	
-	pos = ext2->group_desc->bg_block_bitmap * ext2->block_size;
-	fsetpos(ext2->device, &pos);
-	fwrite(ext2->ext2_block_bitmap, ext2->super_block->s_blocks_per_group/8, 1, ext2->device);
-	fflush(ext2->device);
+	ext2->write_bb = 1;
 }
 
 static void ext2_release_block(struct ext2_fs *ext2, int num)
 {
 	int byte = num / 8;
 	int bit = num - byte*8;
-	fpos_t pos = ext2->group_desc_n * (fpos_t)ext2->super_block->s_blocks_per_group *  ext2->block_size;
-	fsetpos(ext2->device, &pos);
 	
 	ext2->group_desc->bg_free_blocks_count++;
-	
-	fwrite(ext2->group_desc, ext2->block_size, 1, ext2->device);
+	ext2->write_gd = 1;
 	
 	ext2->ext2_block_bitmap[byte] = set_bit(ext2->ext2_block_bitmap[byte], bit, 0); 
-	
-	pos = ext2->group_desc->bg_block_bitmap * ext2->block_size;
-	fsetpos(ext2->device, &pos);
-	fwrite(&ext2->ext2_block_bitmap[byte], 1, 1, ext2->device);
-	fflush(ext2->device);
+	ext2->write_bb = 1;
 }
 
 static int ext2_alloc_inode(struct ext2_fs * ext2)
@@ -254,17 +276,15 @@ static int ext2_alloc_inode(struct ext2_fs * ext2)
 				}
 			}
 		}
+		DEBUGF("Couldn't find free inode!"); /* search next group */
 		return 0; /* didn't find any, TODO: search next group */
 	}
 found:
 	ext2_reserve_inode(ext2, byte * 8 + bit);
 	ext2->super_block->s_free_inodes_count--;
-	fseek(ext2->device, 1024, SEEK_SET);
-	if(fwrite(ext2->super_block, 512, 2, ext2->device) < 2) {
-		return 0;
-	}
+	ext2->write_sb = 1;
 
-	return byte * 8 + bit;
+	return byte * 8 + bit + 1;
 }
 
 static int ext2_alloc_block(struct ext2_fs * ext2)
@@ -285,22 +305,20 @@ static int ext2_alloc_block(struct ext2_fs * ext2)
 				}
 			}
 		}
+		DEBUGP("Couldn't find block!!\n");
 		return 0; /* didn't find any, TODO: search next group */
 	}
 found:
 	ext2_reserve_block(ext2, byte * 8 + bit);
 	ext2->super_block->s_free_blocks_count--;
-	fseek(ext2->device, 1024, SEEK_SET);
-	if(fwrite(ext2->super_block, 512, 2, ext2->device) < 2) {
-		return 0;
-	}
+	ext2->write_sb = 1;
 
 	return byte * 8 + bit + 1;
 }
 
 static void ext2_write_inode(struct ext2_fs * ext2, unsigned int inode, void * buffer)
 {
-	unsigned short desc_n = (inode  - 1)/ ext2->super_block->s_inodes_per_group;
+	unsigned short desc_n = (inode)/ ext2->super_block->s_inodes_per_group;
 	fpos_t pos;
 
 	if(inode < 1) {
@@ -322,6 +340,8 @@ static int get_iblock(struct ext2_inode * inode, unsigned int block, struct ext2
 	unsigned int block_n = 0;
 	unsigned int * buffer = kmalloc(ext2->block_size);
 	unsigned short p_per_block = ext2->block_size / 4;
+	if(block < EXT2_NDIR_BLOCKS)
+		buffer = kmalloc(ext2->block_size);
 	if(block < EXT2_NDIR_BLOCKS) {
 		block_n = inode->i_block[block];
 	} else if(block >= EXT2_IND_BLOCK && block < (p_per_block + EXT2_NDIR_BLOCKS)) {
@@ -349,10 +369,12 @@ static int get_iblock(struct ext2_inode * inode, unsigned int block, struct ext2
 	if(!block_n)
 		goto error;
 
-	kfree(buffer);
+	if(block < EXT2_NDIR_BLOCKS)
+		kfree(buffer);
 	return block_n;
 
-	error:
+error:
+	if(block < EXT2_NDIR_BLOCKS)
 		kfree(buffer);
 		return -1;
 }
@@ -361,9 +383,9 @@ static int ext2_inode_add_block(struct ext2_inode * inode, int inodenum, struct 
 {
 	unsigned int block_n = 0;
 	unsigned int new_block = ext2_alloc_block(ext2);
-	unsigned int buffer[2] = {0,0};
+	unsigned int buffer[1024] = {0};
 	const unsigned int p_per_block = ext2->block_size / 4;
-	unsigned block = ++inode->i_blocks;
+	unsigned block = inode->i_blocks++;
 
 	char path[4];
 
@@ -391,11 +413,16 @@ static int ext2_inode_add_block(struct ext2_inode * inode, int inodenum, struct 
 	} else {
 		if(inode->i_block[(int)path[0]] == 0) {
 			inode->i_block[(int)path[0]] = ext2_alloc_block(ext2);
+			memset(buffer, 0, 1024);
+			ext2_write_block(inode->i_block[(int)path[0]], 1024, ext2, buffer);
 		}
 		block_n = inode->i_block[(int)path[0]];
 		if((int)path[0] == EXT2_IND_BLOCK) {
-			buffer[0] = new_block;
-			ext2_write_part_block(block_n, ext2->block_size, ext2, buffer, 8, (int)path[1] * sizeof(int));
+			get_block(block_n, ext2->block_size, ext2, buffer);
+			buffer[block] = new_block;
+			//buffer[0] = new_block;
+			//ext2_write_part_block(block_n, ext2->block_size, ext2, buffer, 4, (int)path[1] * sizeof(int));
+			ext2_write_block(block_n, ext2->block_size, ext2, buffer);
 		} else {
 			if(buffer[0] == 0) {
 				buffer[0] = ext2_alloc_block(ext2);
@@ -417,8 +444,7 @@ static int ext2_inode_add_block(struct ext2_inode * inode, int inodenum, struct 
 			}
 		}
 	}
-	inode->i_size = 0;
-	ext2_write_inode(ext2, inodenum, inode); // add block count and possibly modify i_block
+	//ext2_write_inode(ext2, inodenum, inode);
 
 	return new_block;
 }
@@ -470,6 +496,10 @@ struct fs *ext2_mount(FILE *device, uint_t mode) {
 int ext2_umount(struct ext2_fs *this) {
 	if(this->refs_open > 0)
 		return MOUNT_ERR_BUSY;
+
+	ext2_flush_gd(this);
+	ext2_flush_sb(this);
+	ext2_flush_bitmaps(this);
 
 	fflush(this->device);
 
@@ -731,9 +761,11 @@ static int ext2_make_entry(struct ext2_fs * this, const char * dirname, unsigned
 
 	*dir_inode = ext2_search_entry(this, dname, EXT2_ROOT_INO);
 	if(!(*dir_inode)) {
+		DEBUGP("Couldn't get dir_inode\n");
 		goto out;
 	}
 	if(ext2_search_entry(this, entry, *dir_inode)) {
+		DEBUGP("Found dir_inode\n");
 		goto out;
 	}
 
@@ -809,8 +841,14 @@ static void ext2_release_all_blocks(struct ext2_fs *ext2, int inode_n, struct ex
 void *ext2_fopen(struct ext2_fs *ext2, const char * filename, uint_t mode)
 {
 	struct ext2_file * file;
-	struct ext2_inode inode;
+	struct ext2_inode inode = {
+		.i_mode = EXT2_FT_REG_FILE << 15,
+		.i_blocks = 0,
+		.i_size = 0,
+		.i_links_count = 1
+	};
 	int inode_n;
+	int wrote_inode = 0;
 	
 	if(ext2->mode == FILE_MODE_READ && mode & FILE_MODE_WRITE)
 		return 0;
@@ -825,13 +863,17 @@ void *ext2_fopen(struct ext2_fs *ext2, const char * filename, uint_t mode)
 			ext2_make_entry(ext2, filename, EXT2_FT_REG_FILE, &dir_inode, inode_n);
 			inode.i_blocks = 0;
 			inode.i_size = 0;
+			inode.i_links_count = 1;
+			wrote_inode = 1;
 		} else {
 			return 0;
 		}
 	}
-	inode = ext2_get_inode(ext2, inode_n);
-	if((inode.i_mode >> 13) == EXT2_FT_DIR) {
-		return 0;
+	if(!wrote_inode) {
+		inode = ext2_get_inode(ext2, inode_n);
+		if((inode.i_mode >> 13) == EXT2_FT_DIR) {
+			return 0;
+		}
 	}
 
 	if(ext2->mode == FILE_MODE_CLEAR) {
@@ -858,13 +900,14 @@ void *ext2_fopen(struct ext2_fs *ext2, const char * filename, uint_t mode)
 int ext2_fclose(struct ext2_file *stream) {
 	if(!stream)
 		return 1;
+	ext2_flush_gd(stream->fs);
+	ext2_flush_sb(stream->fs);
+	ext2_flush_bitmaps(stream->fs);
 	if(stream->mode & FILE_MODE_WRITE)
 		ext2_write_inode(stream->fs, stream->inode_num, stream->inode);
 	stream->fs->refs_open--;
 	kfree(stream->inode);
 	kfree(stream);
-	
-
 	return 0;
 }
 
@@ -903,12 +946,17 @@ size_t ext2_fwrite(void *buf, size_t size, size_t count, struct ext2_file *strea
 	size_t write = 0;
 	int to_write = size * count;
 	size_t howmuch;
+	int i_block;
 
 	block = stream->std.pos / stream->fs->block_size;
 	offset = stream->std.pos - block * stream->fs->block_size;
 	while(to_write > 0) {
 		howmuch = ((stream->fs->block_size - offset) > to_write) ? to_write : (stream->fs->block_size - offset);
-		if(!ext2_write_part_block(get_iblock(stream->inode, block, stream->fs), stream->fs->block_size, stream->fs, buf, howmuch, offset)) {
+		i_block = get_iblock(stream->inode, block, stream->fs);
+		if(i_block < 0)
+			DEBUGF("i_block = %d, block %d", i_block, block);
+			
+		if(!ext2_write_part_block(i_block, stream->fs->block_size, stream->fs, buf, howmuch, offset)) {
 			return write/size;
 		}
 		buf = (void*)((unsigned int)buf + stream->fs->block_size - offset);
@@ -917,7 +965,8 @@ size_t ext2_fwrite(void *buf, size_t size, size_t count, struct ext2_file *strea
 		to_write -= stream->fs->block_size - offset; /* if we don't write whole block this still goes under 1 and we quit, so we don't have to care about it */
 		offset = 0;
 		stream->std.pos += howmuch;
-		stream->inode->i_size += howmuch;
+		if(stream->inode->i_size < stream->std.pos) 
+			stream->inode->i_size = stream->std.pos;
 		if((stream->std.pos / stream->fs->block_size) >= stream->inode->i_blocks) {
 			ext2_inode_add_block(stream->inode, stream->inode_num, stream->fs);
 		}
