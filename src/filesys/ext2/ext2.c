@@ -1146,6 +1146,8 @@ int ext2_dread(struct ext2_dir * listing) {
 int ext2_dclose(struct ext2_dir *listing) {
 	kfree(listing->inode);
 	kfree(listing->buffer);
+	if(listing->name)
+		kfree(listing->name);
 	kfree(listing);
 
 	return 0;
