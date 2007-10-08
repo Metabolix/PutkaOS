@@ -62,7 +62,7 @@ void fill_with_blank(char *buf, unsigned int length)
 {
 	int j;
 	for(j=0; j<length; j++){
-		*(buf + j*2 + 0) = 0;
+		*(buf + j*2 + 0) = ' ';
 		*(buf + j*2 + 1) = 0x7;
 	}
 }

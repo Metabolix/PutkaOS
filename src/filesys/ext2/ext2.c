@@ -1,4 +1,4 @@
-#include <filesys/ext2.h>
+#include <filesys/ext2/ext2.h>
 #include <filesys/filesystem.h>
 #include <filesys/mount_err.h>
 #include <malloc.h>
@@ -1088,8 +1088,8 @@ DIR *ext2_dopen(struct ext2_fs * this, const char * dirname)
 
 	dir->std.func = &ext2_op.std.dirfunc;
 	dir->fs = this;
-	dir->std.size = inode.i_size;
-	dir->std.name = 0;
+	dir->std.entry.size = inode.i_size;
+	dir->std.entry.name = dir->name = 0;
 	dir->inode_num = 0;
 	dir->buffer = kmalloc(this->block_size);
 	dir->pos = 0;
@@ -1116,17 +1116,18 @@ int ext2_dread(struct ext2_dir * listing) {
 			if(dir->inode) {
 				inode = ext2_get_inode(ext2, dir->inode);
 
-				listing->std.name = krealloc(listing->std.name, dir->name_len + 1);
-				memcpy(listing->std.name, dir->name, dir->name_len);
-				listing->std.name[dir->name_len] = 0;
-				listing->std.size = inode.i_size;
-				listing->std.uid = inode.i_uid;
-				listing->std.gid = inode.i_gid;
-				listing->std.rights = inode.i_mode & 0777;
-				listing->std.created = inode.i_ctime;
-				listing->std.accessed = inode.i_atime;
-				listing->std.modified = inode.i_mtime;
-				listing->std.references = inode.i_links_count;
+				listing->name = krealloc(listing->name, dir->name_len + 1);
+				memcpy(listing->name, dir->name, dir->name_len);
+				listing->name[dir->name_len] = 0;
+				listing->std.entry.name = listing->name;
+				listing->std.entry.size = inode.i_size;
+				listing->std.entry.uid = inode.i_uid;
+				listing->std.entry.gid = inode.i_gid;
+				listing->std.entry.rights = inode.i_mode & 0777;
+				listing->std.entry.created = inode.i_ctime;
+				listing->std.entry.accessed = inode.i_atime;
+				listing->std.entry.modified = inode.i_mtime;
+				listing->std.entry.references = inode.i_links_count;
 				listing->inode_num = dir->inode;
 
 				listing->pos = ((unsigned int)dir - (unsigned int)listing->buffer) + dir->rec_len;

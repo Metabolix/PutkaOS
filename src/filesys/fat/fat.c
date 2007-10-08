@@ -1,5 +1,5 @@
-#include <filesys/fat.h>
-#include <filesys/fat16.h>
+#include <filesys/fat/fat.h>
+#include <filesys/fat/fat16.h>
 #include <malloc.h>
 #include <string.h>
 #include <screen.h>

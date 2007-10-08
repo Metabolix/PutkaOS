@@ -18,6 +18,8 @@
 
 #define MINIX_MAX_ZONES (MINIX_DBL_INDIR_ZONES_END)
 
+#define MINIX_ROOT_INODE (1)
+
 struct minix_inode {
 	uint16_t flags;
 	/*
@@ -46,10 +48,6 @@ struct minix_direntry {
 	uint16_t inode;
 	char name[30];
 };
-struct minix_direntry_own {
-	struct minix_direntry real;
-	char nullchar;
-};
 
 struct minix_superblock {
 	uint16_t num_inodes;
@@ -75,11 +73,35 @@ struct minix_superblock {
 #define MINIX_FLAG_PIPE      (0x1)
 #define MINIX_FLAG_CHARDEV   (0x2)
 #define MINIX_FLAG_DIR       (0x4)
-#define MINIX_FLAG_BLOCKDEV  (0x6)
+#define MINIX_FLAG_BLOCKDEV  (0x6) /* DIR | CHARDEV */
 #define MINIX_FLAG_FILE      (0x8)
 #define MINIX_FLAG_SYMLINK   (0xa) /* FILE | CHARDEV */
 
 #define MINIX_IS(x, what) (((x) >> 12) == (MINIX_FLAG_ ## what))
+#if 0
+#define MINIX_DIRENTRY_TYPES ( (const uint_t[]) { \
+		/*0,1*/ DIRENTRY_ERROR, DIRENTRY_PIPE, \
+		/*2,3*/ DIRENTRY_CHARDEV, DIRENTRY_ERROR, \
+		/*4,5*/ DIRENTRY_DIR, DIRENTRY_ERROR, \
+		/*6,7*/ DIRENTRY_BLOCKDEV, DIRENTRY_ERROR, \
+		/*8,9*/ DIRENTRY_FILE, DIRENTRY_, \
+		/*a,b*/ DIRENTRY_, DIRENTRY_, \
+		/*c,d*/ DIRENTRY_, DIRENTRY_, \
+		/*e,f*/ DIRENTRY_, DIRENTRY_, \
+} )
+#define MINIX_DIRENTRY_TYPE(x) (MINIX_DIRENTRY_TYPES[((x) >> 12)])
+#else
+#define MINIX_DIRENTRY_TYPEy(x) ( \
+	x == MINIX_FLAG_FILE ? DIRENTRY_FILE : (\
+	x == MINIX_FLAG_DIR ? DIRENTRY_DIR : (\
+	x == MINIX_FLAG_SYMLINK ? DIRENTRY_SYMLINK : (\
+	x == MINIX_FLAG_PIPE ? DIRENTRY_PIPE : (\
+	x == MINIX_FLAG_CHARDEV ? DIRENTRY_CHARDEV : (\
+	x == MINIX_FLAG_BLOCKDEV ? DIRENTRY_BLOCKDEV : (\
+	DIRENTRY_ERROR )))))) \
+)
+#define MINIX_DIRENTRY_TYPE(x) ( MINIX_DIRENTRY_TYPEy(((x) >> 12)) )
+#endif
 
 #define MINIX_ZONE_SIZE 1024
 
@@ -121,7 +143,6 @@ struct minix_file {
 	FILE std;
 
 	FILE *dev;
-	void (*freefunc)(void*);
 	uint32_t pos, size;
 	uint32_t dev_zones_pos, dev_zone_map_pos;
 	struct minix_fs *fs;
@@ -130,13 +151,16 @@ struct minix_file {
 	list_iter_of_minix_list_inode inode_iter;
 
 	int written;
+	int alloced;
 };
 
 struct minix_dir {
 	DIR std;
 
-	struct minix_file *file;
-	struct minix_direntry_own direntry;
+	int alloced;
+	struct minix_file file;
+	struct minix_direntry direntry;
+	int nullchar;
 	struct minix_inode inode;
 };
 
@@ -159,5 +183,11 @@ int minix_dmake(struct minix_fs *this, const char * dirname);
 struct minix_dir *minix_dopen(struct minix_fs *this, const char * dirname);
 int minix_dread(struct minix_dir *listing);
 int minix_dclose(struct minix_dir *listing);
+
+int minix_link (struct minix_fs *fs, const char *src, const char *dest);
+int minix_symlink (struct minix_fs *fs, const char *src, const char *dest);
+int minix_unlink (struct minix_fs *fs, const char *src);
+int minix_getprops (struct minix_fs *fs, const char *src, struct file_props *val);
+int minix_setprops (struct minix_fs *fs, const char *src, const struct file_props *val);
 
 #endif

@@ -1,7 +1,7 @@
 #ifndef _FAT16_H
 #define _FAT16_H 1
 
-#include <filesys/fat.h>
+#include <filesys/fat/fat.h>
 
 typedef unsigned short fat16_fat_t;
 

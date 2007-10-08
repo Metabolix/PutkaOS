@@ -2,6 +2,8 @@
 #include <screen.h>
 #include <string.h>
 
+#define QEMU_CURSES_AND_SSH 0
+
 #include <sh.h>
 
 int sh_colour = 7;
@@ -176,6 +178,13 @@ void run_sh(void)
 		}
 		putch('\n');
 
+#if QEMU_CURSES_AND_SSH
+		for (i = 0; buffer[i]; ++i) {
+			if (buffer[i] == '\'') {
+				buffer[i] = '/';
+			}
+		}
+#endif
 		// Trim left
 		for (loc = 0; buffer[loc] == ' '; ++loc);
 		memmove(buffer, buffer + loc, strlen(buffer + loc) + 1);

@@ -1,10 +1,11 @@
 #include <filesys/filesystem.h>
-#include <filesys/fat.h>
-#include <filesys/ext2.h>
-#include <filesys/minix.h>
 #include <malloc.h>
 #include <string.h>
 #include <list.h>
+
+#include <filesys/minix/minix.h>
+#include <filesys/ext2/ext2.h>
+#include <filesys/fat/fat.h>
 
 LIST_TYPE(fs_driver, fs_mount_t);
 list_of_fs_driver fs_driver_list;

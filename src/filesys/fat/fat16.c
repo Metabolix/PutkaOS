@@ -1,5 +1,5 @@
-#include <filesys/fat.h>
-#include <filesys/fat16.h>
+#include <filesys/fat/fat.h>
+#include <filesys/fat/fat16.h>
 #include <time.h>
 #include <string.h>
 #include <malloc.h>
@@ -665,7 +665,7 @@ struct fat16_dir *fat16_dopen(struct fat16_fs *this, const char * dirname)
 		return 0;
 	}
 	retval->std.func = &fat16_fs.dirfunc;
-	retval->std.name = retval->name;
+	retval->std.entry.name = retval->name;
 	return retval;
 }
 
@@ -698,7 +698,7 @@ fat16_dread_alku:
 		}
 	}
 	listing->name[i] = listing->direntry.basename[i];
-	for (j = i; i;) { --i;
+	for (j = i; i--;) {
 		listing->name[i] = listing->direntry.basename[i];
 	}
 	if (memcmp(listing->direntry.extension, "   ", 3) == 0) {
@@ -718,55 +718,21 @@ fat16_dread_alku:
 	if (strlen(listing->name) == 0) {
 		goto fat16_dread_alku;
 	}
-/*
-struct fat_direntry {
-	char basename[8];
-	char extension[3];
-	unsigned char attributes;
-	unsigned char reserved;
-	unsigned char create_time_10ms;
-	unsigned short create_time;
-	unsigned short create_date;
-	unsigned short access_date;
-	union {
-		unsigned short ea_index;
-		unsigned short first_cluster_hiword;
-	};
-	unsigned short modify_time;
-	unsigned short modify_date;
-	unsigned short first_cluster;
-	unsigned long file_size;
-} __attribute__((packed));
 
-typedef struct _DIR {
-	char *name;
-	fpos_t size;
-	uint_t owner;
-	uint_t rights;
-	time_t created, accessed, modified;
-	uint_t references;
-} DIR;
-*/
-	listing->std.size = listing->direntry.file_size;
+	listing->std.entry.size = listing->direntry.file_size;
 	struct tm tm;
 	tm.tm_usec = 0;
 	fat_mk_struct_tm(listing->direntry.create_date, listing->direntry.create_time, &tm);
 	tm.tm_sec += (listing->direntry.create_time_10ms + 50) / 100;
-	listing->std.created = mktime(&tm);
+	listing->std.entry.created = mktime(&tm);
 
 	fat_mk_struct_tm(listing->direntry.modify_date, listing->direntry.modify_time, &tm);
-	listing->std.modified = mktime(&tm);
+	listing->std.entry.modified = mktime(&tm);
 
 	fat_mk_struct_tm(listing->direntry.access_date, listing->direntry.modify_time, &tm);
 	tm.tm_sec = tm.tm_min = 0; tm.tm_hour = 12;
-	listing->std.accessed = mktime(&tm);
+	listing->std.entry.accessed = mktime(&tm);
 
 	// TODO: owner, rights, references
 	return 0;
-}
-
-int fat16_rename(const char *old, const char *new)
-{
-	// TODO
-	return -1;
 }

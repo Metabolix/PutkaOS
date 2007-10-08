@@ -9,7 +9,13 @@ CFLAGS_ALL=-Wall -ffreestanding -nostdinc -I./include -g -m32 -pedantic -std=c99
 CFLAGS=$(CFLAGS_ALL)
 CFLAGS_OPTI=-O
 
-DIRS=devices devices/blockdev devices/ports devices/display devices/display/text filesys utils
+DIRS= \
+	devices \
+		devices/blockdev devices/ports devices/display \
+			devices/display/text \
+	filesys \
+		filesys/minix filesys/fat filesys/ext2 \
+	utils
 
 ASM=nasm
 ASMFLAGS=-f elf
@@ -40,7 +46,16 @@ CO_SRC_DEVICES_1=specialdevs.c specialdevs_func.c $(CO_SRC_BLOCKDEV) $(CO_SRC_DI
 CO_SRC_DEVICES=$(addprefix devices/,$(CO_SRC_DEVICES_1))
 
 # File system
-CO_SRC_FS_1=mount.c filesystem.c file.c dir.c fileutils.c fat.c fat16.c ext2.c minix.c
+CO_SRC_FS_MINIX_1=minix.c zones.c fileutils.c maps.c
+CO_SRC_FS_MINIX=$(addprefix minix/,$(CO_SRC_FS_MINIX_1))
+
+CO_SRC_FS_FAT_1=fat.c fat16.c
+CO_SRC_FS_FAT=$(addprefix fat/,$(CO_SRC_FS_FAT_1))
+
+CO_SRC_FS_EXT2_1=ext2.c
+CO_SRC_FS_EXT2=$(addprefix ext2/,$(CO_SRC_FS_EXT2_1))
+
+CO_SRC_FS_1=mount.c filesystem.c file.c dir.c fileutils.c $(CO_SRC_FS_MINIX) $(CO_SRC_FS_FAT) $(CO_SRC_FS_EXT2)
 CO_SRC_FS=$(addprefix filesys/,$(CO_SRC_FS_1))
 
 # Core

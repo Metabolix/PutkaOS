@@ -540,6 +540,7 @@ struct ext2_file {
 struct ext2_dir {
 	DIR std;
 
+	char *name;
 	struct ext2_inode *inode;
 	int directory_inode;
 	struct ext2_fs *fs;

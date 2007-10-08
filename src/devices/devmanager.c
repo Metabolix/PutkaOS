@@ -86,15 +86,11 @@ int dev_dread(struct devfs_dir *listing)
 	ptr = list_item(listing->next);
 
 	/* Tiedot diriin... */
-	listing->std.name = (char*)ptr->name;
-	listing->std.size = 1; // Can we know it?
-	listing->std.uid = 0; // Owner... root? xD
-	listing->std.gid = 0; // Owner... root? xD
-	listing->std.rights = 0; // What rights?
-	listing->std.created = 0; // Hey, who _creates_ a device?
-	listing->std.accessed = 0;
-	listing->std.modified = 0;
-	listing->std.references = 1; // Only one...
+	listing->std.entry = (DIRENTRY) {
+		.name = ptr->name,
+		.references = 1,
+		// TODO: dev_dread: (DIRENTRY) size, uid, gid, rights, times...
+	};
 
 	list_inc(listing->next);
 	return 0;
