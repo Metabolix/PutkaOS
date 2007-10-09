@@ -20,6 +20,8 @@ struct fs {
 	struct filefunc filefunc;
 	struct dirfunc dirfunc;
 	struct fileutils fileutils;
+
+	uint_t mode;
 };
 
 extern struct fs *fs_mount(FILE *dev, uint_t mode);

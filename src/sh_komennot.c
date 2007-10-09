@@ -52,6 +52,9 @@ void sh_fsetpos(char*a);
 void sh_fclose(char*a);
 
 void sh_cp(char *buf);
+void sh_ln(char *buf);
+void sh_symln(char *buf);
+void sh_rm(char *buf);
 
 void sh_editor(char *buf);
 
@@ -93,7 +96,12 @@ struct sh_komento komentotaulu[] = {
 	{"f.getpos", "f.getpos; ilmoita sijainti tiedostossa", sh_fgetpos},
 	{"f.setpos", "f.setpos sijainti; aseta sijainti tiedostoon", sh_fsetpos},
 	{"f.close", "f.close; sulje tiedosto", sh_fclose},
+
 	{"cp", "cp lahde kohde; kopioi tiedosto", sh_cp},
+	{"ln", "ln lahde kohde; luo kova linkki", sh_ln},
+	{"symln", "symln lahde kohde; luo symbolinen linkki", sh_symln},
+	{"rm", "rm tiedosto; poista tiedosto", sh_rm},
+	{"unlink", "unlink tiedosto; poista tiedosto (sama kuin rm)", sh_rm},
 
 	{"editor", "editor tiedoston_nimi; avaa tiedosto hienoon editoriin. esc + q = poistu, esc + w = kirjoita", sh_editor},
 
@@ -642,9 +650,6 @@ void sh_mkdir(char*a)
 	case DIR_ERR_CANT_MAKE:
 		print("mkdir: luominen ei onnistunut!\n");
 		break;
-	case DIR_ERR_CANT_WRITE:
-		print("mkdir: kirjoittaminen (. ja ..) ei onnistunut!\n");
-		break;
 	}
 }
 
@@ -727,26 +732,58 @@ static void sh_shutdown_things(void)
 	mount_uninit();
 }
 
+char *sh_parse_strparam(char **s)
+{
+	if (!s || !*s) return 0;
+	char *ret, *p;
+	int lainaa;
+
+	while (isspace(**s)) {
+		++*s;
+	}
+	ret = p = *s;
+	lainaa = 0;
+	while (**s) {
+		if (!lainaa && **s == ' ') {
+			**s = 0;
+			return ret;
+		}
+		if (**s == '"') {
+			lainaa = !lainaa;
+		} else {
+			*p = **s;
+			++p;
+		}
+		++*s;
+	}
+	if (!lainaa) {
+		return ret;
+	}
+	return 0;
+}
+void sh_parse_two_strparams(char **buffer, const char **p1, const char **p2)
+{
+	if (!buffer || !*buffer || !p1 || !p2) return;
+
+	char *s = *buffer;
+	if ((*p1 = sh_parse_strparam(&s))) {
+		++s;
+		if ((*p2 = sh_parse_strparam(&s))) {
+			++s;
+		}
+	}
+	*buffer = s;
+}
+
 void sh_cp(char *buffer)
 {
-	char *src = buffer;
-	char *dest = buffer;
-	int lai = 0;
-	FILE * src_f = 0;
-	FILE * dest_f = 0;
+	const char *src, *dest;
 
-	while (*dest) {
-		if (!lai && *dest == ' ') {
-			*dest = 0;
-			++dest;
-			break;
-		}
-		if (*dest == '"') {
-			lai = !lai;
-		}
-		++dest;
-	}
+	sh_parse_two_strparams(&buffer, &src, &dest);
+
 	if (*dest) {
+		FILE * src_f = 0;
+		FILE * dest_f = 0;
 		src_f = fopen(src, "r");
 		if (!src_f) {
 			print("Lahdetiedoston avaaminen ei onnistunut!\n");
@@ -769,7 +806,45 @@ void sh_cp(char *buffer)
 			}
 		}
 	} else {
+		print("Vialliset parametrit!\n");
+	}
+}
 
+void sh_ln(char *buffer)
+{
+	const char *src, *dest;
+
+	sh_parse_two_strparams(&buffer, &src, &dest);
+
+	if (*dest) {
+		link(src, dest);
+	} else {
+		print("Vialliset parametrit!\n");
+	}
+}
+
+void sh_symln(char *buffer)
+{
+	const char *src, *dest;
+
+	sh_parse_two_strparams(&buffer, &src, &dest);
+
+	if (*dest) {
+		symlink(src, dest);
+	} else {
+		print("Vialliset parametrit!\n");
+	}
+}
+
+void sh_rm(char *buffer)
+{
+	const char *src = buffer;
+
+	src = sh_parse_strparam(&buffer);
+
+	if (*src) {
+		unlink(src);
+	} else {
 		print("Vialliset parametrit!\n");
 	}
 }

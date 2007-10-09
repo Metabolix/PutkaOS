@@ -27,7 +27,8 @@ struct fs devfs = {
 		.dopen = (dopen_t) dev_dopen,
 		.dclose = (dclose_t) dev_dclose,
 		.dread = (dread_t) dev_dread
-	}
+	},
+	.mode = FILE_MODE_RW
 };
 
 size_t free_index = 0;

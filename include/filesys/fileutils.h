@@ -3,20 +3,26 @@
 
 struct fs;
 
+#include <filesys/dir.h>
+
 enum FILE_PROPS {
-        FILE_PROP_RIGHTS = 1 << 0,
-        FILE_PROP_UID = 1 << 1,
-        FILE_PROP_GID = 1 << 2,
+        FILE_PROP_TYPE = 1 << 0,
+        FILE_PROP_RIGHTS = 1 << 1,
+        FILE_PROP_UID = 1 << 2,
+        FILE_PROP_GID = 1 << 3,
 };
 
 struct file_props {
-        int flags, rights, uid, gid;
+        uint_t flags;
+        uint_t type; // DIRENTRY_... @ dir.h
+        uint_t rights;
+        uint_t uid, gid;
 };
 
-typedef int (*link_t) (struct fs *fs, const char *src, const char *dest);
-typedef int (*unlink_t) (struct fs *fs, const char *file);
-typedef int (*getprops_t) (struct fs *fs, const char *file, struct file_props *val);
-typedef int (*setprops_t) (struct fs *fs, const char *file, const struct file_props *val);
+typedef int (*link_t) (struct fs *fs, const char *name, const char *linkname);
+typedef int (*unlink_t) (struct fs *fs, const char *name);
+typedef int (*getprops_t) (struct fs *fs, const char *name, struct file_props *val);
+typedef int (*setprops_t) (struct fs *fs, const char *name, const struct file_props *val);
 
 struct fileutils {
         link_t link, symlink;

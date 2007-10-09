@@ -31,9 +31,9 @@ FILE *fopen_intflags(const char * filename, uint_t intmode)
 
 	if (filename)
 	if (intmode & (FILE_MODE_READ | FILE_MODE_WRITE))
-	if (!(intmode & ~FILE_MODE_ALL))
 	if ((mnt = mount_etsi_kohta(&filename)))
 	if (mnt->fs)
+	if ((mnt->fs->mode & FILE_MODE_WRITE) >= (intmode & FILE_MODE_WRITE))
 	if (mnt->fs->filefunc.fopen) {
 		FILE *f = mnt->fs->filefunc.fopen(mnt->fs, filename, intmode);
 		if (!f) return f;
@@ -54,7 +54,7 @@ int fclose(FILE *stream)
 
 size_t fread(void *buf, size_t size, size_t count, FILE *stream)
 {
-	if (!stream || !(stream->mode & FILE_MODE_READ)) return 0;
+	if (!buf || !stream || !(stream->mode & FILE_MODE_READ)) return 0;
 	if (size == 0 || count == 0) return 0;
 	if (stream->func->fread) {
 		return stream->func->fread(buf, size, count, stream);
@@ -64,7 +64,7 @@ size_t fread(void *buf, size_t size, size_t count, FILE *stream)
 
 size_t fwrite(const void *buf, size_t size, size_t count, FILE *stream)
 {
-	if (!stream || !(stream->mode & FILE_MODE_WRITE)) return 0;
+	if (!buf || !stream || !(stream->mode & FILE_MODE_WRITE)) return 0;
 	if (size == 0 || count == 0) return 0;
 	if (stream->mode & FILE_MODE_APPEND) {
 		if (fsetpos(stream, &stream->size)) {
@@ -97,11 +97,14 @@ int fsetpos(FILE *stream, const fpos_t *pos)
 
 int fflush(FILE *stream)
 {
-	if (!stream || !stream->func || !stream->func->fflush) {
+	if (!stream) {
 		return EOF;
 	}
 	if (!(stream->mode & FILE_MODE_WRITE)) {
 		return 0;
+	}
+	if (!stream->func || !stream->func->fflush) {
+		return EOF;
 	}
 	return stream->func->fflush(stream);
 }
@@ -136,7 +139,7 @@ long ftell(FILE *stream)
 
 int ioctl(FILE * stream, int request, uintptr_t param)
 {
-	if (stream && stream->func->ioctl) {
+	if (stream && stream->func && stream->func->ioctl) {
 		return stream->func->ioctl(stream, request, param);
 	}
 	// TODO: error code for the FS not supporting this?

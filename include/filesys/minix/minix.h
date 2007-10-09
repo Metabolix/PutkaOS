@@ -66,7 +66,10 @@ struct minix_superblock {
 
 #define MINIX_NUM_ZONES 7
 #define MINIX_FLAG_RIGHTS (0x01ff) /*(0777)*/
-#define MINIX_RIGHTS(x) ((x) & MINIX_FLAG_RIGHTS)
+#define MINIX_GET_RIGHTS(x) ((x) & MINIX_FLAG_RIGHTS)
+#define MINIX_SET_RIGHTS(x, r) ((x) = (((x) & ~MINIX_FLAG_RIGHTS) | ((r) & MINIX_FLAG_RIGHTS)))
+#define MINIX_ADD_RIGHTS(x, r) ((x) |= ((r) & MINIX_FLAG_RIGHTS))
+#define MINIX_RM_RIGHTS(x, r) ((x) &= ~((r) & MINIX_FLAG_RIGHTS))
 //#define MINIX_FLAG_  (0x0200)
 //#define MINIX_FLAG_  (0x0400)
 //#define MINIX_FLAG_  (0x0800)
@@ -79,7 +82,7 @@ struct minix_superblock {
 
 #define MINIX_IS(x, what) (((x) >> 12) == (MINIX_FLAG_ ## what))
 #if 0
-#define MINIX_DIRENTRY_TYPES ( (const uint_t[]) { \
+#define MINIX_MK_DIRENTRY_TYPES ( (const uint_t[]) { \
 		/*0,1*/ DIRENTRY_ERROR, DIRENTRY_PIPE, \
 		/*2,3*/ DIRENTRY_CHARDEV, DIRENTRY_ERROR, \
 		/*4,5*/ DIRENTRY_DIR, DIRENTRY_ERROR, \
@@ -89,9 +92,9 @@ struct minix_superblock {
 		/*c,d*/ DIRENTRY_, DIRENTRY_, \
 		/*e,f*/ DIRENTRY_, DIRENTRY_, \
 } )
-#define MINIX_DIRENTRY_TYPE(x) (MINIX_DIRENTRY_TYPES[((x) >> 12)])
+#define MINIX_MK_DIRENTRY_TYPE(x) (MINIX_MK_DIRENTRY_TYPES[((x) >> 12)])
 #else
-#define MINIX_DIRENTRY_TYPEy(x) ( \
+#define MINIX_MK_DIRENTRY_TYPEy(x) ( \
 	x == MINIX_FLAG_FILE ? DIRENTRY_FILE : (\
 	x == MINIX_FLAG_DIR ? DIRENTRY_DIR : (\
 	x == MINIX_FLAG_SYMLINK ? DIRENTRY_SYMLINK : (\
@@ -100,7 +103,7 @@ struct minix_superblock {
 	x == MINIX_FLAG_BLOCKDEV ? DIRENTRY_BLOCKDEV : (\
 	DIRENTRY_ERROR )))))) \
 )
-#define MINIX_DIRENTRY_TYPE(x) ( MINIX_DIRENTRY_TYPEy(((x) >> 12)) )
+#define MINIX_MK_DIRENTRY_TYPE(x) ( MINIX_MK_DIRENTRY_TYPEy(((x) >> 12)) )
 #endif
 
 #define MINIX_ZONE_SIZE 1024
@@ -184,10 +187,11 @@ struct minix_dir *minix_dopen(struct minix_fs *this, const char * dirname);
 int minix_dread(struct minix_dir *listing);
 int minix_dclose(struct minix_dir *listing);
 
-int minix_link (struct minix_fs *fs, const char *src, const char *dest);
-int minix_symlink (struct minix_fs *fs, const char *src, const char *dest);
-int minix_unlink (struct minix_fs *fs, const char *src);
-int minix_getprops (struct minix_fs *fs, const char *src, struct file_props *val);
-int minix_setprops (struct minix_fs *fs, const char *src, const struct file_props *val);
+#include <filesys/minix/fileutils.h>
+
+extern struct minix_file *minix_fopen_inodenum(struct minix_fs *fs, uint16_t inode, struct minix_file *f);
+extern uint16_t minix_locate_inode(struct minix_fs *fs, const char *name, const char *name_end, uint16_t inode);
+extern int minix_insert_direntry(struct minix_fs *fs, uint16_t dir, uint16_t file, const char *name);
+extern struct minix_file *minix_fopen_all(struct minix_fs * restrict const fs, const char * restrict filename, uint_t mode, uint_t type, struct minix_file *f);
 
 #endif

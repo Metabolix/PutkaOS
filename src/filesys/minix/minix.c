@@ -14,17 +14,15 @@
 #define FREE kfree
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
-static struct minix_file *minix_fopen_inodenum(struct minix_fs *fs, uint16_t inode, struct minix_file *f);
-static uint16_t minix_locate_inode(struct minix_fs *fs, const char *name, const char *name_end, uint16_t inode);
-static int minix_insert_direntry(struct minix_fs *fs, uint16_t dir, uint16_t file, const char *name);
-static struct minix_file *minix_fopen_all(struct minix_fs * restrict const fs, const char * restrict filename, uint_t mode, uint_t type, struct minix_file *f);
 static struct minix_dir *minix_dopen_inodenum(struct minix_fs *fs, uint16_t inode_n, struct minix_dir *d);
 static int minix_dread_only_dir(struct minix_dir *listing);
+static int minix_fsetpos(struct minix_file *f, const fpos_t *pos);
 
 const struct fs minix_fs = {
 	.name = "minix",
 	.fs_mount = (fs_mount_t)  minix_mount,
 	.fs_umount = (fs_umount_t) minix_umount,
+	.mode = FILE_MODE_RW,
 	.filefunc = {
 		.fopen = (fopen_t) minix_fopen,
 		.fclose = (fclose_t) minix_fclose,
@@ -46,27 +44,7 @@ const struct fs minix_fs = {
 		.unlink = (unlink_t) minix_unlink,
 		.getprops = (getprops_t) minix_getprops,
 		.setprops = (setprops_t) minix_setprops
-	}
-};
-
-const struct filefunc minix_filefunc_ro = {
-	.fopen = (fopen_t) minix_fopen,
-	.fclose = (fclose_t) minix_fclose,
-	.fread = (fread_t) minix_fread,
-	.fwrite = 0,
-	.fflush = (fflush_t) fflush_none,
-	.fsetpos = (fsetpos_t) fsetpos_copypos,
-	.ioctl = (ioctl_t) minix_ioctl
-};
-
-const struct filefunc minix_filefunc_wo = {
-	.fopen = (fopen_t) minix_fopen,
-	.fclose = (fclose_t) minix_fclose,
-	.fread = 0,
-	.fwrite = (fwrite_t) minix_fwrite,
-	.fflush = (fflush_t) minix_fflush,
-	.fsetpos = (fsetpos_t) fsetpos_copypos,
-	.ioctl = (ioctl_t) minix_ioctl
+	},
 };
 
 static int minix_fsetpos(struct minix_file *f, const fpos_t *pos)
@@ -207,7 +185,7 @@ int minix_fflush(struct minix_file *stream)
 	return fflush(stream->dev);
 }
 
-static struct minix_file *minix_fopen_inodenum(struct minix_fs *fs, uint16_t inode, struct minix_file *f)
+struct minix_file *minix_fopen_inodenum(struct minix_fs *fs, uint16_t inode, struct minix_file *f)
 {
 	if (!f || !inode) return 0;
 
@@ -245,8 +223,7 @@ loytyi:
 	f->std.func = &fs->std.filefunc;
 	return f;
 }
-
-static uint16_t minix_locate_inode(struct minix_fs *fs, const char *name, const char *name_end, uint16_t inode)
+uint16_t minix_locate_inode(struct minix_fs *fs, const char *name, const char *name_end, uint16_t inode)
 {
 	if (!name) return 0;
 	if (*name == '/') {
@@ -254,7 +231,7 @@ static uint16_t minix_locate_inode(struct minix_fs *fs, const char *name, const 
 	}
 	if (!name_end) {
 		name_end = name + strlen(name);
-		if (name_end[-1] == '/') {
+		if (name_end > name && name_end[-1] == '/') {
 			--name_end;
 		}
 	}
@@ -303,7 +280,7 @@ return_etc:
 	return 0;
 }
 
-static int minix_insert_direntry(struct minix_fs *fs, uint16_t dir, uint16_t file, const char *name)
+int minix_insert_direntry(struct minix_fs *fs, uint16_t dir, uint16_t file, const char *name)
 {
 	struct minix_file f = {.alloced = 0};
 	struct minix_direntry entry;
@@ -341,7 +318,7 @@ error_etc:
 	return -1;
 }
 
-static struct minix_file *minix_fopen_all(struct minix_fs * restrict const fs, const char * restrict filename, uint_t mode, uint_t type, struct minix_file *f)
+struct minix_file *minix_fopen_all(struct minix_fs * restrict const fs, const char * restrict filename, uint_t mode, uint_t type, struct minix_file *f)
 {
 	if (!f || !fs || !filename) {
 		return 0;
@@ -368,7 +345,7 @@ static struct minix_file *minix_fopen_all(struct minix_fs * restrict const fs, c
 		}
 	}
 	if (!(finode = minix_locate_inode(fs, fn_filepart, 0, pinode))) {
-		if (!(mode & FILE_MODE_WRITE)) {
+		if ((mode & FILE_MODE_DONT_CREATE) || !(mode & FILE_MODE_WRITE)) {
 			return 0;
 		}
 		if (!(finode = minix_alloc_inode(fs, type))) {
@@ -376,6 +353,10 @@ static struct minix_file *minix_fopen_all(struct minix_fs * restrict const fs, c
 		}
 		if (minix_insert_direntry(fs, pinode, finode, fn_filepart) != 0) {
 			minix_free_inode(fs, finode);
+			return 0;
+		}
+	} else {
+		if (mode & FILE_MODE_MUST_BE_NEW) {
 			return 0;
 		}
 	}
@@ -390,11 +371,7 @@ static struct minix_file *minix_fopen_all(struct minix_fs * restrict const fs, c
 		goto close_ret_error;
 	}
 
-	if (!(mode & FILE_MODE_WRITE)) {
-		f->std.func = &minix_filefunc_ro;
-	} else if (!(mode & FILE_MODE_READ)) {
-		f->std.func = &minix_filefunc_wo;
-	}
+	f->std.mode = mode;
 	if ((mode & FILE_MODE_APPEND)) {
 		f->std.pos = f->std.size;
 	}
@@ -422,7 +399,7 @@ struct minix_file *minix_fopen(struct minix_fs *fs, const char * filename, uint_
 	return 0;
 }
 
-size_t minix_freadwrite(char *buf, size_t size, size_t count, struct 
+size_t minix_freadwrite(char *buf, size_t size, size_t count, struct
 minix_file *stream, fread_t ffunction, int write) {
 	const size_t  pos0        = stream->pos = stream->std.pos;
 	const fpos_t  pos_1a      = pos0 + (uint64_t)size * count;
@@ -505,13 +482,11 @@ return_etc:
 
 size_t minix_fread(void *buf, size_t size, size_t count, struct minix_file *stream)
 {
-	if (!stream || !buf) return 0;
 	return minix_freadwrite((char *)buf, size, count, stream, (fread_t) fread, 0);
 }
 
 size_t minix_fwrite(const void *buf, size_t size, size_t count, struct minix_file *stream)
 {
-	if (!stream || !buf) return 0;
 	fpos_t pos0 = stream->pos;
 	size_t ret;
 	ret = minix_freadwrite((char *)buf, size, count, stream, (fread_t) fwrite, 1);
@@ -526,11 +501,7 @@ int minix_dmake(struct minix_fs *fs, const char * dirname)
 	// TODO: minix_dmake: virheiden hoitelu...
         struct minix_file f = {.alloced = 0};
 
-	if (minix_fopen_all(fs, dirname, FILE_MODE_READ, 0, &f)) {
-		minix_fclose(&f);
-		return DIR_ERR_EXISTS;
-	}
-	if (!minix_fopen_all(fs, dirname, FILE_MODE_RW, MINIX_FLAG_DIR, &f)) {
+	if (!minix_fopen_all(fs, dirname, FILE_MODE_RW | FILE_MODE_MUST_BE_NEW, MINIX_FLAG_DIR, &f)) {
 		return DIR_ERR_CANT_MAKE;
 	}
 
@@ -540,13 +511,13 @@ int minix_dmake(struct minix_fs *fs, const char * dirname)
 	direntry.name[0] = '.';
 	if (minix_fwrite(&direntry, sizeof(direntry), 1, &f) != 1) {
 		minix_fclose(&f);
-		return DIR_ERR_CANT_WRITE;
+		return DIR_ERR_CANT_MAKE;
 	}
 	++f.inode->num_refs;
 	direntry.name[1] = '.';
 	if (minix_fwrite(&direntry, sizeof(direntry), 1, &f) != 1) {
 		minix_fclose(&f);
-		return DIR_ERR_CANT_WRITE;
+		return DIR_ERR_CANT_MAKE;
 	}
 	++f.inode->num_refs;
 
@@ -611,12 +582,12 @@ int minix_dread(struct minix_dir *listing)
 		.size = listing->inode.size,
 		.uid = listing->inode.uid,
 		.gid = listing->inode.gid,
-		.rights = MINIX_RIGHTS(listing->inode.flags),
+		.rights = MINIX_GET_RIGHTS(listing->inode.flags),
 		.created = listing->inode.modified,
 		.accessed = listing->inode.modified,
 		.modified = listing->inode.modified,
 		.references = listing->inode.num_refs,
-		.type = MINIX_DIRENTRY_TYPE(listing->inode.flags),
+		.type = MINIX_MK_DIRENTRY_TYPE(listing->inode.flags),
 	};
 	if (MINIX_IS(listing->inode.flags, CHARDEV)
 	|| MINIX_IS(listing->inode.flags, BLOCKDEV)) {

@@ -1,63 +1,63 @@
 #include <filesys/fileutils.h>
 #include <filesys/mount.h>
 
-int link (const char *src, const char *dest)
+int link (const char *name, const char *linkname)
 {
 	const struct mount *mnt;
 
-	if (src && dest)
-	if ((mnt = mount_etsi_kohta(&dest)))
+	if (name && linkname)
+	if ((mnt = mount_etsi_kohta(&linkname)))
 	if (mnt->fs && mnt->fs->fileutils.link)
-	if (mnt == mount_etsi_kohta(&src)) {
-		return mnt->fs->fileutils.link(mnt->fs, src, dest);
+	if (mnt == mount_etsi_kohta(&name)) {
+		return mnt->fs->fileutils.link(mnt->fs, name, linkname);
 	}
 	return -1;
 }
 
-int symlink (const char *src, const char *dest)
+int symlink (const char *name, const char *linkname)
 {
 	const struct mount *mnt;
 
-	if (src && dest)
-	if ((mnt = mount_etsi_kohta(&dest)))
+	if (name && linkname)
+	if ((mnt = mount_etsi_kohta(&linkname)))
 	if (mnt->fs && mnt->fs->fileutils.symlink) {
-		return mnt->fs->fileutils.link(mnt->fs, src, dest);
+		return mnt->fs->fileutils.symlink(mnt->fs, name, linkname);
 	}
 	return -1;
 }
 
-int unlink (const char *src)
+int unlink (const char *name)
 {
 	const struct mount *mnt;
 
-	if (src)
-	if ((mnt = mount_etsi_kohta(&src)))
+	if (name)
+	if ((mnt = mount_etsi_kohta(&name)))
 	if (mnt->fs && mnt->fs->fileutils.link) {
-		mnt->fs->fileutils.unlink(mnt->fs, src);
+		mnt->fs->fileutils.unlink(mnt->fs, name);
 	}
 	return -1;
 }
 
-int getprops (const char *src, struct file_props *val)
+int getprops (const char *name, struct file_props *val)
 {
 	const struct mount *mnt;
 
-	if (src && val)
-	if ((mnt = mount_etsi_kohta(&src)))
+	if (name && val)
+	if ((mnt = mount_etsi_kohta(&name)))
 	if (mnt->fs && mnt->fs->fileutils.link) {
-		mnt->fs->fileutils.getprops(mnt->fs, src, val);
+		mnt->fs->fileutils.getprops(mnt->fs, name, val);
 	}
 	return -1;
 }
 
-int setprops (const char *src, const struct file_props *val)
+int setprops (const char *name, const struct file_props *val)
 {
 	const struct mount *mnt;
 
-	if (src && val)
-	if ((mnt = mount_etsi_kohta(&src)))
+	if (name && val)
+	if ((mnt = mount_etsi_kohta(&name)))
 	if (mnt->fs && mnt->fs->fileutils.link) {
-		mnt->fs->fileutils.setprops(mnt->fs, src, val);
+		mnt->fs->fileutils.setprops(mnt->fs, name, val);
 	}
 	return -1;
 }

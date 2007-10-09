@@ -18,6 +18,9 @@ struct fs *fs_mount(FILE *dev, uint_t mode)
 	/* Valitaan listasta oikea juttu */
 	list_loop(iter, fs_driver_list) {
 		if ((retval = list_item(iter)(dev, mode))) {
+			if (!retval->mode) {
+				retval->mode = mode;
+			}
 			return retval;
 		}
 	}
