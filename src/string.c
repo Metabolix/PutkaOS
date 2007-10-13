@@ -205,6 +205,10 @@ char *strncat(char *s1, const char *s2, size_t n)
 
 int strncmp(const char *s1, const char *s2, size_t n)
 {
+	if (!n) {
+		return 0;
+	}
+	--n;
 	while (*s1 && *s1 == *s2 && n) {
 		++s1; ++s2; --n;
 	}
@@ -217,6 +221,10 @@ char *strncpy(char *dest, const char *src, size_t n)
 	while (*src && n) {
 		*dest = *src;
 		++dest; ++src; --n;
+	}
+	while (n) {
+		*dest = 0;
+		++dest; --n;
 	}
 	return retval;
 }

@@ -92,7 +92,7 @@ struct sh_komento komentotaulu[] = {
 	{"f.open", "f.open tiedosto tila; avaa tiedosto", sh_fopen},
 	{"f.read", "f.read koko; lue ja tulosta 'koko' tavua", sh_fread},
 	{"f.write", "f.write xx [xx ...]; kirjoita heksamuotoiset tavut", sh_fwrite},
-	{"f.print", "f.print teksti; kirjoita teksti tiedostoon", sh_fprint},
+	{"f.print", "f.print teksti; kirjoita tiedostoon; C:n escapet toimivat (\\n tai $n)", sh_fprint},
 	{"f.getpos", "f.getpos; ilmoita sijainti tiedostossa", sh_fgetpos},
 	{"f.setpos", "f.setpos sijainti; aseta sijainti tiedostoon", sh_fsetpos},
 	{"f.close", "f.close; sulje tiedosto", sh_fclose},
@@ -586,6 +586,47 @@ void sh_fprint(char*a)
 		return;
 	}
 	while (*a && isspace(*a)) ++a;
+	char *p1, *p2;
+	for (p1 = p2 = a; *p1; ++p1, ++p2) {
+		if (*p1 == '\\' || *p1 == '$') { // TODO: Pahuksen QEMU, ei saa \:ta kirjoitettua, korvasin $:lla.
+			++p1;
+			switch (*p1) {
+				case 'a': *p2 = '\a'; break;
+				case 'b': *p2 = '\b'; break;
+				case 'f': *p2 = '\f'; break;
+				case 'n': *p2 = '\n'; break;
+				case 'r': *p2 = '\r'; break;
+				case 't': *p2 = '\t'; break;
+				case 'v': *p2 = '\v'; break;
+				case '0':
+					if ('0' > p1[1] || p1[1] > '7') {
+						*p2 = '\0';
+						break;
+					}
+					*p2 = 0;
+
+					{int i; for (i = 0; i < 3; ++i) {
+						++p1;
+						*p2 = (010 * (*p2)) + p1[0] - '0';
+						if ('0' > p1[1] || p1[1] > '7') {
+							break;
+						}
+					}}
+					break;
+				case 'x':
+					if (p1[1] && isxdigit(p1[1]) && p1[2] && isxdigit(p1[2])) {
+						*p2 =   + 0x10 * (isdigit(p1[1]) ? p1[1] - '0' : p1[1] - 'a' + 10)
+							+ 0x01 * (isdigit(p1[2]) ? p1[2] - '0' : p1[2] - 'a' + 10);
+						p1 += 2;
+						break;
+					}
+				default: *p2 = *p1;
+			}
+		} else {
+			*p2 = *p1;
+		}
+	}
+	*p2 = 0;
 	if (fprintf(sh_f, "%s", a) != 1) {
 		print("Virhe tulostuksessa!\n");
 	}
@@ -817,7 +858,9 @@ void sh_ln(char *buffer)
 	sh_parse_two_strparams(&buffer, &src, &dest);
 
 	if (*dest) {
-		link(src, dest);
+		if (link(src, dest)) {
+			print("Virhe!\n");
+		}
 	} else {
 		print("Vialliset parametrit!\n");
 	}
@@ -830,7 +873,9 @@ void sh_symln(char *buffer)
 	sh_parse_two_strparams(&buffer, &src, &dest);
 
 	if (*dest) {
-		symlink(src, dest);
+		if (symlink(src, dest)) {
+			print("Virhe!\n");
+		}
 	} else {
 		print("Vialliset parametrit!\n");
 	}
@@ -843,7 +888,9 @@ void sh_rm(char *buffer)
 	src = sh_parse_strparam(&buffer);
 
 	if (*src) {
-		unlink(src);
+		if (unlink(src)) {
+			print("Virhe!\n");
+		}
 	} else {
 		print("Vialliset parametrit!\n");
 	}

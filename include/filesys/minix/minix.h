@@ -127,7 +127,6 @@ struct minix_fs {
 	fpos_t pos_inode_map;
 	fpos_t pos_zone_map;
 	fpos_t pos_inodes;
-	fpos_t pos_data;
 
 	size_t inode_map_size, zone_map_size;
 
@@ -146,10 +145,7 @@ struct minix_file {
 	FILE std;
 
 	FILE *dev;
-	uint32_t pos, size;
-	uint32_t dev_zones_pos, dev_zone_map_pos;
 	struct minix_fs *fs;
-	uint16_t inode_n;
 	struct minix_inode *inode;
 	list_iter_of_minix_list_inode inode_iter;
 
@@ -169,21 +165,22 @@ struct minix_dir {
 
 extern struct fs *minix_mount(FILE *device, uint_t mode);
 
-int minix_umount(struct minix_fs *this);
+int minix_umount(struct minix_fs *fs);
 
-struct minix_file *minix_fopen(struct minix_fs *this, const char * filename, uint_t mode);
-int minix_fclose(struct minix_file *stream);
+struct minix_file *minix_fopen(struct minix_fs *fs, const char * filename, uint_t mode);
+int minix_fclose(struct minix_file *f);
 
-size_t minix_fread(void *buf, size_t size, size_t count, struct minix_file *stream);
-size_t minix_fwrite(const void *buf, size_t size, size_t count, struct minix_file *stream);
+int minix_fsetpos(struct minix_file *f, const fpos_t * pos);
+size_t minix_fread(void *buf, size_t size, size_t count, struct minix_file *f);
+size_t minix_fwrite(const void *buf, size_t size, size_t count, struct minix_file *f);
 
-int minix_fflush(struct minix_file *stream);
+int minix_fflush(struct minix_file *f);
 
 //int minix_fsetpos(struct minix_file *stream, const fpos_t *pos);
 int minix_ioctl(struct minix_file *f, int request, uintptr_t param);
 
-int minix_dmake(struct minix_fs *this, const char * dirname);
-struct minix_dir *minix_dopen(struct minix_fs *this, const char * dirname);
+int minix_dmake(struct minix_fs *fs, const char * dirname);
+struct minix_dir *minix_dopen(struct minix_fs *fs, const char * dirname);
 int minix_dread(struct minix_dir *listing);
 int minix_dclose(struct minix_dir *listing);
 

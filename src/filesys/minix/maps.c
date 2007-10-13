@@ -10,12 +10,18 @@
 #define FREE kfree
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
+static const char minix_reserved_zeros[MINIX_ZONE_SIZE] = {0};
+
+static uint16_t minix_alloc_unclean_zone(struct minix_zone_allocer_t * const zal);
+
 uint16_t minix_alloc_inode(struct minix_fs *fs, uint16_t type)
 {
 	// TODO: minix_alloc_inode: Rights, uid, gid
 	struct minix_list_inode inoli = {
 		.inode = {
-			.flags = 0777 | (type << 12),
+			.flags = (type << 12) |
+				(type == MINIX_FLAG_SYMLINK ? 0777 :
+				(type == MINIX_FLAG_DIR ? 0755 : 0644)),
 			.uid = 0,
 			.size = 0,
 			.modified = time(0),
@@ -58,12 +64,13 @@ int minix_free_inode(struct minix_fs *fs, uint16_t n)
 
 int minix_free_zone(struct minix_fs *fs, uint16_t n)
 {
+	n -= fs->super.first_data_zone - 1;
 	MAP_RM_BIT(fs->zone_map, n);
 	fs->zone_map_changed = 1;
 	return 0;
 }
 
-uint16_t minix_alloc_zone(struct minix_zone_allocer_t * const zal)
+static uint16_t minix_alloc_unclean_zone(struct minix_zone_allocer_t * const zal)
 {
 	if (!zal->write) {
 		zal->eof = 1;
@@ -75,7 +82,7 @@ uint16_t minix_alloc_zone(struct minix_zone_allocer_t * const zal)
 				*zal->map |= 1 << zal->map_bit;
 				zal->fs->zone_map_changed = 1;
 				return ((zal->map_pos << 3) + zal->map_bit)
-					+ zal->fs->super.first_data_zone - 1;
+					+ (zal->fs->super.first_data_zone - 1);
 			}
 			++zal->map_bit;
 		}
@@ -85,5 +92,22 @@ uint16_t minix_alloc_zone(struct minix_zone_allocer_t * const zal)
 	}
 	zal->eof = 1;
 
+	return 0;
+}
+
+uint16_t minix_alloc_zone(struct minix_zone_allocer_t * const zal)
+{
+	uint16_t z = minix_alloc_unclean_zone(zal);
+	if (!z) {
+		return 0;
+	}
+	fpos_t pos = z * MINIX_ZONE_SIZE;
+	if (fsetpos(zal->f->dev, &pos)
+	|| fwrite(minix_reserved_zeros, MINIX_ZONE_SIZE, 1, zal->f->dev) != 1) {
+		goto error_etc;
+	}
+	return z;
+error_etc:
+	minix_free_zone(zal->fs, z);
 	return 0;
 }

@@ -23,6 +23,7 @@ struct minix_zone_allocer_t {
 };
 
 extern size_t minix_get_zones(struct minix_file *f, const size_t zone0, const size_t zone1, uint16_t *zonelist, const int write);
+extern int minix_free_all_zones_from_inode(struct minix_fs * const fs, struct minix_inode * const inode);
 
 #endif
 
