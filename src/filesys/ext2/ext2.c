@@ -1,12 +1,12 @@
 #include <filesys/ext2/ext2.h>
 #include <filesys/filesystem.h>
 #include <filesys/mount_err.h>
-#include <malloc.h>
+#include <memory/kmalloc.h>
 #include <screen.h>
 #include <stddef.h>
 #include <string.h>
 #include <bit.h>
-#include <debugprint.h>
+#include <debug.h>
 
 
 struct ext2_fs ext2_op = {
@@ -45,9 +45,9 @@ struct ext2_fs ext2_op = {
 	.block_size = 0,
 	.device = 0,
 	.refs_open = 0,
-	.write_sb = 0, 
+	.write_sb = 0,
 	.write_gd = 0,
-	.write_bb = 0, 
+	.write_bb = 0,
 	.write_ib = 0
 };
 
@@ -73,7 +73,7 @@ static void ext2_flush_gd(struct ext2_fs * ext2)
 	}
 
 }
-	
+
 static void ext2_flush_sb(struct ext2_fs * ext2)
 {
 	fpos_t pos;
@@ -117,7 +117,7 @@ static void ext2_set_bg(struct ext2_fs * ext2, unsigned int desc_n)
 		ext2->inode_bitmap_read = 0;
 		ext2->block_bitmap_read = 0;
 	}
-	
+
 }
 
 /* ext2_get_inode gets inode number `num' from filesystem */
@@ -211,12 +211,12 @@ static void ext2_reserve_inode(struct ext2_fs *ext2, int num)
 	kprintf("num %d byte %d bit %d\n", num, byte, bit);
 	fpos_t pos = ext2->group_desc_n * (fpos_t)ext2->super_block->s_blocks_per_group *  ext2->block_size + 2 * ext2->block_size;
 	fsetpos(ext2->device, &pos);
-	
+
 	ext2->group_desc->bg_free_inodes_count--;
 	ext2->write_gd = 1;
 
-	ext2->ext2_inode_bitmap[byte] = set_bit(ext2->ext2_inode_bitmap[byte], bit, 1); 
-	
+	ext2->ext2_inode_bitmap[byte] = set_bit(ext2->ext2_inode_bitmap[byte], bit, 1);
+
 	ext2->write_ib = 1;
 }
 
@@ -224,12 +224,12 @@ static void ext2_release_inode(struct ext2_fs *ext2, int num)
 {
 	int byte = num / 8;
 	int bit = num - byte*8;
-	
+
 	ext2->group_desc->bg_free_inodes_count++;
 	ext2->write_gd = 1;
-	
-	ext2->ext2_inode_bitmap[byte] = set_bit(ext2->ext2_inode_bitmap[byte], bit, 0); 
-	
+
+	ext2->ext2_inode_bitmap[byte] = set_bit(ext2->ext2_inode_bitmap[byte], bit, 0);
+
 	ext2->write_ib = 1;
 }
 
@@ -237,12 +237,12 @@ static void ext2_reserve_block(struct ext2_fs *ext2, int num)
 {
 	int byte = num / 8;
 	int bit = num - byte*8;
-	
+
 	ext2->group_desc->bg_free_blocks_count--;
 	ext2->write_gd = 1;
-	
-	ext2->ext2_block_bitmap[byte] = set_bit(ext2->ext2_block_bitmap[byte], bit, 1); 
-	
+
+	ext2->ext2_block_bitmap[byte] = set_bit(ext2->ext2_block_bitmap[byte], bit, 1);
+
 	ext2->write_bb = 1;
 }
 
@@ -250,11 +250,11 @@ static void ext2_release_block(struct ext2_fs *ext2, int num)
 {
 	int byte = num / 8;
 	int bit = num - byte*8;
-	
+
 	ext2->group_desc->bg_free_blocks_count++;
 	ext2->write_gd = 1;
-	
-	ext2->ext2_block_bitmap[byte] = set_bit(ext2->ext2_block_bitmap[byte], bit, 0); 
+
+	ext2->ext2_block_bitmap[byte] = set_bit(ext2->ext2_block_bitmap[byte], bit, 0);
 	ext2->write_bb = 1;
 }
 
@@ -449,7 +449,7 @@ static int ext2_inode_add_block(struct ext2_inode * inode, int inodenum, struct 
 	return new_block;
 }
 
-	
+
 
 struct fs *ext2_mount(FILE *device, uint_t mode) {
 	struct ext2_fs * ext2_fs = kmalloc(sizeof(struct ext2_fs));
@@ -698,7 +698,7 @@ static int ext2_check_delete(struct ext2_fs *ext2, const char * name, struct ext
 	int retval = 0;
 
 
-	if(inode->i_mode >> 13 != EXT2_FT_DIR) { 
+	if(inode->i_mode >> 13 != EXT2_FT_DIR) {
 		return 0;
 	}
 
@@ -776,7 +776,7 @@ static int ext2_make_entry(struct ext2_fs * this, const char * dirname, unsigned
 out:
 	kfree(dname);
 	kfree(entry);
-	
+
 	return retval;
 }
 
@@ -849,7 +849,7 @@ void *ext2_fopen(struct ext2_fs *ext2, const char * filename, uint_t mode)
 	};
 	int inode_n;
 	int wrote_inode = 0;
-	
+
 	if(ext2->mode == FILE_MODE_READ && mode & FILE_MODE_WRITE)
 		return 0;
 
@@ -955,7 +955,7 @@ size_t ext2_fwrite(void *buf, size_t size, size_t count, struct ext2_file *strea
 		i_block = get_iblock(stream->inode, block, stream->fs);
 		if(i_block < 0)
 			DEBUGF("i_block = %d, block %d", i_block, block);
-			
+
 		if(!ext2_write_part_block(i_block, stream->fs->block_size, stream->fs, buf, howmuch, offset)) {
 			return write/size;
 		}
@@ -965,7 +965,7 @@ size_t ext2_fwrite(void *buf, size_t size, size_t count, struct ext2_file *strea
 		to_write -= stream->fs->block_size - offset; /* if we don't write whole block this still goes under 1 and we quit, so we don't have to care about it */
 		offset = 0;
 		stream->std.pos += howmuch;
-		if(stream->inode->i_size < stream->std.pos) 
+		if(stream->inode->i_size < stream->std.pos)
 			stream->inode->i_size = stream->std.pos;
 		if((stream->std.pos / stream->fs->block_size) >= stream->inode->i_blocks) {
 			ext2_inode_add_block(stream->inode, stream->inode_num, stream->fs);
@@ -1024,7 +1024,7 @@ int ext2_dmake(struct ext2_fs * this, const char * dirname)
 		retval = DIR_ERR_CANT_MAKE;
 		goto out;
 	}
-	
+
 	inode = ext2_alloc_inode(this);
 	if(!inode) {
 		retval = DIR_ERR_CANT_MAKE;
@@ -1153,7 +1153,7 @@ int ext2_dclose(struct ext2_dir *listing) {
 	return 0;
 }
 
-int ext2_link(struct ext2_fs *ext2, const char *src, const char *dest) 
+int ext2_link(struct ext2_fs *ext2, const char *src, const char *dest)
 {
 	struct ext2_inode inode;
 	int dir_inode;
@@ -1182,7 +1182,7 @@ int ext2_unlink(struct ext2_fs *ext2, const char *file)
 	int retval = 0;
 	ext2_separate(file, &dir, &filename);
 	dir_inode = ext2_search_entry(ext2, file, EXT2_ROOT_INO);
-	
+
 	if(!dir_inode) {
 		retval = -1;
 		goto out;
@@ -1227,7 +1227,7 @@ int ext2_getprops(struct ext2_fs *ext2, const char *file, struct file_props *val
 	val->gid = inode.i_gid;
 	return 0;
 }
-	
+
 int ext2_setprops(struct ext2_fs *ext2, const char *file, const struct file_props *val)
 {
 	struct ext2_inode inode;
@@ -1235,7 +1235,7 @@ int ext2_setprops(struct ext2_fs *ext2, const char *file, const struct file_prop
 	if(!inode_n)
 		return -1;
 	inode = ext2_get_inode(ext2, inode_n);
-	inode.i_mode = (inode.i_mode & ~0777) | (val->rights & 0777); 
+	inode.i_mode = (inode.i_mode & ~0777) | (val->rights & 0777);
 	inode.i_uid= val->uid;
 	inode.i_gid = val->gid;
 	ext2_write_inode(ext2, inode_n, &inode);

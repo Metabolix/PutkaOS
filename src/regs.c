@@ -2,7 +2,7 @@
 #include <screen.h>
 #include <ctype.h>
 
-void dump_regs(const struct regs_t *regs)
+void dump_regs(const struct regs *regs)
 {
 	print("Registers:\n");
 	kprintf(" eax = %08x     ebx = %08x     ecx = %08x     edx = %08x\n", regs->eax, regs->ebx, regs->ecx, regs->edx);

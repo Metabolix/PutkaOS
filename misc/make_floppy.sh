@@ -63,7 +63,7 @@ fi
 mkdir -p ${MNT}/boot/grub/
 cp /boot/grub/stage1 ${MNT}/boot/grub/
 cp /boot/grub/stage2 ${MNT}/boot/grub/
-cp misc/menu.lst ${MNT}/boot/grub/menu.lst
+cp menu.lst ${MNT}/boot/grub/ || cp misc/menu.lst ${MNT}/boot/grub/
 if [ $? -ne 0 ] ; then
 	echo "Virhe tiedostojen kopioinnissa, lopetetaan."
 	exit -1

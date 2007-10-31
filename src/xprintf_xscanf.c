@@ -2,7 +2,6 @@
 #include <filesys/file.h>
 #include <filesys/filesystem.h>
 #include <screen.h>
-#include <malloc.h>
 
 struct sprintf_file {
 	FILE std;
@@ -28,34 +27,26 @@ const struct filefunc strfilefunc = {
 	//0, 0, 0, (fwrite_t) sprintf_fwrite, 0, 0, 0
 };
 
+int vsprintf(char * restrict buf, const char * restrict fmt, va_list args)
+{
+	struct sprintf_file f = {
+		.std.func = &strfilefunc,
+		.buf = buf,
+	};
+
+	return vfprintf(&f.std, fmt, args);
+}
+
 int sprintf(char * restrict buf, const char * restrict fmt, ...)
 {
-	int retval;
-	struct sprintf_file *f = kcalloc(sizeof(struct sprintf_file), 1);
-	f->std.func = &strfilefunc;
-	f->buf = buf;
+	int r;
 
 	va_list args;
 	va_start(args, fmt);
-	retval = vfprintf(&f->std, fmt, args);
-	*f->buf = 0;
+	r = vsprintf(buf, fmt, args);
 	va_end(args);
 
-	kfree(f);
-	return retval;
-}
-
-int vsprintf(char * restrict buf, const char * restrict fmt, va_list args)
-{
-	int retval;
-	struct sprintf_file *f = kcalloc(sizeof(struct sprintf_file), 1);
-	f->std.func = &strfilefunc;
-	f->buf = buf;
-
-	retval = vfprintf(&f->std, fmt, args);
-	*f->buf = 0;
-	kfree(f);
-	return retval;
+	return r;
 }
 
 int fprintf(FILE * restrict f, const char * restrict fmt, ...)

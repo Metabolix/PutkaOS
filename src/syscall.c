@@ -2,6 +2,7 @@
 #include <screen.h>
 
 #include <syscall.h>
+#include <memory/malloc.h>
 
 int asm_syscall();
 

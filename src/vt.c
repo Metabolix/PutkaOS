@@ -1,3 +1,4 @@
+#include <multitasking/process.h>
 #include <vt.h>
 #include <screen.h>
 #include <misc_asm.h>
@@ -150,7 +151,7 @@ unsigned int vt_out_get(void)
 {
 	if(!initialized) return 0;
 	if (is_threading()) {
-		return active_process_ptr->vt_num;
+		return active_process->vt_num;
 	}
 
 	return VT_KERN_LOG;
@@ -331,7 +332,7 @@ int vt_fastprint(unsigned int vt_num, const char *buf, unsigned int len)
 
 int vt_print(unsigned int vt_num, const char *string)
 {
-	if(!initialized) return 1;
+	if (!initialized) return 1;
 	if (vt_num >= VT_COUNT) return 1;
 	if (!vt[vt_num].in_kprintf) {
 		if (is_threading()) {
@@ -341,7 +342,8 @@ int vt_print(unsigned int vt_num, const char *string)
 
 	char tempbuf[160];
 	int i = 0, maxl;
-	char *s = (char *)string, *s2, *s3;
+	const char *s = (const char *)string;
+	char *s2, *s3;
 	while (*s) {
 		//kirjoitetaan nopeammin erikoismerkittömiä pätkiä jos käytetään ajuria
 		if(driverstream && *s >= ' '){

@@ -5,7 +5,7 @@
 #include <screen.h>
 #include <panic.h>
 #include <sh.h>
-#include <thread.h>
+#include <multitasking/multitasking.h>
 #include <string.h>
 #include <bit.h>
 #include <vt.h>
@@ -336,24 +336,25 @@ void keyboard_handle(void)
 				}
 				break;
 			case KEY_PGUP:
-				if((kb_mods & KEYB_MOD_LSHIFT || kb_mods & KEYB_MOD_RSHIFT) && down)
+				if ((kb_mods & KEYB_MOD_SHIFT) && down)
 					vt_scroll(vt_get_display_height()/2);
 				break;
 			case KEY_PGDOWN:
-				if((kb_mods & KEYB_MOD_LSHIFT || kb_mods & KEYB_MOD_RSHIFT) && down)
+				if ((kb_mods & KEYB_MOD_SHIFT) && down)
 					//vt_scroll(-1);
 					vt_scroll(-(int)vt_get_display_height()/2);
 				break;
 			default:
-				if (code == KEY_C && (kb_mods & KEYB_MOD_LCTRL || kb_mods & KEYB_MOD_RCTRL) && down) {
-					extern thread_id_t sh_tid;
+				if (KEY_F1 <= code && code <= KEY_F6) { /* f1-f6 */
+					vt_change(code - KEY_F1);
+				} else if ((code == KEY_C) && (kb_mods & KEYB_MOD_CTRL) && down) {
+#if 0
+					extern tid_t sh_tid;
 					kill_thread(sh_tid);
 					vt_unlockspinlocks();
-					sh_tid = new_thread(run_sh, 0, 0);
+					sh_tid = new_thread(run_sh, 0, 0, 0);
+#endif
 					break;
-				}
-				else if (code >= KEY_F1 && code <= KEY_F6) { /* f1-f6 */
-					vt_change(code - KEY_F1);
 				}
 		}
 

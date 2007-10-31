@@ -5,7 +5,7 @@
 #include <time.h>
 #include <string.h>
 #include <endian.h>
-#include <debugprint.h>
+#include <debug.h>
 #include <misc_asm.h>
 
 #include <screen.h>
@@ -517,7 +517,7 @@ size_t atapi_real_read(int device, uint32_t sector, size_t count, uint16_t * buf
 				//abort
 				kprintf("atapi_read: Command aborted.\n");
 				return ATAPI_CONV_WORDS_TO_SECTORS(read_words);
-			default: {}
+			default:;
 				// break;
 		}
 

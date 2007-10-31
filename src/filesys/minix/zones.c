@@ -2,7 +2,7 @@
 #include <filesys/minix/zones.h>
 #include <filesys/minix/maps.h>
 
-#include <malloc.h>
+#include <memory/kmalloc.h>
 
 #define MALLOC kmalloc
 #define CALLOC kcalloc

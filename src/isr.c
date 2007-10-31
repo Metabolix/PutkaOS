@@ -1,15 +1,23 @@
+#include <isr.h>
 #include <idt.h>
 #include <panic.h>
 #include <screen.h>
 #include <regs.h>
-#include <thread.h>
+#include <multitasking/multitasking.h>
 #include <misc_asm.h>
+#include <memory/pagefault.h>
 
 struct isr_t {
 	const char *name;
-	void (*handler)(struct regs_t *regs);
+	void (*handler)(struct regs *regs);
 };
-void page_fault_handler(struct regs_t *regs);
+
+int exception_handling = -1;
+
+int is_in_exception_handler(void)
+{
+	return exception_handling >= 0;
+}
 
 extern void isr0(); /* These are defined in our isrs.asm */
 extern void isr1();
@@ -44,7 +52,7 @@ extern void isr29();
 extern void isr30();
 extern void isr31();
 
-void isrs_install(void)
+void isr_install(void)
 {
 	idt_set_gate(0, (unsigned)isr0, 0x08, 0x8E);
 	idt_set_gate(1, (unsigned)isr1, 0x08, 0x8E);
@@ -121,25 +129,18 @@ struct isr_t isrs[32] = {
 	{"Reserved", 0}
 };
 
-void page_fault_handler(struct regs_t *regs)
-{
-	void* cr2 = asm_get_cr2();
-	kprintf("Page Fault!\nThread %i, process %i\n", active_thread, active_process);
-	dump_regs(regs);
-
-	kprintf("Trying to %s address %p, %s. Processor is in %s mode.\n",
-		((regs->error_code & 2) ? "write" : "read"),
-		cr2,
-		((regs->error_code & 1) ? "page is not present" : "page-level protection violation"),
-		((regs->error_code & 4) ? "user" : "supervisor"));
-	panic("Can't survive a page fault!");
-}
-
-void isr_handler(struct regs_t *regs)
+void isr_handler(struct regs *regs)
 {
 	if (regs->int_no & 0xffffffe0) { // > 31
 		panic("isr_handler got an absurd interrupt!");
 	}
+	if (exception_handling >= 0) {
+		strcpy((void*)0xb8000, "T.u.p.l.a.f.a.u.l.t.t.i.!.");
+		asm_cli();
+		for(;;);
+	}
+
+	exception_handling = regs->int_no;
 	if (isrs[regs->int_no].handler) {
 		isrs[regs->int_no].handler(regs);
 	} else {
@@ -148,8 +149,9 @@ void isr_handler(struct regs_t *regs)
 		} else {
 			kprintf("%s\n", isrs[regs->int_no]);
 		}
-		kprintf("Thread %i, process %i\n", active_thread, active_process);
+		kprintf("Thread %i, process %i\n", active_tid, active_pid);
 		dump_regs(regs);
 		panic("ISR not handled!");
 	}
+	exception_handling = -1;
 }

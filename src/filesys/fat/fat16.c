@@ -1,9 +1,9 @@
 #include <filesys/fat/fat.h>
 #include <filesys/fat/fat16.h>
+#include <memory/kmalloc.h>
 #include <time.h>
 #include <string.h>
-#include <malloc.h>
-#include <debugprint.h>
+#include <debug.h>
 
 struct fs fat16_fs = {
 	.name = "fat/msdos",

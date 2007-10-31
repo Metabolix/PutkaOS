@@ -1,9 +1,14 @@
 #include <utils/texteditor.h>
+#include <memory/kmalloc.h>
 #include <stdio.h>
-#include <malloc.h>
+#include <stdint.h>
 #include <string.h>
 #include <screen.h>
 #include <keyboard.h>
+
+#define MALLOC(x) kmalloc(x)
+#define FREE(x) kfree(x)
+#define REALLOC(x, y) krealloc((x),(y))
 
 unsigned int displayw, displayh;
 unsigned int cx, cy;
@@ -116,7 +121,7 @@ new_row:
 		y++;
 	}
 	set_colour(0x07);
-outofscreen: {}
+outofscreen:;
 }
 
 void editor_set_cursor_pos_on_screen(void)
@@ -166,8 +171,9 @@ int editor_main(char *filename)
 	//tehdään jotain
 
 	memset(&efile, 0, sizeof(efile));
-	efile.name = malloc(strlen(filename));
-	memcpy(efile.name, filename, strlen(filename));
+	int len = strlen(filename);
+	efile.name = MALLOC(len + 1);
+	memcpy(efile.name, filename, len + 1);
 
 	//avataan filu
 
@@ -196,13 +202,13 @@ int editor_main(char *filename)
 
 	fseek(efile.stream, 0, SEEK_SET);
 	kprintf("reading...\n");
-	char *buf = (char*)malloc(size);
+	char *buf = (char*)MALLOC(size);
 	size = fread(buf, 1, size, efile.stream);
 	kprintf("size=%d\n", size);
 	efile.rowcount = 1;
 	for(i=0; i<size; i++) if(buf[i]=='\n') efile.rowcount++;
 	kprintf("rowcount=%d\n", efile.rowcount);
-	efile.rows = (struct row_t*)malloc(sizeof(struct row_t)*efile.rowcount);
+	efile.rows = (struct row_t*)MALLOC(sizeof(struct row_t)*efile.rowcount);
 	memset(efile.rows, 0, sizeof(struct row_t)*efile.rowcount);
 	i=0;
 	for(r=0; r<efile.rowcount; r++){
@@ -212,7 +218,7 @@ int editor_main(char *filename)
 			rowlength++;
 		}
 		rowlength++;
-		efile.rows[r].buf = (char*)malloc(rowlength);
+		efile.rows[r].buf = (char*)MALLOC(rowlength);
 		memcpy(efile.rows[r].buf, buf + i, rowlength);
 		efile.rows[r].buf[rowlength-1] = 0;
 		efile.rows[r].len = rowlength;
@@ -254,6 +260,7 @@ int editor_main(char *filename)
 			editor_print_fileview();
 		}
 		else if(hex == KEY_UP){
+			key_up:
 			if(efile.currentrow > 0){
 				efile.currentrow--;
 				if(efile.rows[efile.currentrow].len <= efile.currentcol)
@@ -265,6 +272,7 @@ int editor_main(char *filename)
 			}
 		}
 		else if(hex == KEY_DOWN){
+			key_down:
 			if(efile.currentrow < efile.rowcount - 1){
 				efile.currentrow++;
 				if(efile.rows[efile.currentrow].len <= efile.currentcol)
@@ -296,10 +304,18 @@ int editor_main(char *filename)
 		}
 		else if(hex == KEY_LEFT){
 			if(efile.currentcol > 0) efile.currentcol--;
+			else if(efile.currentrow > 0){
+				efile.currentcol = INT32_MAX;
+				goto key_up;
+			}
 		}
 		else if(hex == KEY_RIGHT){
 			if(efile.currentcol < efile.rows[efile.currentrow].len-1)
 				efile.currentcol++;
+			else if(efile.currentrow < efile.rowcount - 1) {
+				efile.currentcol = 0;
+				goto key_down;
+			}
 		}
 		else if(hex == KEY_HOME){
 			efile.currentcol = 0;
@@ -323,7 +339,7 @@ int editor_main(char *filename)
 					efile.rows[efile.currentrow].buf[i] = efile.rows[efile.currentrow].buf[i+1];
 					if(efile.rows[efile.currentrow].buf[i] == 0) break;
 				}
-				efile.rows[efile.currentrow].buf = krealloc(efile.rows[efile.currentrow].buf, efile.rows[efile.currentrow].len);
+				efile.rows[efile.currentrow].buf = REALLOC(efile.rows[efile.currentrow].buf, efile.rows[efile.currentrow].len);
 
 				editor_print_fileview();
 			}
@@ -336,7 +352,7 @@ int editor_main(char *filename)
 				int oldlength = efile.rows[efile.currentrow-1].len;
 				//varataan uudelleen tarpeeksi
 				efile.rows[efile.currentrow-1].buf
-						= krealloc(efile.rows[efile.currentrow-1].buf,
+						= REALLOC(efile.rows[efile.currentrow-1].buf,
 						newlength);
 				//kopioidaan jatko
 				memcpy(efile.rows[efile.currentrow-1].buf
@@ -346,14 +362,14 @@ int editor_main(char *filename)
 				efile.rows[efile.currentrow-1].len = newlength;
 				efile.rows[efile.currentrow-1].buf[efile.rows[efile.currentrow-1].len-1] = 0;
 				//vapautetaan tämä rivi
-				kfree(efile.rows[efile.currentrow].buf);
+				FREE(efile.rows[efile.currentrow].buf);
 				//siirretään alhaalla olevat rivit
 				for(i=efile.currentrow; i<efile.rowcount-1; i++){
 					efile.rows[i] = efile.rows[i+1];
 				}
 				//rivejä yksi vähemmän, reallokoidaan sen verran
 				efile.rowcount--;
-				efile.rows = (struct row_t*)krealloc(efile.rows,
+				efile.rows = (struct row_t*)REALLOC(efile.rows,
 						efile.rowcount*sizeof(struct row_t));
 				efile.currentrow--;
 				efile.currentcol = oldlength - 1;
@@ -363,7 +379,7 @@ int editor_main(char *filename)
 		}
 		else if(ch == '\n'){
 			efile.rowcount++;
-			efile.rows = (struct row_t*)krealloc(efile.rows,
+			efile.rows = (struct row_t*)REALLOC(efile.rows,
 					(efile.rowcount)*sizeof(struct row_t));
 			//memset(&efile.rows[efile.rowcount-1], 0, sizeof(struct row_t));
 			//vaihdetaan nykyisen rivin jälkeisten rivien bufferit aiemman rivin bufferiin.
@@ -377,14 +393,14 @@ int editor_main(char *filename)
 			//...tai ainakin 1
 			if(efile.rows[efile.currentrow+1].len <= 0) efile.rows[efile.currentrow+1].len = 1;
 			//varataan nykyisen rivin jälkeiselle riville sopiva tila
-			efile.rows[efile.currentrow+1].buf = (char*)kmalloc(efile.rows[efile.currentrow+1].len);
+			efile.rows[efile.currentrow+1].buf = (char*)MALLOC(efile.rows[efile.currentrow+1].len);
 			//kopioidaan nykyisen rivin loppupätkä siihen
 			memcpy(efile.rows[efile.currentrow+1].buf, efile.rows[efile.currentrow].buf + efile.currentcol, efile.rows[efile.currentrow+1].len);
 			//varmistetaan että sen lopussa on 0
 			efile.rows[efile.currentrow+1].buf[efile.rows[efile.currentrow+1].len-1] = 0;
 			//uudelleenvarataan nykyisen rivin pituudeksi kiva pituus
 			efile.rows[efile.currentrow].len = efile.currentcol + 1;
-			efile.rows[efile.currentrow].buf = krealloc(efile.rows[efile.currentrow].buf, efile.rows[efile.currentrow].len);
+			efile.rows[efile.currentrow].buf = REALLOC(efile.rows[efile.currentrow].buf, efile.rows[efile.currentrow].len);
 			//nykyisen rivin viimeiseksi merkiksi 0
 			efile.rows[efile.currentrow].buf[efile.rows[efile.currentrow].len-1] = 0;
 
@@ -395,7 +411,7 @@ int editor_main(char *filename)
 		}
 		else if(ch >= ' ' || ch == '\t'){
 			efile.rows[efile.currentrow].len++;
-			efile.rows[efile.currentrow].buf = (char*)krealloc(
+			efile.rows[efile.currentrow].buf = (char*)REALLOC(
 					efile.rows[efile.currentrow].buf, efile.rows[efile.currentrow].len);
 			for(i=efile.rows[efile.currentrow].len-1; i>efile.currentcol; i--){
 				efile.rows[efile.currentrow].buf[i] = efile.rows[efile.currentrow].buf[i-1];
@@ -428,12 +444,12 @@ quiteditor:
 		kb_get();
 	}
 freethings:*/
-	if(efile.name) kfree(efile.name);
+	if(efile.name) FREE(efile.name);
 	if(efile.rows){
 		for(i=0; i<efile.rowcount; i++){
-			if(efile.rows[i].buf) kfree(efile.rows[i].buf);
+			if(efile.rows[i].buf) FREE(efile.rows[i].buf);
 		}
-		kfree(efile.rows);
+		FREE(efile.rows);
 	}
 	return 0;
 }

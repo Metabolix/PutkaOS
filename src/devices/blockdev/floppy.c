@@ -14,6 +14,7 @@
  * Internals
 **/
 static void floppy_handler(void);
+void floppy_handler(void) { asm_nop(); }
 
 static void floppy_wait_data(void);
 static void floppy_configure(void);
@@ -109,8 +110,6 @@ struct floppy floppy_drives[2] = {
 		1, 0, 0, 0, 0, 0
 	}
 };
-
-void floppy_handler(void) { }
 
 void floppy_init(void)
 {

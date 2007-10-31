@@ -3,7 +3,7 @@
 #include <filesys/filesystem.h>
 #include <filesys/file.h>
 #include <filesys/dir.h>
-#include <malloc.h>
+#include <memory/kmalloc.h>
 #include <screen.h>
 #include <panic.h>
 #include <string.h>
@@ -11,7 +11,7 @@
 /*
 * Internals
 **/
-static const char *parse_mboot_device_root(unsigned long mboot_device);
+static const char *parse_mboot_device_root(uint8_t mboot_device[4]);
 static const char *parse_mboot_cmdline_root(const char *str);
 static struct mount *etsi_laite_rek(const char * device_name, struct mount *mnt);
 static struct mount *etsi_kohta(const char ** filename_ptr);
@@ -139,7 +139,7 @@ const char *parse_mboot_cmdline_root(const char *str)
 	result[(end1 - pos)] = 0;
 	return result;
 }
-const char *parse_mboot_device_root(unsigned long mboot_device)
+const char *parse_mboot_device_root(uint8_t mboot_device[4])
 {
 	/* TODO */
 	return 0;
@@ -147,7 +147,7 @@ const char *parse_mboot_device_root(unsigned long mboot_device)
 /**
  * Käynnistää mount-systeemin
 **/
-int mount_init(unsigned long mboot_device, const char *mboot_cmdline)
+int mount_init(uint8_t mboot_device[4], const char *mboot_cmdline)
 {
 	uint_t flags;
 	const char *root_device;
@@ -273,14 +273,14 @@ int mount_something(const char * device_filename, const char * mountpoint, uint_
 		0, 0,
 		0, 0
 	};
-	struct mount *point_mnt;
+	struct mount *parent;
 	int mnt_len, rel_len, dev_len;
 	int keno_lopussa;
 
 	point_rel = mountpoint;
-	point_mnt = etsi_kohta(&point_rel);
+	parent = etsi_kohta(&point_rel);
 
-	if (!point_mnt) {
+	if (!parent) {
 		kprintf("mount: (%s) => (%s): Point not found!\n", device_filename, mountpoint);
 		return MOUNT_ERR_TOTAL_FAILURE;
 	}
@@ -319,10 +319,10 @@ int mount_something(const char * device_filename, const char * mountpoint, uint_
 
 	uusi.relative_path = uusi.absolute_path + (point_rel - mountpoint);
 
-	uusi.parent = point_mnt;
-	++uusi.parent->subtree_size;
-	uusi.parent->subtree = krealloc(uusi.parent->subtree, uusi.parent->subtree_size * sizeof(struct mount));
-	uusi.parent->subtree[uusi.parent->subtree_size - 1] = uusi;
+	uusi.parent = parent;
+	++parent->subtree_size;
+	parent->subtree = krealloc(parent->subtree, parent->subtree_size * sizeof(struct mount));
+	parent->subtree[parent->subtree_size - 1] = uusi;
 
 	return 0;
 }

@@ -1,10 +1,10 @@
 #include <devices/blockdev/hdd.h>
 #include <devices/blockdev/ide.h>
 #include <devices/blockdev/blockdev.h>
-#include <debugprint.h>
+#include <memory/kmalloc.h>
+#include <debug.h>
 #include <panic.h>
 #include <string.h>
-#include <malloc.h>
 #include <stdint.h>
 
 void hdd_free_partition(hdd_partdev_t *part)

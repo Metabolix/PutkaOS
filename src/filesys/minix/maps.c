@@ -3,7 +3,7 @@
 #include <filesys/minix/maps.h>
 
 #include <time.h>
-#include <malloc.h>
+#include <memory/kmalloc.h>
 
 #define MALLOC kmalloc
 #define CALLOC kcalloc

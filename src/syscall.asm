@@ -17,12 +17,13 @@ make_syscall:
 	ret
 
 asm_syscall:
-	push ebx
 	; kelvollinen syscall
 	cmp eax, 0
 	jl .out_of_range
 	cmp eax, [syscall_table_size]
 	jge .out_of_range
+
+	push ebx
 
 	; parametrit; int f(eax, ebx, ecx, edx);
 	push edx
@@ -39,5 +40,4 @@ asm_syscall:
 .out_of_range:
 	xor eax, eax
 	dec eax
-	pop ebx
 	iret

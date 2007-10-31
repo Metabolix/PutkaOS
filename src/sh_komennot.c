@@ -61,7 +61,13 @@ void sh_editor(char *buf);
 /**********
 ** LISTA **
 **********/
-
+void sh_a(char*buf)
+{
+	char buf1[128] = "/dev/c0d0 /koe";
+	char buf2[128] = "/koe/f";
+	sh_mount(buf1);
+	sh_editor(buf2);
+}
 struct sh_komento komentotaulu[] = {
 	{"?", "Apua", sh_help},
 	{"help", "Apua", sh_help},
@@ -104,6 +110,7 @@ struct sh_komento komentotaulu[] = {
 	{"unlink", "unlink tiedosto; poista tiedosto (sama kuin rm)", sh_rm},
 
 	{"editor", "editor tiedoston_nimi; avaa tiedosto hienoon editoriin. esc + q = poistu, esc + w = kirjoita", sh_editor},
+	{"a", "mount /dev/c0d0 /koe ; editor /koe/f", sh_a},
 
 	{0, 0, sh_ei_tunnistettu} /* Terminaattori */
 };

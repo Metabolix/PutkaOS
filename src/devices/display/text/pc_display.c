@@ -1,7 +1,7 @@
 #include <devices/display/text/pc_display.h>
 #include <io.h>
 #include <irq.h>
-#include <thread.h>
+#include <multitasking/multitasking.h>
 #include <devices/devmanager.h>
 #include <stdio.h>
 #include <string.h>

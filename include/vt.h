@@ -6,8 +6,8 @@
 #include <string.h>
 #include <io.h>
 #include <irq.h>
-#include <thread.h>
-#include <malloc.h>
+#include <multitasking/multitasking.h>
+#include <memory/kmalloc.h>
 
 #define VT_BUF_H 60 //pitää olla >= SCREEN_H
 //#define VT_BUFFER_SIZE (VT_BUF_H*SCREEN_MEM_W)

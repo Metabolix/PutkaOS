@@ -3,9 +3,9 @@ global start_idle_thread
 global kernel_idle_loop
 
 start_idle_thread:
-	mov ebx, [esp+4]
-	mov eax, [ebx+4]     ; ss
-	mov ecx, [ebx]     ; stack
+	mov edx, [esp+4]
+	mov eax, [edx+4]     ; ss
+	mov ecx, [edx]     ; stack
 	mov esp, ecx
 	mov ss, ax
 	pop gs

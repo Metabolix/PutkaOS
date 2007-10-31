@@ -1,5 +1,5 @@
 #include <spinlock.h>
-#include <thread.h>
+#include <multitasking/multitasking.h>
 #include <misc_asm.h>
 
 void spinl_init(struct spinlock * spinl) {

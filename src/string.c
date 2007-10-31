@@ -1,5 +1,5 @@
 #include <string.h>
-#include <malloc.h>
+#include <memory/malloc.h>
 #include <stddef.h>
 
 /*************
@@ -78,7 +78,7 @@ void *memmove(void *dest0, const void *src0, size_t n)
 	}
 	return dest0;
 }
-
+/*
 void *memset(void *s, int c, size_t n)
 {
 	if (n <= 0) return s;
@@ -91,7 +91,7 @@ void *memset(void *s, int c, size_t n)
 
 	return s;
 }
-
+*/
 /*************
 **  STR *   **
 *************/
@@ -148,6 +148,7 @@ char *strcpy(char *dest, const char *src)
 	return retval;
 }
 
+#if 0
 size_t strcspn(const char *s1, const char *s2)
 {
 	char *buf = kmalloc(256);
@@ -179,6 +180,7 @@ char *strdup(const char *s)
 	memcpy(retval, s, len + 1);
 	return retval;
 }
+#endif
 
 size_t strlen(const char *s)
 {

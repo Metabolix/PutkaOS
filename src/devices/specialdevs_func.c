@@ -2,7 +2,7 @@
 #include <devices/devmanager.h>
 #include <filesys/file.h>
 #include <filesys/filesystem.h>
-#include <malloc.h>
+#include <memory/kmalloc.h>
 #include <string.h>
 
 int special_fclose(FILE *stream)

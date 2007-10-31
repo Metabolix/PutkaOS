@@ -1,6 +1,6 @@
 #include <devices/blockdev/blockdev.h>
+#include <memory/kmalloc.h>
 #include <string.h>
-#include <malloc.h>
 #include <int64.h>
 
 #include <screen.h>

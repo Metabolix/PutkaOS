@@ -5,8 +5,8 @@ set_bit:
 	mov ecx, [esp+8]
 	mov edx, ecx
 	and edx, 0xffffffe0
-	cmp edx, 0
-	je set_bit_jatka
+	;test edx, edx
+	jz set_bit_jatka
 	mov eax, [esp+4]
 	ret
 set_bit_jatka:

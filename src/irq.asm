@@ -1,6 +1,7 @@
 BITS 32
-extern active_thread_ptr
+extern active_thread
 extern irq_handler
+global start_threading
 
 %macro irq 1
 global irq%1
@@ -20,7 +21,7 @@ irq_handler_common:
 	push fs
 	push gs
 
-	mov eax, [active_thread_ptr]
+	mov eax, [active_thread]
 	test eax, eax
 	jz irq_handler_common_no_thread
 
@@ -40,8 +41,8 @@ irq_handler_common:
 	push ecx
 	call irq_handler
 	pop ecx
-
-	mov eax, [active_thread_ptr]
+start_threading:
+	mov eax, [active_thread]
 	mov esp, [eax]
 	mov ss, [eax+4]
 

@@ -1,6 +1,6 @@
 #include <filesys/fat/fat.h>
 #include <filesys/fat/fat16.h>
-#include <malloc.h>
+#include <memory/kmalloc.h>
 #include <string.h>
 #include <screen.h>
 

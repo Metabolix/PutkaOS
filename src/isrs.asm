@@ -1,5 +1,4 @@
 BITS 32
-;extern active_thread_ptr
 extern isr_handler
 
 %macro isr_0_7 1
@@ -26,7 +25,7 @@ isr_common:
 	push gs
 
 	; pino talteen
-	;mov eax, [active_thread_ptr]
+	;mov eax, [active_thread]
 	;mov [eax], esp
 	;mov [eax+4], ss
 
@@ -37,7 +36,7 @@ isr_common:
 	pop eax
 
 	; pino takaisin
-	;mov eax, [active_thread_ptr]
+	;mov eax, [active_thread]
 	;mov esp, [eax]
 	;mov ss, [eax+4]
 

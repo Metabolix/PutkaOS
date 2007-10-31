@@ -4,7 +4,7 @@
 //Tämä ja screen.c ovat vain korvaamassa vanhoja vastaavia.
 //Funktiot ainoastaan ohjailevat jutut oikeaan paikkaan
 
-#include <malloc.h> //useat screen.h:n includoivat eivät includoi tätä
+#include <memory/kmalloc.h> //useat screen.h:n includoivat eivät includoi tätä
 #include <vt.h>
 
 extern unsigned int vt_out_get(void);

@@ -18,7 +18,7 @@ struct mount {
 	struct fs *fs;
 };
 
-extern int mount_init(unsigned long mboot_device, const char *mboot_cmdline);
+extern int mount_init(uint8_t mboot_device[4], const char *mboot_cmdline);
 extern void mount_uninit(void);
 extern int mount_replace(const char * device_filename, const char * mountpoint, uint_t flags);
 extern int mount_something(const char * device_filename, const char * mountpoint, uint_t flags);

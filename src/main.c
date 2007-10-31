@@ -2,18 +2,18 @@
 #include <gdt.h>
 #include <irq.h>
 #include <keyboard.h>
-#include <memory.h>
+#include <memory/memory.h>
+#include <memory/malloc.h>
 #include <idt.h>
 #include <gdt.h>
-#include <isrs.h>
+#include <isr.h>
 #include <io.h>
 #include <panic.h>
-#include <malloc.h>
 #include <timer.h>
 #include <multiboot.h>
 #include <regs.h>
 #include <sh.h>
-#include <thread.h>
+#include <multitasking/multitasking.h>
 #include <devices/devmanager.h>
 #include <string.h>
 //#include <mouse.h>
@@ -29,8 +29,8 @@
 void testattava_koodi();
 
 const char systeemi[] = "PutkaOS";
-const char versio[] = "v0.002";
-thread_id_t sh_tid;
+const char versio[] = "v. 0.005";
+tid_t sh_tid;
 
 multiboot_info_t mbt_real;
 multiboot_info_t *mbt = &mbt_real;
@@ -43,25 +43,77 @@ size_t testfwrite(const void *buf, size_t size, size_t count, FILE *stream)
 	return count;
 }
 
+void parse_multiboot(multiboot_info_t *mbt)
+{
+	// Muisti
+	if (mbt->flags & MBI_FLAG_MEMORY) {
+	} else {
+		mbt->mem_lower = mbt->mem_upper = 0;
+	}
+
+	// Käynnistyslaite
+	if (mbt->flags & MBI_FLAG_BOOTDEV) {
+	} else {
+		memset(mbt->boot_device, 0, sizeof(mbt->boot_device));
+	}
+
+	// Komentorivi
+	if (mbt->flags & MBI_FLAG_CMDLINE) {
+		static char cmdline[128];
+		strncpy(cmdline, mbt->cmdline, 127);
+		mbt->cmdline = cmdline;
+	} else {
+		mbt->cmdline = 0;
+	}
+
+	if (mbt->flags & MBI_FLAG_MODS) {
+	} else {
+	}
+
+	if (mbt->flags & MBI_FLAG_AOUT_SYMS) {
+		panic("Ei me olla a.out, jookos? Tee ELF.");
+	} else {
+	}
+
+	if (mbt->flags & MBI_FLAG_ELF_SECS) {
+	} else {
+	}
+
+	// BIOSin muistikartta, jos sillä on asiaa
+	if (mbt->flags & MBI_FLAG_BIOS_MMAP) {
+	} else {
+	}
+
+	if (mbt->flags & MBI_FLAG_BIOS_DRIVES) {
+	} else {
+	}
+
+	if (mbt->flags & MBI_FLAG_CONFIG_TABLE) {
+	} else {
+	}
+
+	if (mbt->flags & MBI_FLAG_BOOT_LOADER_NAME) {
+	} else {
+	}
+
+	if (mbt->flags & MBI_FLAG_APM) {
+	} else {
+	}
+
+	if (mbt->flags & MBI_FLAG_VBE) {
+	} else {
+	}
+}
+
 void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 {
 	mbt_real = *param_mbt;
-	char mboot_cmdline[128] = "";
-	unsigned long mboot_device = 0;
+	parse_multiboot(mbt);
 	vt_init(); //vt:t jäävät vielä fallback-tilaan
 	cls();
-	if ((mbt->flags & (1 << 0)) == 0) {
-		panic("Mbt->flags bit 1 wasn't 1\n");
-	}
-	if ((mbt->flags & (1 << 1))) {
-		mboot_device = mbt->boot_device;
-	}
-	if ((mbt->flags & (1 << 2))) {
-		strncpy(mboot_cmdline, (char*) mbt->cmdline, 128);
-	}
 	gdt_install();
 	idt_install();
-	isrs_install();
+	isr_install();
 	memory_init(mbt->mem_upper + mbt->mem_lower);
 	irq_install();
 	timer_install();
@@ -72,9 +124,13 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 	fs_init();
 	devmanager_init();
 	floppy_init();
-	//screen_init();
 	serial_init();
+
 	threading_init();
+}
+void kmain2(void)
+{
+	print("kmain2!\n");
 	init_syscalls();
 	ide_init();
 
@@ -84,7 +140,7 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 	asm_sti(); /* Allow interrupts */
 
 	floppy_reset();
-	mount_init(mboot_device, mboot_cmdline);
+	mount_init(mbt->boot_device, mbt->cmdline);
 	print("testattava_koodi();\n");
 	testattava_koodi();
 
@@ -93,12 +149,34 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 	vt_setdriver("/dev/display");
 
 	kprintf("%s %s is up and running _o/\n", systeemi, versio);
-	sh_tid = new_thread(run_sh, 0, 0);
-	start_threading();
+	sh_tid = new_thread(0, run_sh, 0, 0, 0);
+
+	// Idle thread. ;)
+	for (;;) asm_hlt();
 }
 
 void testattava_koodi()
 {
+#if 0
+	time_t a, b, c, d;
+	struct tm tm = {
+		.tm_year = 70,
+		.tm_mon = 0,
+		.tm_mday = 1,
+		.tm_hour = 0,
+		.tm_min = 0,
+		.tm_sec = 0,
+	};
+	a = mktime(&tm);
+	tm.tm_hour = 25;
+	b = mktime(&tm);
+	tm.tm_year = 75;
+	c = mktime(&tm);
+	tm.tm_sec = 75;
+	d = mktime(&tm);
+	kprintf("mktime diff:\n %d\n %d\n %d\n %d\n", a-1328076303, b-1328137503, c-160527903, d-160527975);
+	kprintf("mktime:\n %d\n %d\n %d\n %d\n", a, b, c, d);
+#endif
 #if 0
 	FILE *files[2];
 
@@ -164,7 +242,7 @@ void testattava_koodi()
 		fseek(file, 0, SEEK_SET);
 		fread(pointer, size, 1, file);
 		fclose(file);
-		new_process(pointer, 0, 0, 1, size);
+		new_process(pointer, 0, 0, 0, size);
 	} else {
 		print("Couldn't read program from filesystem!\n");
 	}

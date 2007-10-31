@@ -1,3 +1,10 @@
+LINKER_SCRIPT=misc/link.ld
+KERNEL_FILE=kernel
+
+LDFLAGS=--oformat=elf32-i386 -melf_i386
+
+ASM=nasm
+ASMFLAGS=-f elf
 
 CC=gcc
 CFLAGS_41=-V 4.1 -fno-stack-protector
@@ -6,10 +13,12 @@ CFLAGS_34=-V 3.4
 CFLAGS_ALL=-Wall -ffreestanding -nostdinc -I./include -g -m32 -pedantic -std=c99
 #-pedantic -std=c99 -Werror
 
-CFLAGS=$(CFLAGS_ALL)
-CFLAGS_OPTI=-O
+CFLAGS=$(CFLAGS_41) $(CFLAGS_ALL)
+CFLAGS_OPTI=-O2
 
 DIRS= \
+	memory \
+	multitasking \
 	devices \
 		devices/blockdev devices/ports devices/display \
 			devices/display/text \
@@ -17,15 +26,15 @@ DIRS= \
 		filesys/minix filesys/fat filesys/ext2 \
 	utils
 
-ASM=nasm
-ASMFLAGS=-f elf
-
-ASM_SRC=start.asm gdt.asm irq.asm isrs.asm bit.asm thread.asm io.asm read_cmos.asm misc_asm.asm math.asm build_tweaks.asm syscall.asm
+ASM_SRC=start.asm irq.asm isrs.asm bit.asm multitasking/thread.asm io.asm read_cmos.asm misc_asm.asm math.asm build_tweaks.asm syscall.asm string.asm
 
 CO_SRC_STDROUTINES=string.c ctype.c int64.c endian.c list.c fprintf.c math.c xprintf_xscanf.c
-CO_SRC_MEM=memory.c malloc.c
 
-C_SRC_MULTITASK=thread.c process.c
+CO_SRC_MEM_1=init.c memory.c malloc.c swap.c pagefault.c
+CO_SRC_MEM=$(addprefix memory/,$(CO_SRC_MEM_1))
+
+C_SRC_MULTITASK_1=multitasking.c thread.c process.c
+C_SRC_MULTITASK=$(addprefix multitasking/,$(C_SRC_MULTITASK_1))
 
 # Storage
 C_SRC_BLOCKDEV_1=floppy.c ide.c hdd.c
@@ -80,11 +89,11 @@ CO_OBJS=$(addsuffix .o,$(addprefix build/,$(CO_SRC)))
 
 OBJS=$(ASM_OBJS) $(C_OBJS) $(CO_OBJS)
 
-LDFLAGS=--oformat=elf32-i386 -melf_i386
+all: builddirs $(OBJS) link
 
-all: builddirs $(OBJS)
+link:
 	@echo Linking kernel...
-	@ld -T link.ld $(LDFLAGS) -o ./kernel $(OBJS)
+	@ld -T $(LINKER_SCRIPT) $(LDFLAGS) -o $(KERNEL_FILE) $(OBJS)
 	@echo Kernel linked!
 
 builddirs:

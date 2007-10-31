@@ -5,9 +5,8 @@
 
 #include <time.h>
 #include <string.h>
-#include <malloc.h>
-#include <debugprint.h>
 #include <filesys/mount_err.h>
+#include <memory/kmalloc.h>
 
 #define MALLOC kmalloc
 #define CALLOC kcalloc
@@ -94,14 +93,6 @@ struct fs *minix_mount(FILE *device, uint_t mode)
 		return 0;
 	}
 
-#if 0
-	// Kas, UINT16_MAX < MINIX_MAX_ZONES
-	if (fs->super.num_zones > MINIX_MAX_ZONES) {
-		DEBUGF("fs->super.num_zones = %d > %d (MINIX_MAX_ZONES)\n",
-			fs->super.num_zones, MINIX_MAX_ZONES);
-		return 0;
-	}
-#endif
 	fs->inode_map_size = fs->super.num_inode_map_zones * MINIX_ZONE_SIZE;
 	fs->zone_map_size = fs->super.num_zone_map_zones * MINIX_ZONE_SIZE;
 	const size_t maps_size = fs->inode_map_size + fs->zone_map_size;
@@ -390,6 +381,7 @@ struct minix_file *minix_fopen_all(struct minix_fs * restrict const fs, const ch
 			goto close_ret_error;
 		}
 		f->inode->size = f->std.pos = f->std.size = 0;
+		f->written = 1;
 	}
 	return f;
 

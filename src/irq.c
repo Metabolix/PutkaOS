@@ -3,7 +3,7 @@
 #include <idt.h>
 #include <io.h>
 #include <panic.h>
-#include <thread.h>
+#include <multitasking/multitasking.h>
 #include <regs.h>
 #include <misc_asm.h>
 
@@ -120,7 +120,7 @@ void uninstall_irq_handler(unsigned int irq)
 	}
 }
 
-void irq_handler(struct regs_t *regs) /* NOTICE: This should be called only from our assembly code! */
+void irq_handler(struct regs *regs) /* NOTICE: This should be called only from our assembly code! */
 {
 	irq_handling = regs->int_no;
 	if (regs->int_no & 0xfffffff0) {

@@ -1,8 +1,8 @@
 #include <list.h>
 #include <stddef.h>
-#include <malloc.h>
+#include <memory/kmalloc.h>
 #include <string.h>
-#include <debugprint.h>
+#include <debug.h>
 
 int _list_destroy_func(list_of_void *l)
 {
