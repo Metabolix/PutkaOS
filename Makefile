@@ -13,7 +13,7 @@ CFLAGS_34=-V 3.4
 CFLAGS_ALL=-Wall -ffreestanding -nostdinc -I./include -g -m32 -pedantic -std=c99
 #-pedantic -std=c99 -Werror
 
-CFLAGS=$(CFLAGS_41) $(CFLAGS_ALL)
+CFLAGS=$(CFLAGS_ALL)
 CFLAGS_OPTI=-O2
 
 DIRS= \
@@ -23,7 +23,7 @@ DIRS= \
 		devices/blockdev devices/ports devices/display \
 			devices/display/text \
 	filesys \
-		filesys/minix filesys/fat filesys/ext2 \
+		filesys/minix filesys/fat filesys/ext2 filesys/iso9660 \
 	utils
 
 ASM_SRC=start.asm irq.asm isrs.asm bit.asm multitasking/thread.asm io.asm read_cmos.asm misc_asm.asm math.asm build_tweaks.asm syscall.asm string.asm
@@ -64,7 +64,10 @@ CO_SRC_FS_FAT=$(addprefix fat/,$(CO_SRC_FS_FAT_1))
 CO_SRC_FS_EXT2_1=ext2.c
 CO_SRC_FS_EXT2=$(addprefix ext2/,$(CO_SRC_FS_EXT2_1))
 
-CO_SRC_FS_1=mount.c filesystem.c file.c dir.c fileutils.c $(CO_SRC_FS_MINIX) $(CO_SRC_FS_FAT) $(CO_SRC_FS_EXT2)
+CO_SRC_FS_ISO9660_1=iso9660.c
+CO_SRC_FS_ISO9660=$(addprefix iso9660/,$(CO_SRC_FS_ISO9660_1))
+
+CO_SRC_FS_1=mount.c filesystem.c file.c dir.c fileutils.c $(CO_SRC_FS_MINIX) $(CO_SRC_FS_FAT) $(CO_SRC_FS_EXT2) $(CO_SRC_FS_ISO9660)
 CO_SRC_FS=$(addprefix filesys/,$(CO_SRC_FS_1))
 
 # Core
