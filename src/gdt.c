@@ -38,9 +38,9 @@ void gdt_install(void)
 	gdt_set_gate(1, 0, 0xFFFFF, 0, 1);
 	gdt_set_gate(2, 0, 0xFFFFF, 0, 0);
 
-	// User space
-	gdt_set_gate(3, 0, 0xFFFFF, 3, 1);
-	gdt_set_gate(4, 0, 0xFFFFF, 3, 0);
+	// User space; TODO: Miksi tulee GPF, jos on priviledge > 0?
+	gdt_set_gate(3, 0, 0xFFFFF, 0, 1);
+	gdt_set_gate(4, 0, 0xFFFFF, 0, 0);
 
 	asm_gdt_flush(&gdt_ptr);
 }

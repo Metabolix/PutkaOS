@@ -168,7 +168,7 @@ pid_t new_process(const void *code, size_t code_size, uint_t entry_offset, const
 	process->mem.phys_pd = phys_pd;
 
 	// Tilaa ohjelmalle
-	prog_pages = alloc_program_space(phys_pd, code_size, code, user);
+	prog_pages = alloc_program_space(phys_pd, code_size, code, 1);
 	if (!prog_pages) {
 		free_process(pid);
 		return NO_PROCESS;

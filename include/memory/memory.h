@@ -80,7 +80,7 @@ struct page_entry_t {
 #define STACK_PAGES_END (MEMORY_PE_COUNT * STACK_PDE_END)
 #define STACK_PAGES_COUNT (STACK_PAGES_END - STACK_PAGES_BEG)
 
-// Käyttäjän muistialue (512 - 4096 MiB)
+// Käyttäjän muistialue (512 - 4096 MiB) => [ORG 0x20000000]
 #define USER_PDE_BEG (STACK_PDE_END)
 #define USER_PDE_END (MEMORY_PE_COUNT)
 #define USER_PDE_COUNT (USER_PDE_END - USER_PDE_BEG)

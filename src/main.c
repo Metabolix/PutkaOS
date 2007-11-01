@@ -130,7 +130,6 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 }
 void kmain2(void)
 {
-	print("kmain2!\n");
 	init_syscalls();
 	ide_init();
 
@@ -146,13 +145,9 @@ void kmain2(void)
 	display_init();
 	vt_setdriver("/dev/display");
 
-	kprintf("%s %s is up and running _o/\n", systeemi, versio);
-
-	print("<testattava_koodi>\n");
-	kwait(0, 100000);
 	testattava_koodi();
-	print("</testattava_koodi>\n");
-	kwait(0, 100000);
+
+	kprintf("%s %s is up and running _o/\n", systeemi, versio);
 
 	sh_tid = new_thread(0, run_sh, 0, 0, 0);
 
@@ -162,6 +157,7 @@ void kmain2(void)
 
 void testattava_koodi()
 {
+	print("<testattava_koodi>\n");
 #if 0
 	time_t a, b, c, d;
 	struct tm tm = {
@@ -239,20 +235,6 @@ void testattava_koodi()
 	P("%+08.4d")
 #endif
 #if 0
-	FILE *file = fopen("/aja", "r");
-	if(file) {
-		fseek(file, 0, SEEK_END);
-		int size = ftell(file);
-		char * pointer = malloc(size);
-		fseek(file, 0, SEEK_SET);
-		fread(pointer, size, 1, file);
-		fclose(file);
-		new_process(pointer, 0, 0, 0, size);
-	} else {
-		print("Couldn't read program from filesystem!\n");
-	}
-#endif
-#if 0
 	int x = 0, y = 0;
 	struct mouse_state state;
 	for (;;) {
@@ -263,5 +245,6 @@ void testattava_koodi()
 		kprintf("(%d, %d)\n", x, y);
 	}
 #endif
+	print("</testattava_koodi>\n");
 }
 
