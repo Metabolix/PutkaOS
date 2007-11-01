@@ -8,36 +8,36 @@
 #define PCI_HEADER_TYPE_BRIDGE		1
 #define PCI_HEADER_TYPE_CARDBUS		2
 
-#define PCI_COMMAND		           	0x04
-#define PCI_STATUS			          0x06
-#define PCI_IRQ_LINE		          0x3C
-#define PCI_IRQ_PIN	  	          0x3D
+#define PCI_COMMAND					0x04
+#define PCI_STATUS					0x06
+#define PCI_IRQ_LINE				0x3C
+#define PCI_IRQ_PIN					0x3D
 #define PCI_SUBSYSTEM_VENDOR_ID		0x2C
-#define PCI_SUBSYSTEM_ID		      0x2E
-#define PCI_LATENCY_TIMER		      0x0D
+#define PCI_SUBSYSTEM_ID			0x2E
+#define PCI_LATENCY_TIMER			0x0D
 #define PCI_CAPABILITY_LIST		    0x34
 #define PCI_CB_CAPABILITY_LIST		0x14
 #define PCI_CACHE_LINE_SIZE		    0x0C
 #define PCI_CB_SUBSYSTEM_VENDOR_ID	0x40
 #define PCI_CB_SUBSYSTEM_ID		    0x42
-#define PCI_ROM_ADDRESS			      0x30
-#define PCI_ROM_ADDRESS_1		      0x38
+#define PCI_ROM_ADDRESS				0x30
+#define PCI_ROM_ADDRESS_1			0x38
 
-#define PCI_BASE_ADDRESS_0		    0x10
-#define PCI_BASE_ADDRESS_SPACE		0x01
+#define PCI_BASE_ADDRESS_0				0x10
+#define PCI_BASE_ADDRESS_SPACE			0x01
 #define PCI_BASE_ADDRESS_SPACE_MEMORY	0x00
-#define PCI_IO_RESOURCE_MEM		    0x00
-#define PCI_IO_RESOURCE_IO		    0x01
+#define PCI_IO_RESOURCE_MEM				0x00
+#define PCI_IO_RESOURCE_IO				0x01
 
-#define PCI_ROM_ADDRESS_MASK		  (~0x7FFUL)
+#define PCI_ROM_ADDRESS_MASK		(~0x7FFUL)
 #define PCI_BASE_ADDRESS_MEM_MASK	(~0x0FUL )
 #define PCI_BASE_ADDRESS_IO_MASK	(~0x03UL )
 #define PCI_PM_CTRL_STATE_MASK		( 0x0003 )
 
-#define PCI_ROM_ADDRESS_ENABLE		0x01
-#define PCI_COMMAND_IO			      0x01
-#define PCI_COMMAND_MEMORY		    0x02
-#define PCI_COMMAND_MASTER		    0x04
+#define PCI_ROM_ADDRESS_ENABLE	0x01
+#define PCI_COMMAND_IO			0x01
+#define PCI_COMMAND_MEMORY		0x02
+#define PCI_COMMAND_MASTER		0x04
 
 //Taulukko PCI-laitteista
 static pciDev_t **pciDevices = NULL;
@@ -63,10 +63,10 @@ char *pciGetVendorStr(uint16_t vendor)
 {
 	int i;
 	static char ven[] = "UNKNOWN";
-	for(i=0;i<PCI_VENTABLE_LEN;i++)
-	{
-		 if(PciVenTable[i].VenId == vendor)
+	for(i=0;i<PCI_VENTABLE_LEN;i++) {
+		 if(PciVenTable[i].VenId == vendor) {
 			return PciVenTable[i].VenShort;
+		}
 	}
 	return ven;
 }
@@ -76,10 +76,10 @@ char *pciGetDevStr(uint16_t ven, uint16_t dev)
 {
 	int i;
 	static char devstr[] = "UNKNOWN";
-	for(i=0; i<PCI_DEVTABLE_LEN;i++)
-	{
-		if(PciDevTable[i].VenId == ven && PciDevTable[i].DevId == dev)
+	for(i=0; i<PCI_DEVTABLE_LEN;i++) {
+		if(PciDevTable[i].VenId == ven && PciDevTable[i].DevId == dev) {
 			return PciDevTable[i].ChipDesc;
+		}
 	}
 	
 	return devstr;
@@ -198,8 +198,9 @@ static void pciReadIrq(pciDev_t *p)
 {
 	uint8_t irq;
 	irq = pciReadConfigByte(p->bus, p->dev, p->func, PCI_IRQ_PIN);
-	if(irq)
+	if(irq) {
 		irq = pciReadConfigByte(p->bus, p->dev, p->func, PCI_IRQ_LINE);
+	}
 	p->irq = irq;
 }
 
@@ -219,8 +220,7 @@ static void pciReadBases(pciDev_t *p, int count, int rom)
 	memset(p->size, 0, sizeof(p->size));
 	memset(p->type, 0, sizeof(p->type));
 
-	for(i=0; i<count; i++)
-	{
+	for(i=0; i<count; i++) {
 		reg = PCI_BASE_ADDRESS_0 + (i << 2);
 		l = pciReadConfigDword(p->bus, p->dev, p->func, reg);
 		pciWriteConfigDword(p->bus, p->dev, p->func, reg, ~0);
@@ -228,27 +228,26 @@ static void pciReadBases(pciDev_t *p, int count, int rom)
 		sz = pciReadConfigDword(p->bus, p->dev, p->func, reg);
 		pciWriteConfigDword(p->bus, p->dev, p->func, reg, l);
 
-		if(!sz || sz == 0xffffffff)
+		if(!sz || sz == 0xffffffff) {
 			continue;
-		if(l == 0xffffffff)
-			l = 0;
+		}
 
-		if((l & PCI_BASE_ADDRESS_SPACE) == PCI_BASE_ADDRESS_SPACE_MEMORY)
-		{
+		if(l == 0xffffffff) {
+			l = 0;
+		}
+
+		if((l & PCI_BASE_ADDRESS_SPACE) == PCI_BASE_ADDRESS_SPACE_MEMORY) {
 			p->base[i] = l & PCI_BASE_ADDRESS_MEM_MASK;
 			p->size[i] = pciSize(sz, PCI_BASE_ADDRESS_MEM_MASK);
 			p->type[i] = PCI_IO_RESOURCE_MEM;
-		}
-		else
-		{
+		} else {
 			p->base[i] = l & PCI_BASE_ADDRESS_IO_MASK;
 			p->size[i] = pciSize(sz, PCI_BASE_ADDRESS_IO_MASK);
 			p->type[i] = PCI_IO_RESOURCE_IO;
 		}
 	}
 	
-	if(rom)
-	{
+	if(rom) {
 		p->rom_base = 0;
 		p->rom_size = 0;
 	
@@ -258,8 +257,7 @@ static void pciReadBases(pciDev_t *p, int count, int rom)
 		sz = pciReadConfigDword(p->bus, p->dev, p->func, rom);
 		pciWriteConfigDword(p->bus, p->dev, p->func, rom, l);
 		
-		if (sz && sz != 0xFFFFFFFF)
-		{
+		if (sz && sz != 0xFFFFFFFF) {
 			p->rom_base = l & PCI_ROM_ADDRESS_MASK;
 			sz = pciSize(sz, PCI_ROM_ADDRESS_MASK);
 			p->rom_size = p->rom_size + (unsigned long)sz;
@@ -273,11 +271,11 @@ uint16_t pci_probe(int bus, int dev, int func, pciDev_t *pciDev)
 	int i;
 	uint32_t *temp = (uint32_t *)pciDev;
 	
-	for(i=0; i<4; i++)
+	for(i=0; i<4; i++) {
 		temp[i] = pciReadConfigDword(bus, dev, func, i<<2);
+	}
 
-	if(pciDev->vendor_id == 0xffff || pciDev->vendor_id == 0x0)
-	{
+	if(pciDev->vendor_id == 0xffff || pciDev->vendor_id == 0x0) {
 		//Ei ole kiinni mitään tässä paikassa.
 		return 0;
 	}
@@ -287,8 +285,7 @@ uint16_t pci_probe(int bus, int dev, int func, pciDev_t *pciDev)
 	
 	pciDev->current_state = 4;
 
-	switch(pciDev->header_type)
-	{
+	switch(pciDev->header_type) {
 		case PCI_HEADER_TYPE_NORMAL:
 			pciReadIrq(pciDev);
 			pciReadBases(pciDev, 6, PCI_ROM_ADDRESS);
@@ -330,14 +327,12 @@ pciDev_t *pciGetDeviceById(uint16_t vendor, uint32_t device, int index)
 	int i = 0;
 	int c = 0;
 	
-	while(i < pciCount)
-	{
-		if(pciDevices[i]->vendor_id == vendor && 
-			pciDevices[i]->device_id == device)
-		{
+	while(i < pciCount) {
+		if(pciDevices[i]->vendor_id == vendor && pciDevices[i]->device_id == device) {
 			c++;
-			if(c == index)
+			if(c == index) {
 				return pciDevices[i];
+			}
 		}
 		i++;
 	}
@@ -349,25 +344,27 @@ int pci_init (void)
 	pciDev_t pciDev;
 	//onko PCI:tä?
 	outportdw (0xCF8, 0x80000000);
-	if(inportdw(0xCF8) != 0x80000000)
-	{
+	if(inportdw(0xCF8) != 0x80000000) {
 		kprintf("PCI not found\n");
 		return -1;
 	}
 	kprintf("PCI found, probing PCI bus...\n");
 
-	for(int bus = 0; bus < 4; bus++) {
-		for(int dev = 0; dev < 32; dev++) {
-			for(int func = 0; func < 8; func++) {				
-				if(pci_probe(bus, dev, func, &pciDev))
-				{
-					if(func && !(pciDev.header_type & 0x80))
+	for (int bus = 0; bus < 4; bus++) {
+		for (int dev = 0; dev < 32; dev++) {
+			for (int func = 0; func < 8; func++) {				
+				if (pci_probe(bus, dev, func, &pciDev)) {
+					if (func && !(pciDev.header_type & 0x80)) {
+						// Löytyi monta tästä, jatketaan.
 						continue;
+					}
 					pciCount++;
-					if(pciDevices)
+					// Ensimmäinen?
+					if (pciDevices) {
 						pciDevices = (pciDev_t **)krealloc(pciDevices, sizeof(pciDev_t *) * pciCount);
-					else
+					} else {
 						pciDevices = (pciDev_t **)kmalloc(sizeof(pciDev_t *)* pciCount);
+					}
 					pciDevices[pciCount-1] = (pciDev_t *)kmalloc(sizeof(pciDev_t));
 					memcpy(pciDevices[pciCount-1], &pciDev, 
 							sizeof(pciDev_t));
