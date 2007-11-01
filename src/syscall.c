@@ -9,7 +9,7 @@ uint_t asm_syscall();
 
 void init_syscalls(void)
 {
-	idt_set_gate(0x80, (uintptr_t)asm_syscall, 0x08, 0x8E);
+	idt_set_gate(0x80, (uintptr_t)asm_syscall, IDT_TYPICAL_CS, IDT_TYPICAL_FLAGS);
 }
 
 /**

@@ -119,6 +119,11 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 	irq_install();
 	timer_install();
 	malloc_init();
+
+	threading_init();
+}
+void kmain2(void)
+{
 	keyboard_install();
 	//mouse_install();
 
@@ -127,10 +132,6 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 	floppy_init();
 	serial_init();
 
-	threading_init();
-}
-void kmain2(void)
-{
 	init_syscalls();
 	ide_init();
 	pci_init();

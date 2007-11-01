@@ -80,22 +80,22 @@ void irq_install(void)
 
 	irq_remap(0x20, 0x28);
 
-	idt_set_gate(0x20, (unsigned)irq0, 0x08, 0x8E);
-	idt_set_gate(0x21, (unsigned)irq1, 0x08, 0x8E);
-	idt_set_gate(0x22, (unsigned)irq2, 0x08, 0x8E);
-	idt_set_gate(0x23, (unsigned)irq3, 0x08, 0x8E);
-	idt_set_gate(0x24, (unsigned)irq4, 0x08, 0x8E);
-	idt_set_gate(0x25, (unsigned)irq5, 0x08, 0x8E);
-	idt_set_gate(0x26, (unsigned)irq6, 0x08, 0x8E);
-	idt_set_gate(0x27, (unsigned)irq7, 0x08, 0x8E);
-	idt_set_gate(0x28, (unsigned)irq8, 0x08, 0x8E);
-	idt_set_gate(0x29, (unsigned)irq9, 0x08, 0x8E);
-	idt_set_gate(0x2A, (unsigned)irq10, 0x08, 0x8E);
-	idt_set_gate(0x2B, (unsigned)irq11, 0x08, 0x8E);
-	idt_set_gate(0x2C, (unsigned)irq12, 0x08, 0x8E);
-	idt_set_gate(0x2D, (unsigned)irq13, 0x08, 0x8E);
-	idt_set_gate(0x2E, (unsigned)irq14, 0x08, 0x8E);
-	idt_set_gate(0x2F, (unsigned)irq15, 0x08, 0x8E);
+	idt_set_gate(0x20, (unsigned)irq0, IDT_TYPICAL_CS, IDT_TYPICAL_FLAGS);
+	idt_set_gate(0x21, (unsigned)irq1, IDT_TYPICAL_CS, IDT_TYPICAL_FLAGS);
+	idt_set_gate(0x22, (unsigned)irq2, IDT_TYPICAL_CS, IDT_TYPICAL_FLAGS);
+	idt_set_gate(0x23, (unsigned)irq3, IDT_TYPICAL_CS, IDT_TYPICAL_FLAGS);
+	idt_set_gate(0x24, (unsigned)irq4, IDT_TYPICAL_CS, IDT_TYPICAL_FLAGS);
+	idt_set_gate(0x25, (unsigned)irq5, IDT_TYPICAL_CS, IDT_TYPICAL_FLAGS);
+	idt_set_gate(0x26, (unsigned)irq6, IDT_TYPICAL_CS, IDT_TYPICAL_FLAGS);
+	idt_set_gate(0x27, (unsigned)irq7, IDT_TYPICAL_CS, IDT_TYPICAL_FLAGS);
+	idt_set_gate(0x28, (unsigned)irq8, IDT_TYPICAL_CS, IDT_TYPICAL_FLAGS);
+	idt_set_gate(0x29, (unsigned)irq9, IDT_TYPICAL_CS, IDT_TYPICAL_FLAGS);
+	idt_set_gate(0x2A, (unsigned)irq10, IDT_TYPICAL_CS, IDT_TYPICAL_FLAGS);
+	idt_set_gate(0x2B, (unsigned)irq11, IDT_TYPICAL_CS, IDT_TYPICAL_FLAGS);
+	idt_set_gate(0x2C, (unsigned)irq12, IDT_TYPICAL_CS, IDT_TYPICAL_FLAGS);
+	idt_set_gate(0x2D, (unsigned)irq13, IDT_TYPICAL_CS, IDT_TYPICAL_FLAGS);
+	idt_set_gate(0x2E, (unsigned)irq14, IDT_TYPICAL_CS, IDT_TYPICAL_FLAGS);
+	idt_set_gate(0x2F, (unsigned)irq15, IDT_TYPICAL_CS, IDT_TYPICAL_FLAGS);
 }
 
 void install_irq_handler(unsigned int irq, irq_handler_t handler)

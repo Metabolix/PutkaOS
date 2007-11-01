@@ -1,7 +1,13 @@
 #ifndef _IDT_H
-#define _IDT_H
+#define _IDT_H 1
 
 #include <stdint.h>
+
+#define IDT_PRESENT (0x80)
+#define IDT_32_BIT_INTGATE (0x0E)
+
+#define IDT_TYPICAL_FLAGS (IDT_PRESENT | IDT_32_BIT_INTGATE)
+#define IDT_TYPICAL_CS (0x08)
 
 struct idt_entry
 {
