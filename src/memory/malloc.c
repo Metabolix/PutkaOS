@@ -73,12 +73,12 @@ static void * sysmalloc(size_t size, int user)
 
 static void sysfree(void * ptr, int user)
 {
-	uint_t address, phys_page;
+	uint_t address;
 	uint_t virt_page_beg, offset_beg;
 	uint_t virt_page_end, offset_end;
 	int i;
 
-	if (user && ((uint_t)ptr) < KERNEL_PDE_COUNT * 1024 * MEMORY_PAGE_SIZE) {
+	if (user && (ADDR_TO_PAGE(ptr) < USER_PAGES_BEG)) {
 		return; /* Someone tries to do something nasty by releasing kernel memory */
 	}
 
@@ -119,9 +119,7 @@ static void sysfree(void * ptr, int user)
 		// Vapautetaan virt_page_end
 	}
 	while (virt_page_beg < virt_page_end) {
-		phys_page = physical_page_of(virt_page_beg);
 		unmap_virtual_page(0, virt_page_beg);
-		free_phys_page(phys_page);
 		++virt_page_beg;
 	}
 }

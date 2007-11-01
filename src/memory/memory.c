@@ -7,8 +7,11 @@
 #include <stdint.h>
 #include <misc_asm.h>
 
-static page_entry_t * const cur_virt_pd = (page_entry_t *) ((KERNEL_PAGES - 1) * MEMORY_PAGE_SIZE);
-static page_entry_t * const cur_virt_pt = (page_entry_t *) (KERNEL_PAGES * MEMORY_PAGE_SIZE);
+static page_entry_t * const cur_virt_pd = PAGE_TO_ADDR(KERNEL_IMAGE_PAGES - 1);
+static page_entry_t * const cur_virt_pt = PAGE_TO_ADDR(KERNEL_IMAGE_PAGES);
+
+static uint_t alloc_phys_page(int noswap);
+static void free_phys_page(uint_t block);
 
 /**
 * ram_free - kertoo vapaan keskusmuistin määrän
@@ -35,11 +38,12 @@ uint32_t memory_free(void)
 
 /**
 * use_pagedir - vaihtaa käytettävää sivutaulua
-* @phys_pagedir: fyysinen sivu, jota käytetään
+* @phys_pd: fyysinen sivu, jota käytetään
 **/
-void use_pagedir(uint_t phys_pagedir)
+void use_pagedir(uint_t phys_pd)
 {
-	asm_set_cr3(PAGE_TO_ADDR(phys_pagedir));
+	cur_phys_pd = phys_pd;
+	asm_set_cr3(PAGE_TO_ADDR(phys_pd));
 }
 
 /**
@@ -189,26 +193,26 @@ page_entry_t * temp_page_table(uint_t phys_page)
 /**
 * temp_virt_page - väliaikainen käyttökelpoinen osoitin toisen taulun sivuun
 * @page: virtuaalisivun numero (ei oikea sivunumero vaan tämän funktion asia)
-* @phys_pagedir: fyysinen sivu, jolla sivutaulu sijaitsee, tai 0 poistoa varten
+* @phys_pd: fyysinen sivu, jolla sivutaulu sijaitsee, tai 0 poistoa varten
 * @virt_page: haettavan virtuaalisen sivun numero tai 0 poistoa varten
 **/
-void * temp_virt_page(uint_t page, uint_t phys_pagedir, uint_t virt_page)
+void * temp_virt_page(uint_t page, uint_t phys_pd, uint_t virt_page)
 {
 	page_entry_t *pd, *pt;
 	uint_t new_location;
 
-	if (!phys_pagedir || !virt_page) {
+	if (!phys_pd || !virt_page) {
 		return temp_phys_page(page, 0);
 	}
 
 	uint_t pde = virt_page / MEMORY_PE_COUNT;
 	uint_t pte = virt_page % MEMORY_PE_COUNT;
 
-	if (!(pd = temp_page_directory(phys_pagedir)) || !pd[pde].pagenum) {
+	if (!(pd = temp_page_directory(phys_pd)) || !pd[pde].pagenum) {
 		return 0;
 	}
 	if (!pd[pde].present) {
-		new_location = swap_in(phys_pagedir, pd[pde].pagenum);
+		new_location = swap_in(phys_pd, pd[pde].pagenum);
 		if (!new_location) {
 			return 0;
 		}
@@ -219,7 +223,7 @@ void * temp_virt_page(uint_t page, uint_t phys_pagedir, uint_t virt_page)
 		return 0;
 	}
 	if (!pt[pte].present) {
-		new_location = swap_in(phys_pagedir, pt[pte].pagenum);
+		new_location = swap_in(phys_pd, pt[pte].pagenum);
 		if (!new_location) {
 			return 0;
 		}
@@ -231,89 +235,94 @@ void * temp_virt_page(uint_t page, uint_t phys_pagedir, uint_t virt_page)
 
 /**
 * find_free_virtual_pages - etsitään vapaita virtuaalisia sivuja
-* @phys_pagedir: käytettävän sivuhakemiston fyysinen sivu (tai 0)
+* @phys_pd: käytettävän sivuhakemiston fyysinen sivu (tai 0)
 * @count: haluttujen sivujen määrä
 * @user: sivuja kernelille (0) vai käyttäjälle (1)
 **/
-uint_t find_free_virtual_pages(uint_t phys_pagedir, uint_t count, int user)
+uint_t find_free_virtual_pages(uint_t phys_pd, uint_t count, int user)
 {
-	uint_t pde, pte, pde_end;
-	uint_t found_page, found;
+	uint_t pde, pte;
+	uint_t pde_beg, pde_end;
+	uint_t found_beg, found_end;
 	page_entry_t *pd, *pt;
 
 	if (user) {
-		pde = KERNEL_PDE_COUNT;
-		pde_end = MEMORY_PE_COUNT;
+		pde_beg = USER_PDE_BEG;
+		pde_end = USER_PDE_END;
 	} else {
-		pde = 0;
-		pde_end = KERNEL_PDE_COUNT;
+		pde_beg = KMEM_PDE_BEG;
+		pde_end = KMEM_PDE_END;
 		if (count >= memory.ram_pages - memory.kernel_ram_pages) {
 			kprintf("%d >= %d - %d\n", count, memory.ram_pages, memory.kernel_ram_pages);
 			return 0;
 		}
-		phys_pagedir = 0; // Kaikilla on samat kernelsivut
+		phys_pd = cur_phys_pd; // Kaikilla on samat kernelsivut
 	}
-	const uint_t phys_pd = phys_pagedir;
+	const uint_t phys_pd0 = phys_pd;
 
-	if (phys_pd) {
-		pd = temp_page_directory(phys_pd);
+	if (phys_pd0) {
+		pd = temp_page_directory(phys_pd0);
 	} else {
 		pd = cur_virt_pd;
 	}
-	for (found = 0; found < count && pde < pde_end; pde++) {
-		if (pd[pde].pagenum == 0) {
-			if (!found) {
-				found_page = pde * MEMORY_PE_COUNT;
+	found_beg = found_end = 0;
+	for (pde = pde_beg; pde < pde_end; ++pde) {
+		if (!pd[pde].pagenum) {
+			if (!found_beg) {
+				found_beg = PDE_PTE_TO_PAGE(pde, 0);
 			}
-			found += MEMORY_PE_COUNT;
+			found_end = PDE_PTE_TO_PAGE(pde + 1, 0);
+			if (found_end - found_beg >= count) {
+				goto found;
+			}
 			continue;
 		}
-		if (phys_pd) {
+		if (phys_pd0) {
 			pt = temp_page_table(pd[pde].pagenum);
 		} else {
 			pt = cur_virt_pt + (pde * MEMORY_PE_COUNT);
 		}
-		for (pte = (pde ? 0 : 1); found < count && pte < MEMORY_PE_COUNT; pte++) {
-			if (pt[pte].pagenum != 0) {
-				found = 0;
+		for (pte = 0; pte < MEMORY_PE_COUNT; ++pte) {
+			if (pt[pte].pagenum) {
+				found_beg = found_end = 0;
 				continue;
 			}
-			if (!found) {
-				found_page = pde * MEMORY_PE_COUNT + pte;
+			if (!found_beg) {
+				found_beg = PDE_PTE_TO_PAGE(pde, pte);
 			}
-			found++;
+			found_end = PDE_PTE_TO_PAGE(pde, pte + 1);
+			if (found_end - found_beg >= count) {
+				goto found;
+			}
 		}
 	}
-
-	if (found < count) {
-		return 0;
-	}
-
-	return found_page;
+	return 0;
+found:
+	return found_beg;
 }
 
 /**
 * alloc_virtual_pages - varataan virtuaalisia sivuja muuhun kuin aktiiviseen tauluun
-* @phys_pagedir: käytettävän sivuhakemiston fyysinen sivu
+* @phys_pd: käytettävän sivuhakemiston fyysinen sivu
 * @count: haluttujen sivujen määrä
 * @user: sivuja kernelille (0) vai käyttäjälle (1)
 **/
-uint_t alloc_virtual_pages(uint_t phys_pagedir, uint_t count, int user)
+uint_t alloc_virtual_pages(uint_t phys_pd, uint_t count, int user)
 {
 	uint_t first, page;
 
-	if (!user) {
-		phys_pagedir = 0; // Kaikilla on samat kernelsivut
+	if (!user || !phys_pd) {
+		phys_pd = cur_phys_pd; // Kaikilla on samat kernelsivut
 	}
 
-	first = find_free_virtual_pages(phys_pagedir, count, user);
+	first = find_free_virtual_pages(phys_pd, count, user);
 
 	if (!first) {
 		return 0;
 	}
 
 	for (page = first; page < first + count; ++page) {
-		if (map_virtual_page(phys_pagedir, first, 0, user)) {
+		if (map_virtual_page(phys_pd, first, 0, user)) {
 			goto free_pages_on_error;
 		}
 	}
@@ -323,19 +332,19 @@ uint_t alloc_virtual_pages(uint_t phys_pagedir, uint_t count, int user)
 free_pages_on_error:
 	while (page > first) {
 		--page;
-		unmap_virtual_page(phys_pagedir, page);
+		unmap_virtual_page(phys_pd, page);
 	}
 	return 0;
 }
 
 /**
 * map_virtual_page - osoitetaan virtuaalinen sivu jonnekin fyysiseen muistiin
-* @phys_pagedir: käytettävän sivuhakemiston fyysinen sivu
+* @phys_pd: käytettävän sivuhakemiston fyysinen sivu
 * @virt_page: sivu, joka pitää osoittaa
 * @noswap: pitääkö sivu pitää aina RAMissa?
 * @user: sivuja kernelille (0) vai käyttäjälle (1)
 **/
-int map_virtual_page(uint_t phys_pagedir, uint_t virt_page, int noswap, int user)
+int map_virtual_page(uint_t phys_pd, uint_t virt_page, int noswap, int user)
 {
 	uint_t phys_page;
 	uint_t pde, pte;
@@ -344,7 +353,11 @@ int map_virtual_page(uint_t phys_pagedir, uint_t virt_page, int noswap, int user
 	pde = virt_page / MEMORY_PE_COUNT;
 	pte = virt_page % MEMORY_PE_COUNT;
 
-	if (pde >= KERNEL_PDE_COUNT && phys_pagedir) {
+	if (!phys_pd) {
+		phys_pd = cur_phys_pd;
+	}
+	goto external; // TODO
+	if (virt_page >= KMEM_PAGES_END && phys_pd != cur_phys_pd) {
 		goto external;
 	}
 	goto current;
@@ -355,7 +368,7 @@ current:
 			return -1;
 		}
 		cur_virt_pd[pde] = KERNEL_PE(phys_page);
-		//cur_virt_pt[KERNEL_PAGES + pde] = KERNEL_PE(phys_page);
+		//cur_virt_pt[KERNEL_IMAGE_PAGES + pde] = KERNEL_PE(phys_page);
 		asm_flush_cr3();
 	}
 	phys_page = alloc_phys_page(noswap);
@@ -367,7 +380,7 @@ current:
 	return 0;
 
 external:
-	pd = temp_page_directory(phys_pagedir);
+	pd = temp_page_directory(phys_pd);
 	if (pd[pde].pagenum == 0) {
 		if (!(phys_page = alloc_phys_page(PT_NOSWAP_FLAG))) {
 			return -1;
@@ -386,10 +399,10 @@ external:
 
 /**
 * unmap_virtual_page - poistetaan virtuaalisen sivun osoitus
-* @phys_pagedir: käytettävän sivuhakemiston fyysinen sivu
+* @phys_pd: käytettävän sivuhakemiston fyysinen sivu
 * @virt_page: sivu, joka pitää osoittaa
 **/
-void unmap_virtual_page(uint_t phys_pagedir, uint_t virt_page)
+void unmap_virtual_page(uint_t phys_pd, uint_t virt_page)
 {
 	uint_t new_location;
 	uint_t pde, pte;
@@ -398,7 +411,11 @@ void unmap_virtual_page(uint_t phys_pagedir, uint_t virt_page)
 	pde = virt_page / MEMORY_PE_COUNT;
 	pte = virt_page % MEMORY_PE_COUNT;
 
-	if (pde >= KERNEL_PDE_COUNT && phys_pagedir) {
+	if (!phys_pd) {
+		phys_pd = cur_phys_pd;
+	}
+	goto external; // TODO
+	if (virt_page >= KMEM_PAGES_END && phys_pd != cur_phys_pd) {
 		goto external;
 	}
 	goto current;
@@ -408,7 +425,7 @@ current:
 		panic("unmap_virtual_page: (cur_virt_pd[pde].pagenum == 0)!");
 	}
 	if (!cur_virt_pd[pde].present) {
-		new_location = swap_in(phys_pagedir, cur_virt_pd[pde].pagenum);
+		new_location = swap_in(phys_pd, cur_virt_pd[pde].pagenum);
 		if (!new_location) {
 			panic("unmap_virtual_page (1)");
 		}
@@ -420,7 +437,7 @@ current:
 		panic("unmap_virtual_page: (cur_virt_pt[virt_page].pagenum == 0)!");
 	}
 	if (!cur_virt_pt[virt_page].present) {
-		new_location = swap_in(phys_pagedir, cur_virt_pt[virt_page].pagenum);
+		new_location = swap_in(phys_pd, cur_virt_pt[virt_page].pagenum);
 		if (!new_location) {
 			panic("unmap_virtual_page (2)");
 		}
@@ -433,12 +450,12 @@ current:
 	return;
 
 external:
-	pd = temp_page_directory(phys_pagedir);
+	pd = temp_page_directory(phys_pd);
 	if (pd[pde].pagenum == 0) {
 		panic("unmap_virtual_page: (pd[pde].pagenum == 0)!");
 	}
 	if (!pd[pde].present) {
-		new_location = swap_in(phys_pagedir, pd[pde].pagenum);
+		new_location = swap_in(phys_pd, pd[pde].pagenum);
 		if (!new_location) {
 			panic("unmap_virtual_page (3)");
 		}
@@ -451,13 +468,14 @@ external:
 		panic("unmap_virtual_page: (pt[pte].pagenum == 0)!");
 	}
 	if (!pt[pte].present) {
-		new_location = swap_in(phys_pagedir, pt[pte].pagenum);
+		new_location = swap_in(phys_pd, pt[pte].pagenum);
 		if (!new_location) {
 			panic("unmap_virtual_page (4)");
 		}
 		pt[pte].pagenum = new_location;
 		pt[pte].present = 1;
 	}
+	free_phys_page(pt[pte].pagenum);
 	pt[pte] = NULL_PE;
 	asm_flush_cr3();
 	return;
@@ -465,6 +483,7 @@ external:
 
 /**
 * build_new_pagedir - luodaan sivutaulu uutta prosessia varten
+* old_phys_pd - sivutaulu, josta kopio otetaan (0 = ei mitään)
 **/
 uint_t build_new_pagedir(uint_t old_phys_pd)
 {
@@ -480,13 +499,13 @@ uint_t build_new_pagedir(uint_t old_phys_pd)
 
 	// Kopioidaan
 	memset(new_pd, 0, MEMORY_PAGE_SIZE);
-	memcpy(new_pd, kernel_page_directory, KERNEL_PDE_COUNT * sizeof(page_entry_t));
+	memcpy(new_pd, kernel_page_directory, KMEM_PDE_END * sizeof(page_entry_t));
 
 	if (!old_phys_pd) {
 		return new_phys_pd;
 	}
 	old_pd = temp_phys_page(1, old_phys_pd);
-	for (pde = KERNEL_PDE_COUNT; pde < MEMORY_PE_COUNT; ++pde) {
+	for (pde = KMEM_PDE_END; pde < MEMORY_PDE_END; ++pde) {
 		if (old_pd[pde].pagenum == 0) {
 			continue;
 		}
@@ -523,32 +542,59 @@ uint_t build_new_pagedir(uint_t old_phys_pd)
 
 /**
 * alloc_program_space - ladataan ohjelma omaan sivutauluunsa
-* @phys_pagedir: sivuhakemiston fyysinen sijainti
+* @phys_pd: sivuhakemiston fyysinen sijainti
 * @size: koodin koko
 *
-* Palauttaa ensimmäisen varatun virtuaalisen sivun numeron
+* Palauttaa ensimmäisen ohjelmasivun numeron
 **/
-uint_t alloc_program_space(uint_t phys_pagedir, uint_t size, const void *code, int user)
+uint_t alloc_program_space(uint_t phys_pd, uint_t size, const void *code, int user)
 {
+	char *pptr;
+	const char *cptr = code;
 	if (!code || !size) {
-		return -1;
+		return 0;
 	}
-	return -1;
 
-	uint_t page, pages = 1 + ((size - 1) / MEMORY_PAGE_SIZE);
+	uint_t first, page, count = 1 + ((size - 1) / MEMORY_PAGE_SIZE);
 
-	page = alloc_virtual_pages(phys_pagedir, pages, 1);
+	first = alloc_virtual_pages(phys_pd, count, user);
 
+	if (!first) {
+		return 0;
+	}
+
+	for (page = first; page < first + count; ++page) {
+		if (!(pptr = temp_virt_page(0, phys_pd, page))) {
+			goto free_pages_on_error;
+		}
+		if (size > MEMORY_PAGE_SIZE) {
+			memcpy(pptr, cptr, MEMORY_PAGE_SIZE);
+		} else {
+			memcpy(pptr, cptr, size);
+			memset(pptr + size, 0, MEMORY_PAGE_SIZE - size);
+		}
+		temp_virt_page(0, phys_pd, page);
+	}
+
+	return first;
+
+free_pages_on_error:
+	while (page > first) {
+		--page;
+		unmap_virtual_page(phys_pd, page);
+	}
 	return 0;
 }
 
 /**
 * resize_stack - laajennetaan säikeen pinoa
-* @phys_pagedir: sivuhakemiston fyysinen sijainti
+* @phys_pd: sivuhakemiston fyysinen sijainti
 * @stack_num: pinon numero (prosessin pinoista)
 * @size: pinon uusi vähimmäiskoko (tavuina)
+*
+* return 0 = onnistui
 **/
-int resize_stack(uint_t phys_pagedir, int stack_num, uint_t size, int user)
+int resize_stack(uint_t phys_pd, int stack_num, uint_t size, int user)
 {
 	if ((stack_num < 0 || stack_num > MAX_STACKS) || size > MAX_STACK_SIZE) {
 		return -1;
@@ -562,25 +608,25 @@ int resize_stack(uint_t phys_pagedir, int stack_num, uint_t size, int user)
 
 	i = STACK_TOP_PAGE(stack_num);
 	alloced = 0;
-	while (alloced < pages && temp_virt_page(0, phys_pagedir, i)) {
+	while (alloced < pages && temp_virt_page(0, phys_pd, i)) {
 		temp_virt_page(0, 0, 0);
 		++alloced;
 		++i;
 	}
 	while (alloced < pages) {
-		if (temp_virt_page(0, phys_pagedir, i)) {
+		if (temp_virt_page(0, phys_pd, i)) {
 			temp_virt_page(0, 0, 0);
 		} else {
-			if (map_virtual_page(phys_pagedir, i, 0, user) != 0) {
+			if (map_virtual_page(phys_pd, i, 0, user) != 0) {
 				panic("resize_stack: map_virtual_page != 0\n");
 			}
 		}
 		++alloced;
 		++i;
 	}
-	while (temp_virt_page(0, phys_pagedir, i)) {
+	while (temp_virt_page(0, phys_pd, i)) {
 		temp_virt_page(0, 0, 0);
-		unmap_virtual_page(phys_pagedir, i);
+		unmap_virtual_page(phys_pd, i);
 		++i;
 	}
 
@@ -589,24 +635,24 @@ int resize_stack(uint_t phys_pagedir, int stack_num, uint_t size, int user)
 
 /**
 * free_pagedir - laajennetaan säikeen pinoa
-* @phys_pagedir: sivuhakemiston fyysinen sijainti
+* @phys_pd: sivuhakemiston fyysinen sijainti
 * @size: koodin koko
 **/
-void free_pagedir(uint_t phys_pagedir)
+void free_pagedir(uint_t phys_pd)
 {
 	page_entry_t *pd;
 	page_entry_t *pt;
 	int i, j;
 
-	if (phys_pagedir == KERNEL_PAGE_DIRECTORY) {
+	if (phys_pd == KERNEL_PAGE_DIRECTORY) {
 		panic("free_pagedir: freeing kernel!");
 	}
-	if (phys_pagedir == ADDR_TO_PAGE(asm_get_cr3())) {
+	if (phys_pd == ADDR_TO_PAGE(asm_get_cr3())) {
 		panic("free_pagedir: freeing active pages! O_o");
 	}
 
-	pd = temp_phys_page(0, phys_pagedir);
-	for (i = 0; i < MEMORY_PE_COUNT; ++i) {
+	pd = temp_phys_page(0, phys_pd);
+	for (i = KMEM_PDE_END; i < MEMORY_PE_COUNT; ++i) {
 		if (!pd[i].pagenum) {
 			continue;
 		}
@@ -623,58 +669,5 @@ void free_pagedir(uint_t phys_pagedir)
 		pd[i] = NULL_PE;
 	}
 	temp_phys_page(0, 0);
-	free_phys_page(phys_pagedir);
-}
-
-///==========================================================
-///==========================================================
-///==========================================================
-uint_t physical_page_of(uint_t virt_page)
-{
-	return cur_virt_pt[virt_page].pagenum;
-	//return (void *)(cur_virt_pt[((((uint_t)addr)>>22) * 1024) + ((((uint_t)addr)>>12) & 1023)] & 0xFFFFF000);
-}
-
-/* Search a free page and allocates given real page to given virtual address. Create new PDE if needed */
-int _mmap(uint_t real_page, uint_t virtual_page, int user)
-{
-	uint_t pde_n = virtual_page >> 10;
-	//uint_t pte_n = virtual_page & 0x3ff;
-	uint_t free_page;
-
-	// Do we have page table already?
-	if (cur_virt_pd[pde_n].pagenum == 0) {
-		/* Get memory */
-		if (!(free_page = alloc_phys_page(PT_NOSWAP_FLAG))) {
-			return -1;
-		}
-
-		// Set up new PDE
-		cur_virt_pd[pde_n] = KERNEL_PE(free_page);
-
-		// Write address of the new page table to the page table of memory window
-		cur_virt_pt[KERNEL_PAGES + pde_n] = KERNEL_PE(free_page);
-		asm_flush_cr3();
-	}
-	// TODO: mmap: jotain häikkää? O_o
-	cur_virt_pt[virtual_page] = NEW_PE(real_page, user);
-	asm_set_cr3(asm_get_cr3());
-	return 0;
-}
-
-// Unmaps given virtual page
-// TODO: Release the page table when all its entries are unmaped
-void _unmap(uint_t virtual_page)
-{
-	uint_t pde_n = virtual_page >> 10;
-	uint_t pte_n = virtual_page & 0x3ff;
-
-	if (cur_virt_pd[pde_n].pagenum == 0) {
-		panic("Illegal unmap (nonexistent page)!\n");
-	}
-
-	// TODO: unmap
-
-	cur_virt_pt[pte_n] = NULL_PE;
-	asm_set_cr3(asm_get_cr3());
+	free_phys_page(phys_pd);
 }

@@ -37,11 +37,6 @@ const struct regs user_space_regs = {
 static void free_thread(tid_t tid);
 void clean_threads(void);
 
-/**
- * function kernel_idle_loop - hlt & jmp
-**/
-extern void kernel_idle_loop(void);
-
 void kill_thread(tid_t tid)
 {
 	if (threads[tid].state == TP_STATE_ALLOCED) {
@@ -50,8 +45,11 @@ void kill_thread(tid_t tid)
 		--thread_count;
 		return;
 	}
-	if (threads[tid].state == TP_STATE_FREE || threads[tid].state == TP_STATE_ENDED) {
-		panic("kill_thread: free || ended");
+	if (threads[tid].state == TP_STATE_ENDED) {
+		return;
+	}
+	if (threads[tid].state == TP_STATE_FREE) {
+		panic("kill_thread: state == FREE");
 	}
 	const pid_t pid = threads[tid].pid;
 
@@ -100,8 +98,7 @@ void thread_ending_func(void)
 {
 	kprintf("thread_ending_func: active_tid %i\n", active_tid);
 	if (active_tid == 0) {
-		/* Idle thread... Jatketaan vain. xD */
-		kernel_idle_loop();
+		panic("Thread 0 ending!\n");
 	}
 	kill_thread(active_tid);
 	for (;;) asm_hlt(); // TODO: Säikeen loppuun vaihto!
@@ -133,8 +130,10 @@ tid_t find_running_thread(void)
 	do {
 		i = (i + 1) % MAX_THREADS;
 		if (threads[i].state == TP_STATE_RUNNING) {
-			viimeksi_loytynyt = i;
-			return i;
+			if (processes[threads[i].pid].state == TP_STATE_RUNNING) {
+				viimeksi_loytynyt = i;
+				return i;
+			}
 		}
 	} while (i != viimeksi_loytynyt);
 
@@ -216,7 +215,7 @@ tid_t new_thread(pid_t pid, entry_t entry, const void * stack, size_t stack_size
 	}
 
 	thread->ss = regs->ss;
-	thread->pid = active_pid;
+	thread->pid = pid;
 	thread->state = TP_STATE_RUNNING;
 	++thread_count;
 	return tid;

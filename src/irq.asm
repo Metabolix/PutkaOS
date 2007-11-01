@@ -1,6 +1,9 @@
 BITS 32
 extern active_thread
+extern active_process
+extern cur_phys_pd
 extern irq_handler
+
 global start_threading
 
 %macro irq 1
@@ -42,9 +45,18 @@ irq_handler_common:
 	call irq_handler
 	pop ecx
 start_threading:
-	mov eax, [active_thread]
-	mov esp, [eax]
-	mov ss, [eax+4]
+	cli
+	mov ebx, [active_process]
+	mov ebx, [ebx]
+	mov [cur_phys_pd], ebx
+	shl ebx, 12
+	mov cr3, ebx
+	mov ebx, [active_thread]
+	xor eax, eax
+	mov ax, [ebx+4]
+	mov ecx, [ebx]
+	mov ss, ax
+	mov esp, ecx
 
 	pop gs
 	pop fs

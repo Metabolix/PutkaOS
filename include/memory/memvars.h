@@ -7,6 +7,7 @@ extern uint32_t * const phys_pages_alloced;
 extern uint32_t * const phys_pages_noswap;
 
 extern uint_t first_phys_pages_not_alloced;
+extern uint_t cur_phys_pd;
 
 extern struct memory_info memory;
 

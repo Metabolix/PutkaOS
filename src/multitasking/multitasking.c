@@ -3,6 +3,7 @@
 #include <multitasking/thread.h>
 #include <string.h>
 #include <panic.h>
+#include <debug.h>
 #include <misc_asm.h>
 #include <vt.h>
 
@@ -72,14 +73,28 @@ void next_thread(void)
 	if (!active_process || thread_count < 2) {
 		return;
 	}
-	do { active_tid = find_running_thread(); } while (active_tid == 0);
+	tid_t tid;
+	pid_t pid;
+	do {
+		tid = find_running_thread();
+	} while (tid == NO_THREAD);
+	pid = threads[tid].pid;
+
+	active_tid = tid;
+	active_pid = pid;
 	active_thread = threads + active_tid;
-	active_pid = active_thread->pid;
 	active_process = processes + active_pid;
+	/*
+	static pid_t old_pid;
+	if (active_pid != old_pid) {
+		old_pid = active_pid;
+		DEBUGF("pid %d, tid %d\n", active_pid, active_tid);
+	}
+	*/
 	if (!active_process->mem.phys_pd) {
 		panic("PD puuttuu!\n");
 	}
-	use_pagedir(active_process->mem.phys_pd);
+	//use_pagedir(active_process->mem.phys_pd);
 }
 
 int has_threading(void)

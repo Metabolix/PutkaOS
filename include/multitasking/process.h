@@ -21,6 +21,7 @@ struct process {
 	struct {
 		tid_t tid0;
 		size_t count;
+		size_t freenum;
 	} threads;
 
 	int vt_num; /* < 0 if no vt */

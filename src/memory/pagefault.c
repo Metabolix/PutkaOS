@@ -58,7 +58,7 @@ void page_fault_handler(struct regs *regs)
 	}
 	return;
 no_right:
-	panic_msg = "Page fault; page-level protection violation!";
+	panic_msg = "Page fault; page-level protection violation (no right / no page)!";
 	goto fail;
 no_process:
 	panic_msg = "Page fault && (active_process == 0)!";

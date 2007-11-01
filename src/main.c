@@ -141,14 +141,19 @@ void kmain2(void)
 
 	floppy_reset();
 	mount_init(mbt->boot_device, mbt->cmdline);
-	print("testattava_koodi();\n");
-	testattava_koodi();
 
 	//avataan oikea näyttöajuri ja asetetaan se vt-jutun käyttöön
 	display_init();
 	vt_setdriver("/dev/display");
 
 	kprintf("%s %s is up and running _o/\n", systeemi, versio);
+
+	print("<testattava_koodi>\n");
+	kwait(0, 100000);
+	testattava_koodi();
+	print("</testattava_koodi>\n");
+	kwait(0, 100000);
+
 	sh_tid = new_thread(0, run_sh, 0, 0, 0);
 
 	// Idle thread. ;)

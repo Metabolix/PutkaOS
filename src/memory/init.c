@@ -5,10 +5,12 @@
 #include <screen.h>
 #include <panic.h>
 
-uint32_t * const phys_pages_alloced = (uint32_t *) (PHYSICAL_PAGES_ALLOCATION_BITMAP * MEMORY_PAGE_SIZE);
-uint32_t * const phys_pages_noswap = (uint32_t *) (PHYSICAL_PAGES_NOSWAP_BITMAP * MEMORY_PAGE_SIZE);
+uint32_t * const phys_pages_alloced = PAGE_TO_ADDR (PHYSICAL_PAGES_ALLOCATION_BITMAP);
+uint32_t * const phys_pages_noswap = PAGE_TO_ADDR (PHYSICAL_PAGES_NOSWAP_BITMAP);
 
 uint_t first_phys_pages_not_alloced = 0;
+
+uint_t cur_phys_pd;
 
 struct memory_info memory = {0};
 
@@ -19,10 +21,10 @@ struct memory_info memory = {0};
 void init_phys_page_bitmaps(uint_t mem_kib)
 {
 	memory.ram_pages = mem_kib / (MEMORY_PAGE_SIZE / 1024);
-	memory.kernel_ram_pages = KERNEL_PAGES;
+	memory.kernel_ram_pages = KERNEL_IMAGE_PAGES;
 	memory.ram_pages_free = 0;
 
-	const uint_t k = KERNEL_PAGES;
+	const uint_t k = KERNEL_IMAGE_PAGES;
 	const uint_t p = mem_kib / (MEMORY_PAGE_SIZE / 1024);
 
 	uint_t zero_start;
@@ -103,27 +105,28 @@ void memory_init(uint_t mem_kib)
 
 	// Nollataan taulut
 	memset(kernel_page_directory, 0, MEMORY_PAGE_SIZE);
-	memset(kernel_page_tables, 0, MEMORY_PAGE_SIZE * KERNEL_PDE_COUNT);
+	memset(kernel_page_tables, 0, MEMORY_PAGE_SIZE * KMEM_PDE_END);
 
 	// Page directory osoittaa tietenkin sivutauluihin
-	for (i = 0; i < KERNEL_PDE_COUNT; i++) {
+	for (i = 0; i < KMEM_PDE_END; i++) {
 		kernel_page_directory[i] = KERNEL_PE(KERNEL_PAGE_TABLES + i);
 	}
 
-	// Suora fyysinen muisti (KERNEL_PAGES)
-	for (i = 0; i < KERNEL_PAGES; i++) {
+	// Suora fyysinen muisti (KERNEL_IMAGE_PAGES)
+	for (i = 0; i < KERNEL_IMAGE_PAGES; i++) {
 		kernel_page_tables[i] = KERNEL_PE(i);
 	}
 
 	// Viimeinen "kernelin sivu" osoittaa directoryyn
-	kernel_page_tables[KERNEL_PAGES - 1] = KERNEL_PE(KERNEL_PAGE_DIRECTORY);
+	kernel_page_tables[KERNEL_IMAGE_PAGES - 1] = KERNEL_PE(KERNEL_PAGE_DIRECTORY);
 
 	// Muisti kernelin sivujen jälkeen osoittaa sivutauluihin
-	for (i = 0; i < KERNEL_PDE_COUNT; i++) {
-		kernel_page_tables[KERNEL_PAGES + i] = KERNEL_PE(KERNEL_PAGE_TABLES + i);
+	for (i = 0; i < KMEM_PDE_END; i++) {
+		kernel_page_tables[KERNEL_IMAGE_PAGES + i] = KERNEL_PE(KERNEL_PAGE_TABLES + i);
 	}
 
 	// Sitten kerrotaan asioista prosessorille
+	cur_phys_pd = ADDR_TO_PAGE(kernel_page_directory);
 	asm_set_cr3(kernel_page_directory);
 	asm_set_cr0(asm_get_cr0() | 0x80000000);
 
@@ -131,8 +134,8 @@ void memory_init(uint_t mem_kib)
 		panic("Muistin sivutus ei toimi!\n");
 	}
 
-	const uint_t kib1 = memory.ram_pages * MEMORY_PAGE_SIZE / 1024;
-	const uint_t kib2 = memory.ram_pages_free * MEMORY_PAGE_SIZE / 1024;
+	const uint_t kib1 = memory.ram_pages * (MEMORY_PAGE_SIZE / 1024);
+	const uint_t kib2 = memory.ram_pages_free * (MEMORY_PAGE_SIZE / 1024);
 	kprintf("Memory management is enabled. RAM: %d.%02d MiB (free %d.%02d MiB)\n",
 		kib1/1024, (100 * (kib1 % 1024)) / 1024,
 		kib2/1024, (100 * (kib2 % 1024)) / 1024);

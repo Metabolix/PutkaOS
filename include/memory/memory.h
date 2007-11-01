@@ -58,29 +58,49 @@ struct page_entry_t {
 
 #define MEMORY_PAGE_SIZE (4096)
 #define MEMORY_PE_COUNT (1024)
+#define MEMORY_PAGES (4096 * 256) // 4G
 
-#define KERNEL_PDE_COUNT (64) // Kernel may use 64*1024*4096 = 256MB memory
-#define KERNEL_PAGES (2 * 256) // 2M (ei kmalloc vaan itse kernel muistissa; suoraan virtuaalisesta fyysiseen; sis. pagedir) TODO: Kaivetaan nämä tiedot multibootista!
-#define K_ALLOC_MAX_PAGE (256 * 256) // 256M (kmalloc)
+#define KERNEL_IMAGE_PAGES (2 * 256) // 2M (ei kmalloc vaan itse kernel muistissa + pagedir)
 
-#define STACK_PAGES_BEGIN (256 * 256)
-#define STACK_PAGES_END (512 * 256)
-#define STACK_PAGES_COUNT (STACK_PAGES_END - STACK_PAGES_BEGIN)
+#define MEMORY_PDE_END MEMORY_PE_COUNT
 
+// Kernelin muistialue (0 - 256 MiB)
+#define KMEM_PDE_BEG (1)
+#define KMEM_PDE_END (64)
+#define KMEM_PDE_COUNT (KMEM_PDE_END - KMEM_PDE_BEG)
+#define KMEM_PAGES_BEG (KERNEL_IMAGE_PAGES)
+#define KMEM_PAGES_END (MEMORY_PE_COUNT * KMEM_PDE_END)
+#define KMEM_PAGES (KMEM_PAGES_END - KMEM_PAGES_BEG)
+
+// Pinojen muistialue (256 - 512 MiB)
+#define STACK_PDE_BEG (KMEM_PDE_END)
+#define STACK_PDE_END (128)
+#define STACK_PDE_COUNT (STACK_PDE_END - STACK_PDE_BEG)
+#define STACK_PAGES_BEG (KMEM_PAGES_END)
+#define STACK_PAGES_END (MEMORY_PE_COUNT * STACK_PDE_END)
+#define STACK_PAGES_COUNT (STACK_PAGES_END - STACK_PAGES_BEG)
+
+// Käyttäjän muistialue (512 - 4096 MiB)
+#define USER_PDE_BEG (STACK_PDE_END)
+#define USER_PDE_END (MEMORY_PE_COUNT)
+#define USER_PDE_COUNT (USER_PDE_END - USER_PDE_BEG)
+#define USER_PAGES_BEG (STACK_PAGES_END)
+#define USER_PAGES_END (MEMORY_PAGES)
+#define USER_PAGES (USER_PAGES_END - USER_PAGES_BEG)
+
+// Pinoihin liittyviä vakioita
 #define MAX_STACKS (256)
 #define MAX_PAGES_PER_STACK (STACK_PAGES_COUNT / MAX_STACKS)
-#define MAX_STACK_SIZE (1024*1024 - MEMORY_PAGE_SIZE)
+#define MAX_STACK_SIZE (MAX_PAGES_PER_STACK * MEMORY_PAGE_SIZE)
 /// Stack: [free-pages] [overflow-page] [stack-pages] [underflow-page]
-
-#define U_ALLOC_PAGES_BEGIN STACK_PAGES_END
-#define MEMORY_PAGES (4096 * 256) // 4G
 
 #define PHYS_PAGE_BITMAP_LEN32 (MEMORY_PAGES / 32)
 
 #define ADDR_TO_PAGE(x) ((uint_t)(x) >> 12)
 #define PAGE_TO_ADDR(x) ((void*)((uint_t)(x) << 12))
+#define PDE_PTE_TO_PAGE(pde, pte) (((pde) << 10) + (pte))
 
-#define STACK_TOP_PAGE(x) (STACK_PAGES_BEGIN + (((x) + 1) * MAX_PAGES_PER_STACK) - 2)
+#define STACK_TOP_PAGE(x) (STACK_PAGES_BEG + (((x) + 1) * MAX_PAGES_PER_STACK) - 2)
 
 #define PD_NOSWAP_FLAG (1)
 #define PT_NOSWAP_FLAG (1)
@@ -88,27 +108,22 @@ struct page_entry_t {
 extern uint32_t ram_free(void);
 extern uint32_t memory_free(void);
 
-extern uint_t alloc_phys_page(int noswap);
-extern void free_phys_page(uint_t block);
-
 extern void * temp_phys_page(uint_t page, uint_t phys_page);
-extern void * temp_virt_page(uint_t page, uint_t phys_pagedir, uint_t virt_page);
+extern void * temp_virt_page(uint_t page, uint_t phys_pd, uint_t virt_page);
 extern page_entry_t * temp_page_directory(uint_t phys_page);
 extern page_entry_t * temp_page_table(uint_t phys_page);
 
-extern void use_pagedir(uint_t phys_pagedir);
+extern void use_pagedir(uint_t phys_pd);
 
 // ---
-
-extern uint_t physical_page_of(uint_t virtual_page);
 //extern void *physical_address_of(void *ptr);
 
 //extern int mmap(uint_t real_page, uint_t virtual_page, int user);
 //extern void unmap(uint_t virtual_page);
-extern uint_t find_free_virtual_pages(uint_t phys_pagedir, uint_t count, int user);
-extern uint_t alloc_virtual_pages(uint_t phys_pagedir, uint_t count, int user);
-extern int map_virtual_page(uint_t phys_pagedir, uint_t virt_page, int noswap, int user);
-extern void unmap_virtual_page(uint_t phys_pagedir, uint_t virt_page);
+extern uint_t find_free_virtual_pages(uint_t phys_pd, uint_t count, int user);
+extern uint_t alloc_virtual_pages(uint_t phys_pd, uint_t count, int user);
+extern int map_virtual_page(uint_t phys_pd, uint_t virt_page, int noswap, int user);
+extern void unmap_virtual_page(uint_t phys_pd, uint_t virt_page);
 
 extern void pagedir_init(page_entry_t *addr);
 extern void memory_init(uint_t max_mem);
@@ -116,9 +131,9 @@ extern void memory_init(uint_t max_mem);
 extern void malloc_init(void);
 
 extern uint_t build_new_pagedir(uint_t old_phys_pd);
-extern uint_t alloc_program_space(uint_t phys_pagedir, uint_t size, const void *code, int user);
-extern int resize_stack(uint_t phys_pagedir, int stack_num, uint_t size, int user);
-extern void free_pagedir(uint_t phys_pagedir);
+extern uint_t alloc_program_space(uint_t phys_pd, uint_t size, const void *code, int user);
+extern int resize_stack(uint_t phys_pd, int stack_num, uint_t size, int user);
+extern void free_pagedir(uint_t phys_pd);
 /*
 extern uint_t alloc_physical_page();
 extern uint_t alloc_virtual_page();

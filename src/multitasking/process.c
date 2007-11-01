@@ -5,6 +5,7 @@
 #include <memory/kmalloc.h>
 #include <string.h>
 #include <panic.h>
+#include <debug.h>
 
 struct process processes[MAX_PROCESSES];
 size_t process_count = 0;
@@ -103,11 +104,13 @@ void create_user_page_tables(pid_t pid)
 
 int process_alloc_thread_num(pid_t pid)
 {
-	return processes[pid].threads.count + 1;
+	++processes[pid].threads.count;
+	return processes[pid].threads.freenum++;
 }
 
 void process_free_thread_num(pid_t pid, int thread_of_proc)
 {
+	--processes[pid].threads.count;
 	resize_stack(processes[pid].mem.phys_pd, thread_of_proc, 0, 0);
 }
 
@@ -148,10 +151,7 @@ pid_t new_process(const void *code, size_t code_size, uint_t entry_offset, const
 {
 	pid_t pid;
 	tid_t tid;
-	uint_t prog_pages, page;
-	size_t copied_size;
-	void *ptr;
-	const char *code_ptr;
+	uint_t prog_pages;
 
 	if ((pid = alloc_process()) == NO_PROCESS) {
 		return NO_PROCESS;
@@ -173,7 +173,7 @@ pid_t new_process(const void *code, size_t code_size, uint_t entry_offset, const
 		free_process(pid);
 		return NO_PROCESS;
 	}
-
+/*
 	// Kopioidaan ohjelma
 	page = prog_pages;
 	code_ptr = code;
@@ -190,9 +190,9 @@ pid_t new_process(const void *code, size_t code_size, uint_t entry_offset, const
 		++page;
 	}
 	ptr = temp_virt_page(0, phys_pd, page);
-	memcpy(ptr, code_ptr, MEMORY_PAGE_SIZE);
+	memcpy(ptr, code_ptr, code_size - code_size);
 	temp_virt_page(0, 0, 0);
-
+*/
 	// Luodaan aloittava säie
 	tid = new_thread(pid, (entry_t)((uintptr_t)PAGE_TO_ADDR(prog_pages) + entry_offset), stack, stack_size, user);
 	if (tid == NO_THREAD) {
@@ -200,7 +200,7 @@ pid_t new_process(const void *code, size_t code_size, uint_t entry_offset, const
 		return NO_PROCESS;
 	}
 	process->threads.tid0 = tid;
-	process->threads.count = 1;
+	process->vt_num = VT_KERN_LOG;
 	process->state = TP_STATE_RUNNING;
 
 	return pid;

@@ -10,6 +10,8 @@
 #include <keyboard.h>
 #include <vt.h>
 #include <stdint.h>
+#include <memory/malloc.h>
+#include <memory/kmalloc.h>
 #include <utils/texteditor.h>
 
 /***********************
@@ -58,15 +60,17 @@ void sh_rm(char *buf);
 
 void sh_editor(char *buf);
 
+void sh_exec(char *buffer);
+
 /**********
 ** LISTA **
 **********/
 void sh_a(char*buf)
 {
 	char buf1[128] = "/dev/c0d0 /koe";
-	char buf2[128] = "/koe/f";
+	char buf2[128] = "/koe/prog.bin";
 	sh_mount(buf1);
-	sh_editor(buf2);
+	sh_exec(buf2);
 }
 struct sh_komento komentotaulu[] = {
 	{"?", "Apua", sh_help},
@@ -111,6 +115,7 @@ struct sh_komento komentotaulu[] = {
 
 	{"editor", "editor tiedoston_nimi; avaa tiedosto hienoon editoriin. esc + q = poistu, esc + w = kirjoita", sh_editor},
 	{"a", "mount /dev/c0d0 /koe ; editor /koe/f", sh_a},
+	{"exec", "exec ohjelma; lataa ja ajaa tiedoston [ohjelma]", sh_exec},
 
 	{0, 0, sh_ei_tunnistettu} /* Terminaattori */
 };
@@ -901,4 +906,28 @@ void sh_rm(char *buffer)
 	} else {
 		print("Vialliset parametrit!\n");
 	}
+}
+
+void sh_exec(char *buffer)
+{
+	FILE *file = fopen(buffer, "r");
+	if (!file) {
+		print("Tiedostoa ei saatu auki!\n");
+		return;
+	}
+	fseek(file, 0, SEEK_END);
+	int size = ftell(file);
+	char * code = kmalloc(size);
+	if (!code) {
+		fclose(file);
+		print("Virhe muistin varaamisessa!\n");
+		return;
+	}
+	fseek(file, 0, SEEK_SET);
+	fread(code, size, 1, file);
+	fclose(file);
+	print("new_process...\n");
+	kwait(0, 100000);
+	new_process(code, size, 0, 0, 0, 1);
+	kwait(0, 100000);
 }

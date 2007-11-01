@@ -14,7 +14,7 @@ CFLAGS_ALL=-Wall -ffreestanding -nostdinc -I./include -g -m32 -pedantic -std=c99
 #-pedantic -std=c99 -Werror
 
 CFLAGS=$(CFLAGS_ALL)
-CFLAGS_OPTI=-O2
+CFLAGS_OPTI=
 
 DIRS= \
 	memory \
@@ -26,7 +26,7 @@ DIRS= \
 		filesys/minix filesys/fat filesys/ext2 filesys/iso9660 \
 	utils
 
-ASM_SRC=start.asm irq.asm isrs.asm bit.asm multitasking/thread.asm io.asm read_cmos.asm misc_asm.asm math.asm build_tweaks.asm syscall.asm string.asm
+ASM_SRC=start.asm irq.asm isrs.asm bit.asm io.asm read_cmos.asm misc_asm.asm math.asm build_tweaks.asm syscall.asm string.asm
 
 CO_SRC_STDROUTINES=string.c ctype.c int64.c endian.c list.c fprintf.c math.c xprintf_xscanf.c
 
