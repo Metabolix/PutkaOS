@@ -49,7 +49,7 @@ CO_SRC_DISPLAY_1=text/lcdscreen.c text/pc_display.c
 CO_SRC_DISPLAY=$(addprefix display/,$(CO_SRC_DISPLAY_1))
 
 # Devices
-C_SRC_DEVICES_1=devmanager.c ports/serial.c $(C_SRC_BLOCKDEV) $(C_SRC_DISPLAY)
+C_SRC_DEVICES_1=devmanager.c ports/serial.c ports/pci.c $(C_SRC_BLOCKDEV) $(C_SRC_DISPLAY)
 C_SRC_DEVICES=$(addprefix devices/,$(C_SRC_DEVICES_1))
 CO_SRC_DEVICES_1=specialdevs.c specialdevs_func.c $(CO_SRC_BLOCKDEV) $(CO_SRC_DISPLAY)
 CO_SRC_DEVICES=$(addprefix devices/,$(CO_SRC_DEVICES_1))

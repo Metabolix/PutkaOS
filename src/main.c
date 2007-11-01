@@ -21,6 +21,7 @@
 #include <devices/blockdev/ide.h>
 #include <devices/blockdev/floppy.h>
 #include <devices/ports/serial.h>
+#include <devices/ports/pci.h>
 #include <devices/display/text/pc_display.h>
 #include <devices/display/text/lcdscreen.h>
 #include <vt.h>
@@ -132,6 +133,7 @@ void kmain2(void)
 {
 	init_syscalls();
 	ide_init();
+	pci_init();
 
 	kprintf("Going to unmask irqs\n");
 	outportb(0x21, 0); /* Don't mask any IRQ */
