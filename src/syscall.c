@@ -4,18 +4,28 @@
 
 #include <syscall.h>
 #include <memory/malloc.h>
+#include <misc_asm.h>
 
-uint_t asm_syscall();
+extern void asm_syscall();
 
 void init_syscalls(void)
 {
-	idt_set_gate(0x80, (uintptr_t)asm_syscall, IDT_TYPICAL_CS, IDT_TYPICAL_FLAGS);
+	idt_set_interrupt(IDT_SYSCALL, asm_syscall, IDT_PRIV_USER);
 }
 
 /**
 * Syscalls
 * (List in the end...)
 **/
+
+/**
+* syscall_hlt: asm_hlt();
+**/
+int syscall_hlt(void)
+{
+	asm_hlt();
+	return 0;
+}
 
 /**
 * syscall_print: print(ebx);
@@ -86,14 +96,17 @@ size_t syscall_fwrite(uint_t eax, struct syscall_freadwrite *ebx)
 * syscall_table: function pointers for asm to call.
 **/
 const syscall_t syscall_table[] = {
-	(syscall_t)  /*    0 */ syscall_print
-	,(syscall_t) /*    1 */ syscall_malloc
-	,(syscall_t) /*    2 */ syscall_free
+	(syscall_t) 0 /* RESERVED */
+	,(syscall_t) /*    1 */ syscall_print
+	,(syscall_t) /*    2 */ syscall_malloc
+	,(syscall_t) /*    3 */ syscall_free
 
-	,(syscall_t) /*    3 */ syscall_fopen
-	,(syscall_t) /*    4 */ syscall_fclose
-	,(syscall_t) /*    5 */ syscall_fread
-	,(syscall_t) /*    6 */ syscall_fwrite
+	,(syscall_t) /*    4 */ syscall_fopen
+	,(syscall_t) /*    5 */ syscall_fclose
+	,(syscall_t) /*    6 */ syscall_fread
+	,(syscall_t) /*    7 */ syscall_fwrite
+	,(syscall_t) /*    8 */ syscall_hlt
+
 };
 const syscall_t *syscall_table_ptr = syscall_table;
 const int syscall_table_size = (sizeof(syscall_table) / sizeof(syscall_t));

@@ -1,31 +1,49 @@
 #include <screen.h>
 #include <irq.h>
 #include <idt.h>
+#include <tss.h>
 #include <io.h>
 #include <panic.h>
+#include <stdint.h>
 #include <multitasking/multitasking.h>
-#include <regs.h>
+#include <multitasking/thread.h>
 #include <misc_asm.h>
 
 #define io_wait() asm_nop()
 
-irq_handler_t irq_handlers[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-volatile char irq_wait[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+void scheduler(void);
+
+irq_handler_t irq_handlers[16];
+volatile char irq_wait[16] = {0};
 int irq_handling = -1;
+
+void irq_illegal_handler(void)
+{
+	panic("Illegal IRQ! (Impossible?)");
+}
+
+void irq_null_handler(void)
+{
+	kprintf("IRQ %d without handler!\n", irq_handling);
+}
 
 int is_in_irq_handler(void)
 {
 	return irq_handling >= 0;
 }
 
-void irq_remap(unsigned char offset1, unsigned char offset2)
+void irq_unmask(void)
 {
-	/*char  a1, a2;
+	print("Going to unmask irqs...\n");
+	outportb(0x21, 0);
+	outportb(0xa1, 0);
+	asm_sti();
+	asm_hlt();
+	print("IRQ unmasking done.\n");
+}
 
-	a1=inportb(0x21); */  /* save masks */
-	/*a2=inportb(0xA1);*/
-
-	/* starts the initialization sequence */
+void irq_remap(uint8_t offset1, uint8_t offset2)
+{
 	outportb(0x20, 0x11); io_wait();
 	outportb(0x21, offset1); io_wait();
 	outportb(0x21, 4); io_wait();
@@ -35,9 +53,6 @@ void irq_remap(unsigned char offset1, unsigned char offset2)
 	outportb(0xA1, offset2); io_wait();
 	outportb(0xA1, 2); io_wait();
 	outportb(0xA1, 0x01); io_wait();
-
-	/*outportb(0x21, a1);*/   /* restore saved masks */
-	/*outportb(0xA1, a2);*/
 	print("IRQs remapped\n");
 }
 
@@ -61,83 +76,97 @@ void prepare_wait_irq(unsigned int irq)
 
 void irq_install(void)
 {
-	extern void irq0();
-	extern void irq1();
-	extern void irq2();
-	extern void irq3();
-	extern void irq4();
-	extern void irq5();
-	extern void irq6();
-	extern void irq7();
-	extern void irq8();
-	extern void irq9();
-	extern void irq10();
-	extern void irq11();
-	extern void irq12();
-	extern void irq13();
-	extern void irq14();
-	extern void irq15();
+	extern void irq0x00();
+	extern void irq0x01();
+	extern void irq0x02();
+	extern void irq0x03();
+	extern void irq0x04();
+	extern void irq0x05();
+	extern void irq0x06();
+	extern void irq0x07();
+	extern void irq0x08();
+	extern void irq0x09();
+	extern void irq0x0a();
+	extern void irq0x0b();
+	extern void irq0x0c();
+	extern void irq0x0d();
+	extern void irq0x0e();
+	extern void irq0x0f();
+
+	int i;
+	for (i = 0; i < 16; ++i) {
+		irq_handlers[i] = irq_null_handler;
+	}
 
 	irq_remap(0x20, 0x28);
 
-	idt_set_gate(0x20, (unsigned)irq0, IDT_TYPICAL_CS, IDT_TYPICAL_FLAGS);
-	idt_set_gate(0x21, (unsigned)irq1, IDT_TYPICAL_CS, IDT_TYPICAL_FLAGS);
-	idt_set_gate(0x22, (unsigned)irq2, IDT_TYPICAL_CS, IDT_TYPICAL_FLAGS);
-	idt_set_gate(0x23, (unsigned)irq3, IDT_TYPICAL_CS, IDT_TYPICAL_FLAGS);
-	idt_set_gate(0x24, (unsigned)irq4, IDT_TYPICAL_CS, IDT_TYPICAL_FLAGS);
-	idt_set_gate(0x25, (unsigned)irq5, IDT_TYPICAL_CS, IDT_TYPICAL_FLAGS);
-	idt_set_gate(0x26, (unsigned)irq6, IDT_TYPICAL_CS, IDT_TYPICAL_FLAGS);
-	idt_set_gate(0x27, (unsigned)irq7, IDT_TYPICAL_CS, IDT_TYPICAL_FLAGS);
-	idt_set_gate(0x28, (unsigned)irq8, IDT_TYPICAL_CS, IDT_TYPICAL_FLAGS);
-	idt_set_gate(0x29, (unsigned)irq9, IDT_TYPICAL_CS, IDT_TYPICAL_FLAGS);
-	idt_set_gate(0x2A, (unsigned)irq10, IDT_TYPICAL_CS, IDT_TYPICAL_FLAGS);
-	idt_set_gate(0x2B, (unsigned)irq11, IDT_TYPICAL_CS, IDT_TYPICAL_FLAGS);
-	idt_set_gate(0x2C, (unsigned)irq12, IDT_TYPICAL_CS, IDT_TYPICAL_FLAGS);
-	idt_set_gate(0x2D, (unsigned)irq13, IDT_TYPICAL_CS, IDT_TYPICAL_FLAGS);
-	idt_set_gate(0x2E, (unsigned)irq14, IDT_TYPICAL_CS, IDT_TYPICAL_FLAGS);
-	idt_set_gate(0x2F, (unsigned)irq15, IDT_TYPICAL_CS, IDT_TYPICAL_FLAGS);
+	idt_set_interrupt(0x20, irq0x00, IDT_PRIV_KERNEL);
+	idt_set_interrupt(0x21, irq0x01, IDT_PRIV_KERNEL);
+	idt_set_interrupt(0x22, irq0x02, IDT_PRIV_KERNEL);
+	idt_set_interrupt(0x23, irq0x03, IDT_PRIV_KERNEL);
+	idt_set_interrupt(0x24, irq0x04, IDT_PRIV_KERNEL);
+	idt_set_interrupt(0x25, irq0x05, IDT_PRIV_KERNEL);
+	idt_set_interrupt(0x26, irq0x06, IDT_PRIV_KERNEL);
+	idt_set_interrupt(0x27, irq0x07, IDT_PRIV_KERNEL);
+	idt_set_interrupt(0x28, irq0x08, IDT_PRIV_KERNEL);
+	idt_set_interrupt(0x29, irq0x09, IDT_PRIV_KERNEL);
+	idt_set_interrupt(0x2A, irq0x0a, IDT_PRIV_KERNEL);
+	idt_set_interrupt(0x2B, irq0x0b, IDT_PRIV_KERNEL);
+	idt_set_interrupt(0x2C, irq0x0c, IDT_PRIV_KERNEL);
+	idt_set_interrupt(0x2D, irq0x0d, IDT_PRIV_KERNEL);
+	idt_set_interrupt(0x2E, irq0x0e, IDT_PRIV_KERNEL);
+	idt_set_interrupt(0x2F, irq0x0f, IDT_PRIV_KERNEL);
 }
 
 void install_irq_handler(unsigned int irq, irq_handler_t handler)
 {
-	if (irq < 16) {
-		irq_handlers[irq] = handler;
+	if (irq >= 16) {
+		kprintf("Trying to install irq handler %i, out of indexes!\n", irq);
+		panic("uninstall_irq_handler: illegal irq!");
+	}
+	if (irq_handlers[irq] != irq_null_handler) {
+		kprintf("Trying to install irq handler number %u but it exists!\n", irq);
+		panic("uninstall_irq_handler: illegal irq!");
 	} else {
-		kprintf("Trying to install irq handler on irq %i, which doesn't exist!\n", irq);
+		irq_handlers[irq] = handler;
 	}
 }
 
 void uninstall_irq_handler(unsigned int irq)
 {
-	if(irq < 16 && irq >= 0) {
-		if(irq_handlers[irq] == 0) {
-			kprintf("Trying to uninstall irq handler number %u but it doesn't exist\n", irq);
-		} else {
-			irq_handlers[irq] = 0;
-		}
+	if (irq >= 16) {
+		kprintf("Trying to uninstall irq handler %i, out of indexes!\n", irq);
+		panic("uninstall_irq_handler: illegal irq!");
+	}
+	if (irq_handlers[irq] == irq_null_handler) {
+		kprintf("Trying to uninstall irq handler number %u but it doesn't exist!\n", irq);
+		panic("uninstall_irq_handler: illegal irq!");
 	} else {
-		kprintf("Trying to uninstall irq handler %i, out of indexes\n", irq);
+		irq_handlers[irq] = irq_null_handler;
 	}
 }
 
-void irq_handler(struct regs *regs) /* NOTICE: This should be called only from our assembly code! */
+extern struct tss tss_for_active_thread;
+
+static void save_thread_state(void)
 {
-	irq_handling = regs->int_no;
-	if (regs->int_no & 0xfffffff0) {
-		kprintf("Irq_handler got irq %u which doesn't exist\n", regs->int_no);
-		dump_regs(regs);
-	} else {
-		if (irq_handlers[regs->int_no]) {
-			irq_handlers[regs->int_no](regs);
-		} else {
-			/*kprintf("Got interrupt on %u, but we don't have handler for it!\n", regs->int_no);*/
-		}
-		if (regs->int_no >= 8) {
-			outportb(0xA0, 0x20);
-		}
-		outportb(0x20, 0x20);
-		irq_wait[regs->int_no] = 0;
+	if (!active_thread) {
+		return;
 	}
+	memcpy(&active_thread->tss, &tss_for_active_thread, sizeof(tss_for_active_thread));
+}
+
+static void load_thread_state(void)
+{
+	if (!active_thread) {
+		return;
+	}
+	memcpy(&tss_for_active_thread, &active_thread->tss, sizeof(tss_for_active_thread));
+}
+
+void scheduler(void)
+{
+	save_thread_state();
 	next_thread();
-	irq_handling = -1;
+	load_thread_state();
 }

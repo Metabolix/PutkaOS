@@ -5,6 +5,7 @@
 
 extern void asm_sti();
 extern void asm_cli();
+extern void asm_int(uint8_t interrupt);
 extern void asm_hlt();
 extern void asm_nop();
 extern void asm_ret();

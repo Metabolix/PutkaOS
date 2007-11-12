@@ -6,7 +6,6 @@
 #include <stddef.h>
 #include <irq.h>
 #include <isr.h>
-#include <regs.h>
 
 typedef void (*entry_t)(void);
 typedef uint_t tid_t;
@@ -47,7 +46,7 @@ extern void threading_init(void);
 extern void start_threading(void);
 
 extern int has_threading(void); /* Onko aloitettu */
-extern int is_threading(void);  /* Onko päällä, siis HUOMIOI IRQ:t! */
+extern int is_threading(void);  /* Onko päällä, siis HUOMIOI IRQ:t yms! TODO: vähän muuttunut kaikki... ;) */
 
 extern pid_t new_process(const void *code, size_t code_size, uint_t entry_offset, const void * stack, size_t stack_size, int user);
 extern tid_t new_thread(pid_t pid, entry_t entry, const void * stack, size_t stack_size, int user);

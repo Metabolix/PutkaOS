@@ -172,8 +172,6 @@ unsigned char xD(unsigned char a) // 0x64 => 64 xD
 
 void timer_install(void)
 {
-	extern void irq0();
-
 	outportb(0x43, 0x34); // binary, mode 2, LSB/MSB, ch 0
 	outportb(0x40, TIMER_TICKS_PER_CYCLE & 0xff); // LSB
 	outportb(0x40, TIMER_TICKS_PER_CYCLE >> 8); // MSB
@@ -188,7 +186,7 @@ void timer_install(void)
 	sys_time.tm_mday = xD(cmos[0x07]);
 	sys_time.tm_mon = xD(cmos[0x08]) - 1;
 	sys_time.tm_year = xD(cmos[0x09]) + 100;
-	install_irq_handler(0, (irq_handler_t)timer_handler);
+	install_irq_handler(0, timer_handler);
 }
 
 void kwait(time_t sec, time_t usec)

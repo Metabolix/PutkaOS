@@ -14,16 +14,21 @@ CFLAGS_ALL=-Wall -ffreestanding -nostdinc -I./include -g -m32 -pedantic -std=c99
 #-pedantic -std=c99 -Werror
 
 CFLAGS=$(CFLAGS_ALL)
-CFLAGS_OPTI=
+CFLAGS_OPTI=-O
 
 DIRS= \
 	memory \
 	multitasking \
 	devices \
-		devices/blockdev devices/ports devices/display \
+		devices/blockdev \
+		devices/ports \
+		devices/display \
 			devices/display/text \
 	filesys \
-		filesys/minix filesys/fat filesys/ext2 filesys/iso9660 \
+		filesys/minix \
+		filesys/fat \
+		filesys/ext2 \
+		filesys/iso9660 \
 	utils
 
 ASM_SRC=start.asm irq.asm isrs.asm bit.asm io.asm read_cmos.asm misc_asm.asm math.asm build_tweaks.asm syscall.asm string.asm
@@ -71,7 +76,7 @@ CO_SRC_FS_1=mount.c filesystem.c file.c dir.c fileutils.c $(CO_SRC_FS_MINIX) $(C
 CO_SRC_FS=$(addprefix filesys/,$(CO_SRC_FS_1))
 
 # Core
-C_SRC_CORE=gdt.c isr.c main.c panic.c idt.c irq.c keyboard.c regs.c spinlock.c syscall.c vt.c screen.c
+C_SRC_CORE=gdt.c isr.c main.c panic.c idt.c irq.c keyboard.c spinlock.c syscall.c vt.c screen.c doublefault.c
 CO_SRC_CORE=timer.c kprintf.c sh.c sh_komennot.c time.c
 
 # Utils

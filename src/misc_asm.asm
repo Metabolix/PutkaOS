@@ -1,6 +1,8 @@
 BITS 32
+
 global asm_sti
 global asm_cli
+global asm_int
 global asm_hlt
 global asm_nop
 global asm_ret
@@ -19,6 +21,9 @@ global asm_invlpg
 
 global asm_idt_load
 global asm_gdt_flush
+
+global asm_set_tr
+global asm_get_tr
 
 asm_sti:
 	sti
@@ -57,20 +62,30 @@ asm_hlt_until_true:
 asm_gdt_flush:
 	mov eax, [esp+4]
 	lgdt [eax]
-	mov ax,0x10
+	mov ax,0x88
 	mov ds,ax
 	mov es,ax
 	mov fs,ax
 	mov gs,ax
 	mov ss,ax
-	jmp 0x08:.ret
-.ret
+	jmp 0x80:.return
+.return
 	ret
 
 asm_idt_load:
 	mov eax, [esp+4]
 	lidt [eax]
 	xor eax, eax
+	ret
+
+asm_set_tr:
+	mov ax, [esp+4]
+	ltr ax
+	ret
+
+asm_get_tr:
+	xor eax, eax
+	str ax
 	ret
 
 asm_get_cr0:
@@ -101,3 +116,24 @@ asm_flush_cr3:
 	mov cr3, eax
 	xor eax, eax
 	ret
+
+asm_int:
+	xor eax, eax
+	mov al, [esp+4]
+	mul BYTE [.table_entry_size]
+	add eax, .table_begin
+	jmp eax
+
+.table_entry_size:
+	db ((.table_end - .table_begin) / 256)
+
+.table_begin:
+%assign i 0
+%rep    256
+	int i
+	ret
+%assign i i+1
+%endrep
+.table_end:
+	nop
+

@@ -11,7 +11,6 @@
 #include <panic.h>
 #include <timer.h>
 #include <multiboot.h>
-#include <regs.h>
 #include <sh.h>
 #include <multitasking/multitasking.h>
 #include <devices/devmanager.h>
@@ -136,10 +135,7 @@ void kmain2(void)
 	ide_init();
 	pci_init();
 
-	kprintf("Going to unmask irqs\n");
-	outportb(0x21, 0); /* Don't mask any IRQ */
-	outportb(0xa1, 0);
-	asm_sti(); /* Allow interrupts */
+	irq_unmask();
 
 	floppy_reset();
 	mount_init(mbt->boot_device, mbt->cmdline);
@@ -151,7 +147,6 @@ void kmain2(void)
 	testattava_koodi();
 
 	kprintf("%s %s is up and running _o/\n", systeemi, versio);
-
 	sh_tid = new_thread(0, run_sh, 0, 0, 0);
 
 	// Idle thread. ;)

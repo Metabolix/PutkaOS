@@ -9,7 +9,8 @@
 #include <screen.h>
 #include <vt.h>
 #include <misc_asm.h>
-#include <irq.h>
+#include <gdt.h>
+#include <idt.h>
 
 struct thread threads[MAX_THREADS];
 size_t thread_count = 0;
@@ -20,18 +21,28 @@ struct thread * active_thread = 0;
 tid_t threads_ended_arr[MAX_PROCESSES];
 uint_t threads_ended = 0;
 
-const struct regs kernel_space_regs = {
-	0x10, 0x10, 0x10, 0x10, 0x10, // gs, fs, es, ds, ss;
-	0, 0, 0, 0, 0, 0, 0, 0, // edi, esi, ebp, esp, ebx, edx, ecx, eax;
-	0, 0, // int_no, err_code;
-	0, 0x08, 0x0202, // eip, cs, eflags;
+const struct tss kernel_space_tss = {
+	.cs = KERNEL_CS_SEL,
+	.ds = KERNEL_DS_SEL,
+	.es = KERNEL_DS_SEL,
+	.fs = KERNEL_DS_SEL,
+	.gs = KERNEL_DS_SEL,
+	.ss = KERNEL_DS_SEL,
+	.ss0 = KERNEL_DS_SEL,
+	.eflags = 0x0202,
+	.iopb_offset = sizeof(struct tss),
 };
 
-const struct regs user_space_regs = {
-	0x20, 0x20, 0x20, 0x20, 0x20, // gs, fs, es, ds, ss;
-	0, 0, 0, 0, 0, 0, 0, 0, // edi, esi, ebp, esp, ebx, edx, ecx, eax;
-	0, 0, // int_no, err_code;
-	0, 0x18, 0x0202, // eip, cs, eflags;
+const struct tss user_space_tss = {
+	.cs = USER_CS_SEL,
+	.ds = USER_DS_SEL,
+	.es = USER_DS_SEL,
+	.fs = USER_DS_SEL,
+	.gs = USER_DS_SEL,
+	.ss = USER_DS_SEL,
+	.ss0 = KERNEL_DS_SEL,
+	.eflags = 0x0202,
+	.iopb_offset = sizeof(struct tss),
 };
 
 static void free_thread(tid_t tid);
@@ -92,18 +103,17 @@ void clean_threads(void)
 }
 
 /**
- * function thread_ending - this is where "ret" leads from a thread entry
+* function thread_ending - isr_thread_ending siirtyy tänne
 **/
-void thread_ending_func(void)
+void thread_ending(void)
 {
 	kprintf("thread_ending_func: active_tid %i\n", active_tid);
 	if (active_tid == 0) {
 		panic("Thread 0 ending!\n");
 	}
 	kill_thread(active_tid);
-	for (;;) asm_hlt(); // TODO: Säikeen loppuun vaihto!
+	for (;;) asm_int(IDT_SCHEDULER);
 }
-static const entry_t thread_ending = thread_ending_func;
 
 tid_t alloc_thread(void)
 {
@@ -125,7 +135,7 @@ tid_t alloc_thread(void)
 
 tid_t find_running_thread(void)
 {
-	static tid_t viimeksi_loytynyt;
+	static tid_t viimeksi_loytynyt = MAX_THREADS - 1;
 	tid_t i = viimeksi_loytynyt;
 	do {
 		i = (i + 1) % MAX_THREADS;
@@ -140,20 +150,20 @@ tid_t find_running_thread(void)
 	return NO_THREAD;
 }
 
-void * init_stack(uint_t phys_pd, int thread_of_proc, entry_t entry, const void * stack, size_t stack_size, int user)
+int prepare_thread(struct thread *thread, uint_t phys_pd, const entry_t entry, const void * stack, size_t stack_size, int user)
 {
 	const char *sptr;
 	char *pptr;
-	struct regs *rptr;
 	uint_t page;
-	uint_t offset;
-	size_t whole_size = stack_size + sizeof(entry_t) + sizeof(struct regs);
-	if (stack_size < 0 || resize_stack(phys_pd, thread_of_proc, whole_size, user)) {
-		return 0;
+	int offset;
+	size_t whole_size = stack_size + sizeof(entry_t) + (user ? 0 : 4*3);
+	if (stack_size < 0 || resize_stack(phys_pd, thread->thread_of_proc, whole_size, user)) {
+		return -1;
 	}
-	page = STACK_TOP_PAGE(thread_of_proc);
+	page = STACK_TOP_PAGE(thread->thread_of_proc);
 	sptr = stack;
 
+	// Initial stack
 	while (stack_size >= MEMORY_PAGE_SIZE) {
 		stack_size -= MEMORY_PAGE_SIZE;
 		if (!(pptr = temp_virt_page(0, phys_pd, page))) {
@@ -173,26 +183,42 @@ void * init_stack(uint_t phys_pd, int thread_of_proc, entry_t entry, const void 
 		offset -= stack_size;
 		memcpy(pptr + offset, sptr, stack_size);
 	}
-	offset -= sizeof(entry_t);
-	memcpy(pptr + offset, &thread_ending, sizeof(entry_t));
 
-	rptr = ((struct regs*) (pptr + offset)) - 1;
-	memcpy(rptr, (user ? &user_space_regs : &kernel_space_regs), sizeof(struct regs));
-	rptr->eip = (uint32_t) entry;
-	// "kutsuvan funktion" (thread_ending) EBP
-	rptr->ebp = (uint32_t) PAGE_TO_ADDR(STACK_TOP_PAGE(thread_of_proc) + 1);
-	// ESP ennen pushad-käskyä, vaikka prosessori ei tätä käytäkään! Vaan näyttääpä aidolta.
-	rptr->esp = (uint32_t) PAGE_TO_ADDR(page) + offset + offsetof(struct regs, ss);
-	offset -= sizeof(struct regs);
+	// TSS
+	memcpy(&thread->tss, (user ? &user_space_tss : &kernel_space_tss), sizeof(struct tss));
+
+	// Stack for iret.
+	if (user) {
+		thread->irq_stack[5] = thread->tss.ss;
+		thread->irq_stack[4] = (uint32_t) PAGE_TO_ADDR(page) + offset;
+		thread->irq_stack[3] = thread->tss.eflags;
+		thread->irq_stack[2] = thread->tss.cs;
+		thread->irq_stack[1] = (uintptr_t) entry;
+		thread->tss.esp0 = ((uintptr_t) &(thread->irq_stack)) + sizeof(thread->irq_stack);
+		thread->tss.esp = (uintptr_t) &(thread->irq_stack[1]);
+		thread->tss.ss0 =
+		thread->tss.ss = KERNEL_DS_SEL;
+		thread->tss.cs = KERNEL_CS_SEL;
+	} else {
+		// TODO: if (offset < 0), seuraavalle sivulle osa!
+		offset -= 12;
+		((uintptr_t *)(pptr + offset))[2] = thread->tss.eflags;
+		((uintptr_t *)(pptr + offset))[1] = thread->tss.cs;
+		((uintptr_t *)(pptr + offset))[0] = (uintptr_t) entry;
+		thread->tss.esp = (uint32_t) PAGE_TO_ADDR(page) + offset;
+	}
+	thread->tss.cr3 = (uintptr_t) PAGE_TO_ADDR(phys_pd);
+	thread->tss.eflags &= ~(1 << 9); // Interrupts disabled
+	extern void irq_common_ret(void);
+	thread->tss.eip = (uintptr_t) irq_common_ret;
 
 	temp_virt_page(0, 0, 0);
-	return (char*)PAGE_TO_ADDR(page) + offset;
+	return 0;
 }
 
 tid_t new_thread(pid_t pid, entry_t entry, const void * stack, size_t stack_size, int user)
 {
 	tid_t tid;
-	const struct regs * const regs = (user ? &user_space_regs : &kernel_space_regs);
 	int i;
 
 	if ((tid = alloc_thread()) == NO_THREAD) {
@@ -208,37 +234,13 @@ tid_t new_thread(pid_t pid, entry_t entry, const void * stack, size_t stack_size
 	thread->pid = pid;
 	thread->thread_of_proc = i;
 
-	thread->esp = init_stack(process->mem.phys_pd, thread->thread_of_proc, entry, stack, stack_size, user);
-	if (!thread->esp) {
+	if (prepare_thread(thread, process->mem.phys_pd, entry, stack, stack_size, user) != 0) {
 		free_thread(tid);
 		return NO_THREAD;
 	}
 
-	thread->ss = regs->ss;
 	thread->pid = pid;
 	thread->state = TP_STATE_RUNNING;
 	++thread_count;
 	return tid;
-#if 0
-	char *esp;
-	esp = (char*) (threads[tid].stack + THREAD_STACSIZE);
-
-	esp -= stack_size;
-	memcpy(esp, stack, stack_size);
-	if (stack) kprintf("stack = %p\n", *(void**)stack);
-
-	esp -= sizeof(entry_t);
-	*(entry_t*)esp = thread_ending;
-
-	threads[tid].esp = ((struct regs*)esp) - 1;
-	memcpy(threads[tid].esp, regs, sizeof(struct regs));
-	threads[tid].esp->eip = (uint_t)entry;
-	threads[tid].esp->esp = (uint_t)&(threads[tid].esp->ss);
-	threads[tid].esp->ebp = threads[tid].stack + THREAD_STACSIZE;
-	threads[tid].ss = threads[tid].esp->ss;
-	threads[tid].pid = active_pid;
-	threads[tid].state = TP_STATE_RUNNING;
-
-	++thread_count;
-#endif
 }

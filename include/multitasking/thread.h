@@ -1,6 +1,8 @@
 #ifndef _THREAD_H
 #define _THREAD_H 1
 
+#include <tss.h>
+
 /**
  * struct thread - säikeen tiedot
  * @esp: esp, jotta iret saadaan tehtyä
@@ -12,8 +14,8 @@
  * Badly unready
 **/
 struct thread {
-	struct regs *esp;
-	uint16_t ss, reserved_01;
+	struct tss tss;
+	uint32_t irq_stack[12];
 
 	uint_t uid, gid;
 	uint_t state;

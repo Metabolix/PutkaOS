@@ -148,7 +148,7 @@ void floppy_init(void)
 		}
 	}
 
-	install_irq_handler(6, (irq_handler_t)floppy_handler);
+	install_irq_handler(6, floppy_handler);
 }
 
 void floppy_reset(void)

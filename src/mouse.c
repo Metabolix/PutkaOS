@@ -178,7 +178,7 @@ void mouse_install(void)
 		kprintf("mouse_install: failed to enable data reporting\n");
 		return;
 	}
-	install_irq_handler(12, (irq_handler_t) mouse_handle);
+	install_irq_handler(12, mouse_handle);
 	kprintf("Mouse installed\n");
 }
 

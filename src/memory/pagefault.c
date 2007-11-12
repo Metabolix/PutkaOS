@@ -3,19 +3,19 @@
 #include <multitasking/multitasking.h>
 #include <multitasking/process.h>
 #include <multitasking/thread.h>
-#include <regs.h>
 #include <misc_asm.h>
 #include <screen.h>
 #include <panic.h>
 
-void page_fault_handler(struct regs *regs)
+void page_fault_handler(void)
 {
+	panic("Page fault! (TODO)");
+#if 0
 	void * const cr2_ptr = asm_get_cr2();
-	const uint_t page = ((uint_t) cr2_ptr) >> 12;
+	const uint_t page = ((uintptr_t) cr2_ptr) >> 12;
 	const uint_t phys_pagedir = active_process->mem.phys_pd;
 	const uint_t pde = page / MEMORY_PE_COUNT, pte = page % MEMORY_PE_COUNT;
 	const char *panic_msg;
-
 	uint_t new_location;
 
 	page_entry_t *pd, *pt;
@@ -86,6 +86,10 @@ fail:
 	kprintf("Page Fault!\nThread %i, process %i\n", active_tid, active_pid);
 	kprintf("Trying to %s address %p (page %d).\n", ((regs->error_code & 2) ? "write" : "read"), cr2_ptr, page);
 	kprintf("Processor is in %s mode.\n", ((regs->error_code & 4) ? "user" : "supervisor"));
+	print(panic_msg);
+	print("\n");
 	dump_regs(regs);
+	*/
 	panic(panic_msg);
+#endif
 }

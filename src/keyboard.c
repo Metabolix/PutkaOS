@@ -364,7 +364,7 @@ void keyboard_handle(void)
 
 void keyboard_install(void)
 {
-	install_irq_handler(1, (irq_handler_t) keyboard_handle);
+	install_irq_handler(1, keyboard_handle);
 	inportb(0x60); /* There might be something in the buffer */
 	*x86_modstatus &= ~(x86_MOD_SCRL | x86_MOD_NUML | x86_MOD_CAPSL);
 	*x86_modstatus |= x86_MOD_INSMODE;

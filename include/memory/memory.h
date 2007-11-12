@@ -53,7 +53,7 @@ struct page_entry_t {
 // #define KERNEL_PAGE_PARAMS	3
 #define NULL_PE ((page_entry_t){0})
 #define USER_PE(page) ((page_entry_t){1,1,1,(0),(page)})
-#define KERNEL_PE(page) ((page_entry_t){1,1,0,(0),(page)})
+#define KERNEL_PE(page) ((page_entry_t){1,1,1,(0),(page)})
 #define NEW_PE(page, user) (user ? USER_PE(page) : KERNEL_PE(page))
 
 #define MEMORY_PAGE_SIZE (4096)
@@ -115,11 +115,6 @@ extern page_entry_t * temp_page_table(uint_t phys_page);
 
 extern void use_pagedir(uint_t phys_pd);
 
-// ---
-//extern void *physical_address_of(void *ptr);
-
-//extern int mmap(uint_t real_page, uint_t virtual_page, int user);
-//extern void unmap(uint_t virtual_page);
 extern uint_t find_free_virtual_pages(uint_t phys_pd, uint_t count, int user);
 extern uint_t alloc_virtual_pages(uint_t phys_pd, uint_t count, int user);
 extern int map_virtual_page(uint_t phys_pd, uint_t virt_page, int noswap, int user);
@@ -134,9 +129,5 @@ extern uint_t build_new_pagedir(uint_t old_phys_pd);
 extern uint_t alloc_program_space(uint_t phys_pd, uint_t size, const void *code, int user);
 extern int resize_stack(uint_t phys_pd, int stack_num, uint_t size, int user);
 extern void free_pagedir(uint_t phys_pd);
-/*
-extern uint_t alloc_physical_page();
-extern uint_t alloc_virtual_page();
-extern uint_t alloc_virtual_pages(uint_t count);
-*/
+
 #endif

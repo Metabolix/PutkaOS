@@ -1,28 +1,38 @@
 #include <idt.h>
+#include <gdt.h>
 #include <string.h>
 #include <misc_asm.h>
 #include <stdint.h>
 
-struct idt_entry idt[256]; /* table of idt_entries */
+struct idt_entry idt[256] = {{0}};
 struct idt_ptr idt_pointer;
 
-void idt_set_gate(uint8_t num, uint_t base, uint16_t sel, uint8_t flags)
+void idt_set_interrupt(uint8_t num, void (*base)(), uint8_t priv)
 {
-	idt[num].base_lo = (base & 0xFFFF);    /* The interrupt routine's base address */
-	idt[num].base_hi = (base >> 16) & 0xFFFF;
+	memset(&idt[num], 0, sizeof(idt[num]));
+	idt[num].base_00_16 = (uintptr_t) base;
+	idt[num].base_16_32 = (uintptr_t) base >> 16;
+	idt[num].type = IDT_32b_INTERRUPT;
+	idt[num].priv = priv;
 
-	idt[num].sel = sel; /* Set some flags */
-	idt[num].always0 = 0;
-	idt[num].flags = flags;
+	idt[num].sel = KERNEL_CS_SEL;
+	idt[num].present = 1;
+}
+
+void idt_set_task_gate(uint8_t num, uint16_t sel, uint8_t priv)
+{
+	memset(&idt[num], 0, sizeof(idt[num]));
+	idt[num].sel = sel;
+	idt[num].type = IDT_32b_TASK_GATE;
+	idt[num].present = 1;
+	idt[num].priv = priv;
 }
 
 void idt_install(void)
 {
-	idt_pointer.limit = (sizeof (struct idt_entry) * 256) - 1; /* 256 entries */
-	idt_pointer.base = (unsigned int)&idt;
+	idt_pointer.limit = sizeof(idt) - 1;
+	idt_pointer.base = idt;
 
-	memset(&idt, 0, sizeof(struct idt_entry) * 256); /* init them */
-
-	asm_idt_load(&idt_pointer); /* points processor register to our IDT */
+	asm_idt_load(&idt_pointer);
 }
 
