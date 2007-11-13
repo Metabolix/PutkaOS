@@ -4,7 +4,7 @@ KERNEL_FILE=kernel
 LDFLAGS=--oformat=elf32-i386 -melf_i386
 
 ASM=nasm
-ASMFLAGS=-f elf
+ASMFLAGS=-f elf -O1
 
 CC=gcc
 CFLAGS_41=-V 4.1 -fno-stack-protector
@@ -19,6 +19,7 @@ CFLAGS_OPTI=-O
 DIRS= \
 	memory \
 	multitasking \
+	syscall \
 	devices \
 		devices/blockdev \
 		devices/ports \
@@ -31,7 +32,7 @@ DIRS= \
 		filesys/iso9660 \
 	utils
 
-ASM_SRC=start.asm irq.asm isrs.asm bit.asm io.asm read_cmos.asm misc_asm.asm math.asm build_tweaks.asm syscall.asm string.asm
+ASM_SRC=start.asm irq.asm isrs.asm bit.asm io.asm read_cmos.asm misc_asm.asm math.asm build_tweaks.asm syscall/syscall.asm string.asm
 
 CO_SRC_STDROUTINES=string.c ctype.c int64.c endian.c list.c fprintf.c math.c xprintf_xscanf.c
 
@@ -75,8 +76,11 @@ CO_SRC_FS_ISO9660=$(addprefix iso9660/,$(CO_SRC_FS_ISO9660_1))
 CO_SRC_FS_1=mount.c filesystem.c file.c dir.c fileutils.c $(CO_SRC_FS_MINIX) $(CO_SRC_FS_FAT) $(CO_SRC_FS_EXT2) $(CO_SRC_FS_ISO9660)
 CO_SRC_FS=$(addprefix filesys/,$(CO_SRC_FS_1))
 
+CO_SRC_SYSCALL_1=init.c files.c memory.c
+CO_SRC_SYSCALL=$(addprefix syscall/,$(CO_SRC_SYSCALL_1))
+
 # Core
-C_SRC_CORE=gdt.c isr.c main.c panic.c idt.c irq.c keyboard.c spinlock.c syscall.c vt.c screen.c doublefault.c
+C_SRC_CORE=gdt.c isr.c main.c panic.c idt.c irq.c keyboard.c spinlock.c vt.c screen.c doublefault.c
 CO_SRC_CORE=timer.c kprintf.c sh.c sh_komennot.c time.c
 
 # Utils
@@ -88,7 +92,7 @@ C_SRC_MISC=
 CO_SRC_MISC=
 
 C_SRC= $(C_SRC_CORE)  $(C_SRC_MEM)  $(C_SRC_MULTITASK) $(C_SRC_DEVICES) $(C_SRC_MISC)
-CO_SRC=$(CO_SRC_CORE) $(CO_SRC_MEM) $(CO_SRC_STDROUTINES) $(CO_SRC_FS) $(CO_SRC_DEVICES) $(CO_SRC_UTILS) $(CO_SRC_MISC)
+CO_SRC=$(CO_SRC_CORE) $(CO_SRC_MEM) $(CO_SRC_STDROUTINES) $(CO_SRC_FS) $(CO_SRC_DEVICES) $(CO_SRC_SYSCALL) $(CO_SRC_UTILS) $(CO_SRC_MISC)
 
 # file.c => build/file.c.o
 ASM_OBJS=$(addsuffix .o,$(addprefix build/,$(ASM_SRC)))
