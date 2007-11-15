@@ -150,30 +150,21 @@ static void * sysrealloc(void *ptr, size_t size, int user)
 	return retval;
 }
 
+/**
+* Kernel functions
+**/
+
 void * kmalloc(size_t size) {
 	return sysmalloc(size, 0);
-}
-
-void * malloc(size_t size) {
-	return sysmalloc(size, 1);
 }
 
 void kfree(void * ptr) {
 	sysfree(ptr, 0);
 }
 
-void free(void * ptr) {
-	sysfree(ptr, 1);
-}
-
 void * krealloc(void *ptr, size_t size)
 {
 	return sysrealloc(ptr, size, 0);
-}
-
-void * realloc(void *ptr, size_t size)
-{
-	return sysrealloc(ptr, size, 1);
 }
 
 void * kcalloc(size_t nmemb, size_t size)
@@ -185,21 +176,15 @@ void * kcalloc(size_t nmemb, size_t size)
 	return retval;
 }
 
-void * calloc(size_t nmemb, size_t size)
-{
-	void *retval = malloc(nmemb * size);
-	if (retval) {
-		memset(retval, 0, nmemb * size);
-	}
-	return retval;
-}
-
+/**
+* User functions:
+*****/
 /**
 * syscall_malloc: malloc(ecx);
 **/
 void * syscall_malloc(size_t size)
 {
-	return malloc(size);
+	return sysmalloc(size, 1);
 }
 
 /**
@@ -207,7 +192,7 @@ void * syscall_malloc(size_t size)
 **/
 void syscall_free(void *ptr)
 {
-	free(ptr);
+	sysfree(ptr, 1);
 }
 
 /**
@@ -215,5 +200,5 @@ void syscall_free(void *ptr)
 **/
 void * syscall_realloc(void *ptr, size_t size)
 {
-	return realloc(ptr, size);
+	return sysrealloc(ptr, size, 1);
 }

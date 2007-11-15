@@ -106,7 +106,7 @@ CO_OBJS=$(addsuffix .o,$(addprefix build/,$(CO_SRC)))
 KERNEL_OBJS=$(ASM_OBJS) $(C_OBJS) $(CO_OBJS)
 
 STD_C_ASM_SRC=string.asm math.asm sys/mksyscall.asm build_tweaks.asm
-STD_C_C_SRC=int64.c string.c stdio.fmt.c stdio.xprintf.c stdio.c math.c time.c ctype.c sys/time.c sys/file.c
+STD_C_C_SRC=int64.c string.c stdlib.c stdio.fmt.c stdio.xprintf.c stdio.c math.c time.c ctype.c sys/time.c sys/file.c
 STD_C_ASM_OBJS=$(addsuffix .o,$(addprefix build/putka-clib/,$(STD_C_ASM_SRC)))
 STD_C_C_OBJS=$(addsuffix .o,$(addprefix build/putka-clib/,$(STD_C_C_SRC)))
 STD_C_OBJS=$(STD_C_C_OBJS) $(STD_C_ASM_OBJS)

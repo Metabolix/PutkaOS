@@ -29,7 +29,7 @@
 void testattava_koodi();
 
 const char systeemi[] = "PutkaOS";
-const char versio[] = "v. 0.005";
+const char versio[] = "v. 0.006";
 tid_t sh_tid;
 
 multiboot_info_t mbt_real;
