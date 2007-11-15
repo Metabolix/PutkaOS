@@ -26,14 +26,6 @@ intptr_t syscall_illegal(uint_t eax, intptr_t ecx, intptr_t edx)
 }
 
 /**
-* syscall_print: print(ecx);
-**/
-void syscall_print(const char *text)
-{
-	print(text);
-}
-
-/**
 * set_syscall: asetetaan syscall (eax = i) funktioon f.
 **/
 static int set_syscall(uint_t i, syscall_t f)

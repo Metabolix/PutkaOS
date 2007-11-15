@@ -2,6 +2,11 @@
 #include <sys/syscalls.h>
 #include <sys/file.h>
 
+void print(const char *str)
+{
+	syscall_print(str);
+}
+
 FILE *fopen(const char * filename, const char * mode)
 {
 	uint_t intmode = 0;

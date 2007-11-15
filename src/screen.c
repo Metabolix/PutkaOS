@@ -9,7 +9,7 @@ int putch(char c)
 {
 	return vt_putch(vt_out_get(), c);
 }
-int print(const char * string)
+int syscall_print(const char * string)
 {
 	return vt_print(vt_out_get(), string);
 }

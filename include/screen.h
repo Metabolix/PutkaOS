@@ -9,7 +9,7 @@
 
 extern unsigned int vt_out_get(void);
 extern void cls(void);
-extern int print(const char * string);
+extern int syscall_print(const char * string);
 extern int putch(char c);
 #define getdisplaysize(w, h) vt_getdisplaysize(vt_out_get(), w, h)
 #define move(y, x) vt_locate(vt_out_get(), x, y)

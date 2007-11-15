@@ -1,6 +1,8 @@
 #ifndef _STDIO_H
 #define _STDIO_H 1
 
+extern void print(const char *str);
+
 #include <stddef.h>
 #include <stdint.h>
 #include <stdarg.h>
@@ -46,7 +48,7 @@ extern int vfprintf(FILE * restrict f, const char * restrict fmt, va_list args);
 extern int sprintf(char * restrict buf, const char * restrict fmt, ...);
 extern int vsprintf(char * restrict buf, const char * restrict fmt, va_list args);
 
-extern int _xprintf(putstr_t putstr, const char * restrict fmt, va_list args);
+extern int _xprintf(putstr_t *putstr, const char * restrict fmt, va_list args);
 
 /*
 extern int remove(const char *filename);
