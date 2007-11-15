@@ -109,7 +109,7 @@ static void ext2_set_bg(struct ext2_fs * ext2, unsigned int desc_n)
 
 	if(desc_n != ext2->group_desc_n) {
 		ext2_flush_gd(ext2);
-		pos = ((fpos_t)ext2->super_block->s_blocks_per_group) *  ext2->block_size * desc_n;
+		pos = ((fpos_t)ext2->super_block->s_blocks_per_group) *  ext2->block_size * desc_n + 2048;
 		fsetpos(ext2->device, &pos);
 		fread(ext2->group_desc, sizeof(struct ext2_group_desc), 1, ext2->device);
 
@@ -850,8 +850,6 @@ void *ext2_fopen(struct ext2_fs *ext2, const char * filename, uint_t mode)
 	int inode_n;
 	int wrote_inode = 0;
 
-	if(ext2->mode == FILE_MODE_READ && mode & FILE_MODE_WRITE)
-		return 0;
 
 	inode_n = ext2_search_entry(ext2, filename, EXT2_ROOT_INO);
 	if(!inode_n) {
@@ -880,7 +878,7 @@ void *ext2_fopen(struct ext2_fs *ext2, const char * filename, uint_t mode)
 		ext2_release_all_blocks(ext2, inode_n, &inode);
 	}
 
-	file = kmalloc(sizeof(struct ext2_file));
+	file = kcalloc(1, sizeof(struct ext2_file));
 	file->inode = kmalloc(sizeof(struct ext2_inode));
 	memcpy(file->inode, &inode, sizeof(struct ext2_inode));
 	file->std.func = &ext2_op.std.filefunc;
@@ -917,7 +915,7 @@ size_t ext2_fread(void *buf, size_t size, size_t count, struct ext2_file *stream
 	size_t read = 0;
 	int to_read = size * count;
 	size_t howmuch;
-
+	
 	if(stream->std.pos >= stream->std.size)
 		return 0;
 	block = stream->std.pos / stream->fs->block_size;
