@@ -1,8 +1,13 @@
-#include <time.h>
-#include <timer.h>
 
-extern int days_in_month(int month, int year);
-extern int karkausvuosi(int year);
+#include <time.h>
+#include <int64.h>
+
+static int days_in_month(int month, int year);
+static int karkausvuosi(int year);
+
+//int days_in_month(int month, int year) { return (month != 1) ? (30 ^ (((month + 1) & 8) >> 3) ^ ((month + 1) & 1)) : ((((year + 1900) % 4 == 0) && (((year + 1900) % 100 != 0) || ((year + 1900) % 400 == 0))) ? 29 : 28); }
+int karkausvuosi(int year) { return (((year + 1900) % 4 == 0) && (((year + 1900) % 100 != 0) || ((year + 1900) % 400 == 0))); }
+int days_in_month(int month, int year) { year += month / 12; month %= 12; if (month < 0) { month += 12; year -= 1; } return (month != 1) ? (30 ^ (((month + 1) & 8) >> 3) ^ ((month + 1) & 1)) : ((((year + 1900) % 4 == 0) && (((year + 1900) % 100 != 0) || ((year + 1900) % 400 == 0))) ? 29 : 28); }
 
 static struct tm global_tm;
 
@@ -148,7 +153,7 @@ time_t mktime(struct tm *timeptr)
 time_t time(time_t *timer)
 {
 	struct tm tm;
-	get_sys_time(&tm);
+	syscall_get_system_time(&tm);
 	if (!timer) {
 		return mktime(&tm);
 	}

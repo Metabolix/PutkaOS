@@ -193,3 +193,27 @@ void * calloc(size_t nmemb, size_t size)
 	}
 	return retval;
 }
+
+/**
+* syscall_malloc: malloc(ecx);
+**/
+void * syscall_malloc(size_t size)
+{
+	return malloc(size);
+}
+
+/**
+* syscall_free: free(ecx);
+**/
+void syscall_free(void *ptr)
+{
+	free(ptr);
+}
+
+/**
+* syscall_realloc: realloc(ecx, edx);
+**/
+void * syscall_realloc(void *ptr, size_t size)
+{
+	return realloc(ptr, size);
+}

@@ -322,7 +322,7 @@ uint_t alloc_virtual_pages(uint_t phys_pd, uint_t count, int user)
 	}
 
 	for (page = first; page < first + count; ++page) {
-		if (map_virtual_page(phys_pd, first, 0, user)) {
+		if (map_virtual_page(phys_pd, page, 0, user)) {
 			goto free_pages_on_error;
 		}
 	}
@@ -367,6 +367,9 @@ current:
 		if (!(phys_page = alloc_phys_page(PT_NOSWAP_FLAG))) {
 			return -1;
 		}
+		void *ptr = temp_phys_page(0, phys_page);
+		memset(ptr, 0, MEMORY_PAGE_SIZE);
+		temp_phys_page(0, 0);
 		cur_virt_pd[pde] = KERNEL_PE(phys_page);
 		//cur_virt_pt[KERNEL_IMAGE_PAGES + pde] = KERNEL_PE(phys_page);
 		asm_flush_cr3();
@@ -375,6 +378,7 @@ current:
 	if (!phys_page) {
 		return -2;
 	}
+	// TODO: nollaus?
 	cur_virt_pt[virt_page] = NEW_PE(phys_page, user);
 	asm_flush_cr3();
 	return 0;
@@ -385,6 +389,9 @@ external:
 		if (!(phys_page = alloc_phys_page(PT_NOSWAP_FLAG))) {
 			return -1;
 		}
+		void *ptr = temp_phys_page(0, phys_page);
+		memset(ptr, 0, MEMORY_PAGE_SIZE);
+		temp_phys_page(0, 0);
 		pd[pde] = KERNEL_PE(phys_page);
 	}
 	pt = temp_page_table(pd[pde].pagenum);
@@ -392,6 +399,7 @@ external:
 	if (!phys_page) {
 		return -2;
 	}
+	// TODO: nollaus?
 	pt[pte] = NEW_PE(phys_page, user);
 	asm_flush_cr3();
 	return 0;
@@ -514,13 +522,15 @@ uint_t build_new_pagedir(uint_t old_phys_pd)
 		if (!new_pd[pde].pagenum) {
 			panic("build_new_pagedir: (!new_pd[pde].pagenum) == muisti loppui!");
 		}
+		// TODO: Swappaus pagedirin kopioinnissa
 		new_pt = temp_phys_page(2, new_pd[pde].pagenum);
+		memset(new_pt, 0, MEMORY_PAGE_SIZE);
 		old_pt = temp_phys_page(3, old_pd[pde].pagenum);
 		for (pte = 0; pte < MEMORY_PE_COUNT; ++pte) {
+			new_pt[pte] = old_pt[pte];
 			if (old_pt[pte].pagenum == 0) {
 				continue;
 			}
-			new_pt[pte] = old_pt[pte];
 			new_pt[pte].pagenum = alloc_phys_page(0);
 			if (!new_pt[pte].pagenum) {
 				panic("build_new_pagedir: (!new_pt[pte].pagenum) == muisti loppui!");
@@ -567,11 +577,15 @@ uint_t alloc_program_space(uint_t phys_pd, uint_t size, const void *code, int us
 		if (!(pptr = temp_virt_page(0, phys_pd, page))) {
 			goto free_pages_on_error;
 		}
-		if (size > MEMORY_PAGE_SIZE) {
+		if (size >= MEMORY_PAGE_SIZE) {
 			memcpy(pptr, cptr, MEMORY_PAGE_SIZE);
+			cptr += MEMORY_PAGE_SIZE;
+			size -= MEMORY_PAGE_SIZE;
 		} else {
 			memcpy(pptr, cptr, size);
 			memset(pptr + size, 0, MEMORY_PAGE_SIZE - size);
+			cptr += size;
+			size = 0;
 		}
 		temp_virt_page(0, phys_pd, page);
 	}

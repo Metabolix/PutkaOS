@@ -1,6 +1,7 @@
 #include <multitasking/process.h>
 #include <vt.h>
 #include <screen.h>
+#include <stdio.h>
 #include <misc_asm.h>
 
 int initialized = 0;

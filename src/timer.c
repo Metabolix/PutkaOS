@@ -6,6 +6,10 @@
 #include <string.h>
 #include <misc_asm.h>
 
+//static int days_in_month(int month, int year) { return (month != 1) ? (30 ^ (((month + 1) & 8) >> 3) ^ ((month + 1) & 1)) : ((((year + 1900) % 4 == 0) && (((year + 1900) % 100 != 0) || ((year + 1900) % 400 == 0))) ? 29 : 28); }
+//static int karkausvuosi(int year) { return (((year + 1900) % 4 == 0) && (((year + 1900) % 100 != 0) || ((year + 1900) % 400 == 0))); }
+static int days_in_month(int month, int year) { year += month / 12; month %= 12; if (month < 0) { month += 12; year -= 1; } return (month != 1) ? (30 ^ (((month + 1) & 8) >> 3) ^ ((month + 1) & 1)) : ((((year + 1900) % 4 == 0) && (((year + 1900) % 100 != 0) || ((year + 1900) % 400 == 0))) ? 29 : 28); }
+
 #include <int64.h>
 #define TICKS_TO_MICROSECS(ticks) (((uint64_t)1000000) * ticks / ((uint64_t)TIMER_TICK_RATE))
 
@@ -14,8 +18,22 @@
 volatile struct tm sys_time = {0};
 volatile struct timeval uptime;
 
-void get_sys_time(struct tm *sys_time_ptr) {if(sys_time_ptr)*sys_time_ptr = sys_time;}
-void get_uptime(struct timeval *uptime_ptr) {if(uptime_ptr)*uptime_ptr = uptime;}
+int syscall_get_system_time(struct tm *sys_time_ptr)
+{
+	if (sys_time_ptr) {
+		*sys_time_ptr = sys_time;
+		return 0;
+	}
+	return -1;
+}
+int syscall_get_uptime(struct timeval *uptime_ptr)
+{
+	if (uptime_ptr) {
+		*uptime_ptr = uptime;
+		return 0;
+	}
+	return -1;
+}
 
 #define MAX_TIMERS 16
 struct timer timers[MAX_TIMERS];
@@ -81,10 +99,6 @@ timer_id_t ktimer_start(void (*func)(void), unsigned int msec, int times)
 	timers[i].next_run.usec %= 1000000;
 	return timers[i].id;
 }
-
-//int days_in_month(int month, int year) { return (month != 1) ? (30 ^ (((month + 1) & 8) >> 3) ^ ((month + 1) & 1)) : ((((year + 1900) % 4 == 0) && (((year + 1900) % 100 != 0) || ((year + 1900) % 400 == 0))) ? 29 : 28); }
-int karkausvuosi(int year) { return (((year + 1900) % 4 == 0) && (((year + 1900) % 100 != 0) || ((year + 1900) % 400 == 0))); }
-int days_in_month(int month, int year) { year += month / 12; month %= 12; if (month < 0) { month += 12; year -= 1; } return (month != 1) ? (30 ^ (((month + 1) & 8) >> 3) ^ ((month + 1) & 1)) : ((((year + 1900) % 4 == 0) && (((year + 1900) % 100 != 0) || ((year + 1900) % 400 == 0))) ? 29 : 28); }
 
 void sys_next_year(void)
 {

@@ -1,0 +1,73 @@
+#include <stdio.h>
+#include <stdarg.h>
+#include <stdint.h>
+
+struct fprintf_putter {
+	putstr_t putstr;
+	FILE *file;
+};
+
+struct sprintf_putter {
+	putstr_t putstr;
+	char *buf, *buf_end;
+};
+
+size_t fprintf_putstr(const char *str, size_t len, struct fprintf_putter *f)
+{
+	return fwrite(str, len, 1, f->file);
+}
+
+size_t sprintf_putstr(const char *str, size_t len, struct sprintf_putter *f)
+{
+	int ret = 0;
+	if (len > f->buf_end - f->buf) {
+		len = f->buf_end - f->buf;
+		ret = -1;
+	}
+	memcpy(f->buf, str, len);
+	f->buf += len;
+	return len;
+}
+
+int vsprintf(char * restrict buf, const char * restrict fmt, va_list args)
+{
+	struct sprintf_putter putter = {
+		.putstr = (putstr_t) sprintf_putstr,
+		.buf = buf,
+		.buf_end = buf + INT32_MAX,
+	};
+
+	return _xprintf(&putter.putstr, fmt, args);
+}
+
+int sprintf(char * restrict buf, const char * restrict fmt, ...)
+{
+	int r;
+
+	va_list args;
+	va_start(args, fmt);
+	r = vsprintf(buf, fmt, args);
+	va_end(args);
+
+	return r;
+}
+
+int vfprintf(FILE * restrict f, const char * restrict fmt, va_list args)
+{
+	struct fprintf_putter putter = {
+		.putstr = (putstr_t) fprintf_putstr,
+		.file = f,
+	};
+
+	return _xprintf(&putter.putstr, fmt, args);
+}
+
+int fprintf(FILE * restrict f, const char * restrict fmt, ...)
+{
+	int retval;
+	va_list args;
+	va_start(args, fmt);
+	retval = vfprintf(f, fmt, args);
+	va_end(args);
+	return retval;
+}

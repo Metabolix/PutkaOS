@@ -6,6 +6,8 @@
 #include <stdarg.h>
 #include <int64.h>
 
+typedef size_t (*putstr_t)(const char *str, size_t len, /* putstr_t *self */ ...);
+
 typedef uint64_t fpos_t;
 
 typedef struct _FILE FILE;
@@ -43,6 +45,8 @@ extern int vfprintf(FILE * restrict f, const char * restrict fmt, va_list args);
 
 extern int sprintf(char * restrict buf, const char * restrict fmt, ...);
 extern int vsprintf(char * restrict buf, const char * restrict fmt, va_list args);
+
+extern int _xprintf(putstr_t putstr, const char * restrict fmt, va_list args);
 
 /*
 extern int remove(const char *filename);

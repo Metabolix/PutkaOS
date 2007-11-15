@@ -1,7 +1,7 @@
 #include <idt.h>
 #include <screen.h>
 
-#include <syscall/syscall.h>
+#include <sys/syscalls.list.h>
 #include <panic.h>
 
 extern void asm_syscall();
@@ -14,11 +14,13 @@ const syscall_t * const syscall_table_ptr = syscall_table;
 const int syscall_table_size = (sizeof(syscall_table) / sizeof(syscall_t));
 
 /**
-* Out of range || not defined
+* Out of range || not defined ; NOTICE: eax included in params!
 **/
 intptr_t syscall_illegal(uint_t eax, intptr_t ecx, intptr_t edx)
 {
-	kprintf("Illegal syscall %01d (%02x) (pid %01d, tid %01d)", eax, eax, active_tid, active_pid);
+	kprintf("Illegal syscall (%01d, %01d, %01d) = (%02x, %02x, %02x) (pid %01d, tid %01d)",
+		eax, ecx, edx, eax, ecx, edx,
+		active_tid, active_pid);
 	kill_thread(active_tid);
 	return -1;
 }
@@ -26,10 +28,9 @@ intptr_t syscall_illegal(uint_t eax, intptr_t ecx, intptr_t edx)
 /**
 * syscall_print: print(ecx);
 **/
-intptr_t syscall_print(uint_t eax, intptr_t ecx, intptr_t edx)
+void syscall_print(const char *text)
 {
-	print((const char *) ecx);
-	return 0;
+	print(text);
 }
 
 /**
@@ -54,12 +55,12 @@ void init_syscalls(void)
 {
 	memset(syscall_table, 0, sizeof(syscall_table));
 
-	#define SYSCALL_MACRO(number, func, ...) \
-	extern intptr_t func(uint_t eax, intptr_t ecx, intptr_t edx); \
-	if (set_syscall(number, func) != 0) { \
+	#define SYSCALL_MACRO(number, func, name, prototype, ...) \
+	extern prototype; \
+	if (set_syscall(number, (syscall_t) func) != 0) { \
 		goto paniikki; \
 	}
-	#include <syscall/syscalls.list.h>
+	#include <sys/syscalls.list.h>
 
 	#undef SYSCALL_MACRO
 

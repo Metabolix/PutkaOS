@@ -295,7 +295,7 @@ int mount_something(const char * device_filename, const char * mountpoint, uint_
 		return MOUNT_ERR_ALREADY_MOUNTED;
 	}
 
-	if (!(uusi.dev = fopen_intflags(device_filename, flags))) {
+	if (!(uusi.dev = fopen2(device_filename, flags))) {
 		kprintf("mount: (%s) => (%s): Couldn't open device.\n", device_filename, mountpoint);
 		return MOUNT_ERR_DEVICE_ERROR;
 	}
@@ -369,7 +369,7 @@ int mount_replace(const char * device_filename, const char * mountpoint, uint_t 
 		return MOUNT_ERR_TOTAL_FAILURE;
 	}
 
-	if (!(uusi.dev = fopen_intflags(device_filename, flags))) {
+	if (!(uusi.dev = fopen2(device_filename, flags))) {
 		kprintf("mount_replace: (%s) => (%s): Couldn't open device.\n", device_filename, mountpoint);
 		return MOUNT_ERR_DEVICE_ERROR;
 	}

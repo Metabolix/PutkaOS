@@ -5,14 +5,6 @@ extern syscall_table_size
 extern syscall_illegal
 
 global asm_syscall
-global make_syscall
-
-make_syscall:
-	mov eax, [esp+4]
-	mov ecx, [esp+8]
-	mov edx, [esp+12]
-	int 0x80
-	ret
 
 asm_syscall:
 	sti
@@ -24,9 +16,8 @@ asm_syscall:
 	jmp .prepare_call
 
 .out_of_range:
-	push eax
-	call syscall_illegal
-	add esp, 4
+	xor eax, eax
+	dec eax
 	iret
 
 .prepare_call:
@@ -41,12 +32,11 @@ asm_syscall:
 	jne .user_syscall
 
 .kernel_syscall:
-	enter 0, 12
+	enter 0, 8
 
-	; parametrit; int f(eax, ecx, edx);
-	mov [esp+2*4], edx
-	mov [esp+1*4], ecx
-	mov [esp+0*4], eax
+	; parametrit; int f(ecx, edx);
+	mov [esp+1*4], edx
+	mov [esp+0*4], ecx
 	mov edx,[syscall_table_ptr]
 	mov ecx,[edx+4*eax]
 	test ecx, ecx
@@ -65,17 +55,16 @@ asm_syscall:
 	push ebp
 	mov ebp, esp
 	mov esp, [ebp+16]
-	sub esp, 20
+	sub esp, 16
 
-	mov [esp + 3*4 + 3*2], ds
-	mov [esp + 3*4 + 2*2], es
-	mov [esp + 3*4 + 1*2], fs
-	mov [esp + 3*4 + 0*2], gs
+	mov [esp + 2*4 + 3*2], ds
+	mov [esp + 2*4 + 2*2], es
+	mov [esp + 2*4 + 1*2], fs
+	mov [esp + 2*4 + 0*2], gs
 
-	; parametrit; int f(eax, ecx, edx);
-	mov [esp + 2*4], edx
-	mov [esp + 1*4], ecx
-	mov [esp + 0*4], eax
+	; parametrit; int f(ecx, edx);
+	mov [esp + 1*4], edx
+	mov [esp + 0*4], ecx
 	mov edx,[syscall_table_ptr]
 	mov ecx,[edx+4*eax]
 	test ecx, ecx
@@ -89,10 +78,10 @@ asm_syscall:
 
 	call ecx
 
-	mov gs, [esp + 3*4 + 0*2]
-	mov fs, [esp + 3*4 + 1*2]
-	mov es, [esp + 3*4 + 2*2]
-	mov ds, [esp + 3*4 + 3*2]
+	mov gs, [esp + 2*4 + 0*2]
+	mov fs, [esp + 2*4 + 1*2]
+	mov es, [esp + 2*4 + 2*2]
+	mov ds, [esp + 2*4 + 3*2]
 
 	leave
 	iret

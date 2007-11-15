@@ -1,12 +1,14 @@
-#include <filesys/file.h>
 #include <stdarg.h>
 #include <string.h>
 #include <stdint.h>
+#include <string.h>
+#include <stdio.h>
+#include <int64.h>
 
 typedef uint32_t wint_t;
 
 // TODO: jokainen fprintf_stub.
-// TODO: fwrite-virheenkäsittely paddauksissa, ettei tule ikuisia silmukoita!
+// TODO: putstr-virheenkäsittely paddauksissa, ettei tule ikuisia silmukoita!
 
 #define FPRINTF_GETARG_U(type) \
 	((type)((sizeof(type) >= sizeof(unsigned int)) \
@@ -34,20 +36,21 @@ enum fmt_lenmod_t {
 typedef enum fmt_lenmod_t fmt_lenmod_t;
 
 struct printf_format_tag {
-	int left_align, always_sign, sharp, fillchar;
+	int left_align, sharp;
+	char always_sign, fillchar;
 	int width, precision;
 	int has_width, has_precision;
 	fmt_lenmod_t lenmod;
 };
 
-static int fprintf_stub(FILE *f, const char *what)
+static int fprintf_stub(putstr_t putstr, const char *what)
 {
 	const char *str1 = "[fprintf (";
 	const char *str2 = "): STUB!]";
 	return
-		fwrite(str1, 1, strlen(str1), f) +
-		fwrite(what, 1, strlen(what), f) +
-		fwrite(str2, 1, strlen(str2), f);
+		putstr(str1, strlen(str1), putstr) +
+		putstr(what, strlen(what), putstr) +
+		putstr(str2, strlen(str2), putstr);
 }
 /*
 static int sprintf_uint(char *sprintf_buf, unsigned int num)
@@ -169,7 +172,7 @@ static char *fmt_oct_64(char * restrict bufend, uint64_t num)
 	return bufend;
 }
 
-static int fprintf_heX(FILE *f, struct printf_format_tag *tag, uintmax_t num)
+static int fprintf_heX(putstr_t putstr, struct printf_format_tag *tag, uintmax_t num)
 {
 	// TODO
 	char buf[32], *ptr;
@@ -179,10 +182,10 @@ static int fprintf_heX(FILE *f, struct printf_format_tag *tag, uintmax_t num)
 	*(--ptr) = 'X';
 	*(--ptr) = 'e';
 	*(--ptr) = 'h';
-	return fprintf_stub(f, ptr);
+	return fprintf_stub(putstr, ptr);
 }
 
-static int fprintf_hex(FILE *f, struct printf_format_tag *tag, uintmax_t num)
+static int fprintf_hex(putstr_t putstr, struct printf_format_tag *tag, uintmax_t num)
 {
 	// TODO
 	char buf[32], *ptr;
@@ -192,10 +195,10 @@ static int fprintf_hex(FILE *f, struct printf_format_tag *tag, uintmax_t num)
 	*(--ptr) = 'x';
 	*(--ptr) = 'e';
 	*(--ptr) = 'h';
-	return fprintf_stub(f, ptr);
+	return fprintf_stub(putstr, ptr);
 }
 
-static int fprintf_oct(FILE *f, struct printf_format_tag *tag, uintmax_t num)
+static int fprintf_oct(putstr_t putstr, struct printf_format_tag *tag, uintmax_t num)
 {
 	// TODO
 	char buf[32], *ptr;
@@ -205,10 +208,10 @@ static int fprintf_oct(FILE *f, struct printf_format_tag *tag, uintmax_t num)
 	*(--ptr) = 't';
 	*(--ptr) = 'c';
 	*(--ptr) = 'o';
-	return fprintf_stub(f, ptr);
+	return fprintf_stub(putstr, ptr);
 }
 
-static int fprintf_uint(FILE *f, struct printf_format_tag *tag, uintmax_t num)
+static int fprintf_uint(putstr_t putstr, struct printf_format_tag *tag, uintmax_t num)
 {
 	char buf[32], *ptr;
 	int numstrlen, numlen, preclen, minlen, len;
@@ -245,7 +248,7 @@ static int fprintf_uint(FILE *f, struct printf_format_tag *tag, uintmax_t num)
 	if (!tag->left_align) {
 		while (minlen > preclen) {
 			--minlen;
-			len += fwrite(&tag->fillchar, 1, 1, f);
+			len += putstr(&tag->fillchar, 1, putstr);
 		}
 	}
 
@@ -253,52 +256,52 @@ static int fprintf_uint(FILE *f, struct printf_format_tag *tag, uintmax_t num)
 	if (tag->always_sign) {
 		--numlen;
 		--preclen;
-		len += fwrite(&tag->always_sign, 1, 1, f);
+		len += putstr(&tag->always_sign, 1, putstr);
 	}
 
 	// Precision padding
 	while (numlen < preclen) {
 		++numlen;
-		len += fwrite("0", 1, 1, f);
+		len += putstr("0", 1, putstr);
 	}
 
 	// Number
-	len += fwrite(ptr, 1, numstrlen, f);
+	len += putstr(ptr, numstrlen, putstr);
 
 	// Fill from right?
 	while (minlen > len) {
-		len += fwrite(&tag->fillchar, 1, 1, f);
+		len += putstr(&tag->fillchar, 1, putstr);
 	}
 
 	return len;
 }
 
-static int fprintf_int(FILE *f, struct printf_format_tag *tag, intmax_t num)
+static int fprintf_int(putstr_t putstr, struct printf_format_tag *tag, intmax_t num)
 {
 	if (num < 0) {
 		tag->always_sign = '-';
 		num = -num;
 	}
-	return fprintf_uint(f, tag, num);
+	return fprintf_uint(putstr, tag, num);
 }
 
-static int fprintf_fnan(FILE *f, struct printf_format_tag *tag)
+static int fprintf_fnan(putstr_t putstr, struct printf_format_tag *tag)
 {
 	// TODO
-	return fprintf_stub(f, "fnan");
+	return fprintf_stub(putstr, "fnan");
 }
-static int fprintf_finf(FILE *f, struct printf_format_tag *tag, int sign)
+static int fprintf_finf(putstr_t putstr, struct printf_format_tag *tag, int sign)
 {
 	// TODO
-	return fprintf_stub(f, "finf");
+	return fprintf_stub(putstr, "finf");
 }
-static int fprintf_fzero(FILE *f, struct printf_format_tag *tag, int sign)
+static int fprintf_fzero(putstr_t putstr, struct printf_format_tag *tag, int sign)
 {
 	// TODO
-	return fprintf_stub(f, "fzero");
+	return fprintf_stub(putstr, "fzero");
 }
 
-static long int fprintf_longdouble(FILE *f, struct printf_format_tag *tag, long double val)
+static long int fprintf_longdouble(putstr_t putstr, struct printf_format_tag *tag, long double val)
 {
 	// TODO
 	const long double inf = 1.0 / 0.0;
@@ -318,19 +321,19 @@ c = f / 10^d
 
 	// TODO: math ja sieltä nämä tunnistusfunktiot
 	if (val != val) { // NAN
-		return fprintf_fnan(f, tag);
+		return fprintf_fnan(putstr, tag);
 	}
 	if (val == inf) {
-		return fprintf_finf(f, tag, 1);
+		return fprintf_finf(putstr, tag, 1);
 	}
 	if (val == ninf) {
-		return fprintf_finf(f, tag, -1);
+		return fprintf_finf(putstr, tag, -1);
 	}
 	if (memcmp(&val, &zero, sizeof(val)) == 0) {
-		return fprintf_fzero(f, tag, 1);
+		return fprintf_fzero(putstr, tag, 1);
 	}
 	if (memcmp(&val, &nzero, sizeof(val)) == 0) {
-		return fprintf_fzero(f, tag, -1);
+		return fprintf_fzero(putstr, tag, -1);
 	}
 	// TÄHÄN ASTI LÄHES HYVÄ.
 
@@ -369,53 +372,53 @@ c = f / 10^d
 		strcat(str, ptr);
 	}
 
-	return fwrite(str, 1, strlen(str), f);
+	return putstr(str, strlen(str), putstr);
 }
-static int fprintf_double(FILE *f, struct printf_format_tag *tag, double val)
+static int fprintf_double(putstr_t putstr, struct printf_format_tag *tag, double val)
 {
 	// TODO
-	return fprintf_longdouble(f, tag, val);
+	return fprintf_longdouble(putstr, tag, val);
 }
 
-static int fprintf_double_short(FILE *f, struct printf_format_tag *tag, double d, char bigchar)
+static int fprintf_double_short(putstr_t putstr, struct printf_format_tag *tag, double d, char bigchar)
 {
 	// TODO
-	return fprintf_double(f, tag, d);
+	return fprintf_double(putstr, tag, d);
 }
-static int fprintf_longdouble_short(FILE *f, struct printf_format_tag *tag, long double d, char bigchar)
+static int fprintf_longdouble_short(putstr_t putstr, struct printf_format_tag *tag, long double d, char bigchar)
 {
 	// TODO
-	return fprintf_longdouble(f, tag, d);
-}
-
-static int fprintf_double_exp(FILE *f, struct printf_format_tag *tag, double d, char bigchar)
-{
-	// TODO
-	return fprintf_double(f, tag, d);
-}
-static int fprintf_longdouble_exp(FILE *f, struct printf_format_tag *tag, long double d, char bigchar)
-{
-	// TODO
-	return fprintf_longdouble(f, tag, d);
+	return fprintf_longdouble(putstr, tag, d);
 }
 
-static int fprintf_ptr(FILE *f, struct printf_format_tag *tag, uintptr_t addr)
+static int fprintf_double_exp(putstr_t putstr, struct printf_format_tag *tag, double d, char bigchar)
+{
+	// TODO
+	return fprintf_double(putstr, tag, d);
+}
+static int fprintf_longdouble_exp(putstr_t putstr, struct printf_format_tag *tag, long double d, char bigchar)
+{
+	// TODO
+	return fprintf_longdouble(putstr, tag, d);
+}
+
+static int fprintf_ptr(putstr_t putstr, struct printf_format_tag *tag, uintptr_t addr)
 {
 	tag->fillchar = ' ';
 	int ret = 0, len = 12; // [12345678xP]
 	char buf[13] = "[00000000xP]";
 
 	if (!tag->left_align) while (len < tag->width) {
-		if (!fwrite(&tag->fillchar, 1, 1, f)) {
+		if (!putstr(&tag->fillchar, 1, putstr)) {
 			break;
 		}
 		++ret; ++len;
 	}
 	fmt_hex_32(buf + 9, addr, 0);
-	ret += fwrite(buf, 1, 12, f);
+	ret += putstr(buf, 12, putstr);
 
 	if (tag->left_align) while (len < tag->width) {
-		if (!fwrite(&tag->fillchar, 1, 1, f)) {
+		if (!putstr(&tag->fillchar, 1, putstr)) {
 			break;
 		}
 		++ret; ++len;
@@ -423,22 +426,22 @@ static int fprintf_ptr(FILE *f, struct printf_format_tag *tag, uintptr_t addr)
 	return ret;
 }
 
-static int fprintf_char(FILE *f, struct printf_format_tag *tag, unsigned char c)
+static int fprintf_char(putstr_t putstr, struct printf_format_tag *tag, unsigned char c)
 {
 	int len = 1;
 	if (tag->left_align) {
-		fwrite(&c, 1, 1, f);
+		putstr((char*) &c, 1, putstr);
 	}
 	while (len < tag->width) {
-		fwrite(&tag->fillchar, 1, 1, f);
+		putstr(&tag->fillchar, 1, putstr);
 		++len;
 	}
 	if (!tag->left_align) {
-		fwrite(&c, 1, 1, f);
+		putstr((char*) &c, 1, putstr);
 	}
 	return len;
 }
-static int fprintf_str(FILE *f, struct printf_format_tag *tag, const char *str)
+static int fprintf_str(putstr_t putstr, struct printf_format_tag *tag, const char *str)
 {
 	if (!str) {
 		return 6;
@@ -446,34 +449,34 @@ static int fprintf_str(FILE *f, struct printf_format_tag *tag, const char *str)
 	int len, slen, i;
 	len = slen = strlen(str);
 	if (tag->left_align) {
-		if ((i = fwrite(str, slen, 1, f)) != slen) {
+		if ((i = putstr(str, slen, putstr)) != slen) {
 			return i;
 		}
 	}
 	while (len < tag->width) {
-		if (!fwrite(&tag->fillchar, 1, 1, f)) {
+		if (!putstr(&tag->fillchar, 1, putstr)) {
 			break;
 		}
 		++len;
 	}
 	if (!tag->left_align) {
-		if ((i = fwrite(str, slen, 1, f)) != slen) {
+		if ((i = putstr(str, slen, putstr)) != slen) {
 			return i; // TODO: laske se oikein. >_<
 		}
 	}
 	return len;
 }
 
-static int fprintf_wchar(FILE *f, struct printf_format_tag *tag, wchar_t c)
+static int fprintf_wchar(putstr_t putstr, struct printf_format_tag *tag, wchar_t c)
 {
 	// TODO!
-	return fprintf_stub(f, "wchar");
+	return fprintf_stub(putstr, "wchar");
 }
 
-static int fprintf_wstr(FILE *f, struct printf_format_tag *tag, const wchar_t *str)
+static int fprintf_wstr(putstr_t putstr, struct printf_format_tag *tag, const wchar_t *str)
 {
 	// TODO!
-	return fprintf_stub(f, "wstr");
+	return fprintf_stub(putstr, "wstr");
 }
 
 static void fprintf_numbytes(void *ptr, struct printf_format_tag *tag, int numbytes)
@@ -571,7 +574,7 @@ static const char *fprintf_flags(const char *fmt, struct printf_format_tag *tag)
 	return fmt;
 }
 
-int vfprintf(FILE * restrict f, const char * restrict fmt, va_list args)
+int _xprintf(putstr_t putstr, const char * restrict fmt, va_list args)
 {
 	int retval = 0, numbytes = 0;
 	const char *strptr;
@@ -603,17 +606,17 @@ int vfprintf(FILE * restrict f, const char * restrict fmt, va_list args)
 	while (*fmt) {
 		for (strptr = fmt; *strptr && *strptr != '%'; ++strptr);
 		if (!strptr[0]) {
-			numbytes += fwrite(fmt, 1, strptr - fmt, f);
+			numbytes += putstr(fmt, strptr - fmt, putstr);
 			break;
 		}
 
 		// "abc%%..." => print("abc%"), fmt = "..."
 		if (strptr[1] == '%') {
-			numbytes += fwrite(fmt, 1, strptr - fmt + 1, f);
+			numbytes += putstr(fmt, strptr - fmt + 1, putstr);
 			fmt = strptr + 2;
 			continue;
 		}
-		numbytes += fwrite(fmt, 1, strptr - fmt, f);
+		numbytes += putstr(fmt, strptr - fmt, putstr);
 
 		// fmt = "%...?"
 		fmt = strptr;
@@ -658,44 +661,44 @@ int vfprintf(FILE * restrict f, const char * restrict fmt, va_list args)
 		switch (*strptr) {
 			case 'c':
 				if (tag->lenmod == LEN_l) {
-					numbytes += fprintf_wchar(f, tag, va_arg(args, wint_t));
+					numbytes += fprintf_wchar(putstr, tag, va_arg(args, wint_t));
 				} else {
-					numbytes += fprintf_char(f, tag, va_arg(args, int));
+					numbytes += fprintf_char(putstr, tag, va_arg(args, int));
 				}
 				break;
 			case 'e':
 			case 'E':
 				if (tag->lenmod == LEN_longdouble) {
-					numbytes += fprintf_longdouble_exp(f, tag, va_arg(args, long double), *strptr);
+					numbytes += fprintf_longdouble_exp(putstr, tag, va_arg(args, long double), *strptr);
 				} else {
-					numbytes += fprintf_double_exp(f, tag, va_arg(args, double), *strptr);
+					numbytes += fprintf_double_exp(putstr, tag, va_arg(args, double), *strptr);
 				}
 				break;
 			case 'f':
 				if (tag->lenmod == LEN_longdouble) {
-					numbytes += fprintf_longdouble(f, tag, va_arg(args, long double));
+					numbytes += fprintf_longdouble(putstr, tag, va_arg(args, long double));
 				} else {
-					numbytes += fprintf_double(f, tag, va_arg(args, double));
+					numbytes += fprintf_double(putstr, tag, va_arg(args, double));
 				}
 				break;
 			case 'g':
 			case 'G':
 				if (tag->lenmod == LEN_longdouble) {
-					numbytes += fprintf_longdouble_short(f, tag, va_arg(args, long double), *strptr);
+					numbytes += fprintf_longdouble_short(putstr, tag, va_arg(args, long double), *strptr);
 				} else {
-					numbytes += fprintf_double_short(f, tag, va_arg(args, double), *strptr);
+					numbytes += fprintf_double_short(putstr, tag, va_arg(args, double), *strptr);
 				}
 				break;
 			case 's':
 				tag->fillchar = ' ';
 				if (tag->lenmod == LEN_l) {
-					numbytes += fprintf_wstr(f, tag, va_arg(args, const wchar_t*));
+					numbytes += fprintf_wstr(putstr, tag, va_arg(args, const wchar_t*));
 				} else {
-					numbytes += fprintf_str(f, tag, va_arg(args, const char*));
+					numbytes += fprintf_str(putstr, tag, va_arg(args, const char*));
 				}
 				break;
 			case 'p':
-				numbytes += fprintf_ptr(f, tag, va_arg(args, uintptr_t));
+				numbytes += fprintf_ptr(putstr, tag, va_arg(args, uintptr_t));
 				break;
 			case 'n':
 				fprintf_numbytes(va_arg(args, void*), tag, numbytes);
@@ -728,7 +731,7 @@ int vfprintf(FILE * restrict f, const char * restrict fmt, va_list args)
 						types.smax = FPRINTF_GETARG_S(signed int);
 						break;
 				}
-				numbytes += fprintf_int(f, tag, types.smax);
+				numbytes += fprintf_int(putstr, tag, types.smax);
 				break;
 
 			case 'u':
@@ -763,16 +766,16 @@ int vfprintf(FILE * restrict f, const char * restrict fmt, va_list args)
 				}
 				switch (*strptr) {
 					case 'u':
-						numbytes += fprintf_uint(f, tag, types.umax);
+						numbytes += fprintf_uint(putstr, tag, types.umax);
 						break;
 					case 'o':
-						numbytes += fprintf_oct(f, tag, types.umax);
+						numbytes += fprintf_oct(putstr, tag, types.umax);
 						break;
 					case 'x':
-						numbytes += fprintf_hex(f, tag, types.umax);
+						numbytes += fprintf_hex(putstr, tag, types.umax);
 						break;
 					case 'X':
-						numbytes += fprintf_heX(f, tag, types.umax);
+						numbytes += fprintf_heX(putstr, tag, types.umax);
 						break;
 				}
 				break;
@@ -908,9 +911,9 @@ int vfprintf(FILE * restrict f, const char * restrict fmt, va_list args)
 #endif
 			default:
 				--retval;
-				numbytes += fwrite("[", 1, 1, f);
-				numbytes += fwrite(fmt, 1, strptr - fmt + 1, f);
-				numbytes += fwrite(" O_o]", 1, 5, f);
+				numbytes += putstr("[", 1, putstr);
+				numbytes += putstr(fmt, strptr - fmt + 1, putstr);
+				numbytes += putstr(" O_o]", 5, putstr);
 		}
 		++retval;
 		++strptr;
