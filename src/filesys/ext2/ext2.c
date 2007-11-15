@@ -184,7 +184,7 @@ static void ext2_read_inode_bitmap(struct ext2_fs *ext2)
 	}
 	fsetpos(ext2->device, &pos);
 	if(fread(ext2->ext2_inode_bitmap, ext2->super_block->s_inodes_per_group/8, 1, ext2->device) < 1) {
-		memset(ext2->ext2_inode_bitmap, 0xFF, ext2->block_size);
+		memset(ext2->ext2_inode_bitmap, 0xFF, ext2->super_block->s_inodes_per_group/8);
 	}
 	ext2->inode_bitmap_read = 1;
 }
@@ -199,7 +199,7 @@ static void ext2_read_block_bitmap(struct ext2_fs *ext2)
 	}
 	fsetpos(ext2->device, &pos);
 	if(fread(ext2->ext2_block_bitmap, ext2->super_block->s_blocks_per_group/8, 1, ext2->device) < 1) {
-		memset(ext2->ext2_block_bitmap, 0xFF, ext2->block_size);
+		memset(ext2->ext2_block_bitmap, 0xFF, ext2->super_block->s_blocks_per_group/8);
 	}
 	ext2->block_bitmap_read = 1;
 }
@@ -366,11 +366,13 @@ static int get_iblock(struct ext2_inode * inode, unsigned int block, struct ext2
 		buffer = (unsigned int*)get_block(block_n, ext2->block_size, ext2, buffer);
 		block_n = buffer[(block - EXT2_IND_BLOCK - p_per_block - p_per_block * p_per_block)];
 	}
-	if(!block_n)
+	if (!block_n) {
 		goto error;
+	}
 
-	if(block < EXT2_NDIR_BLOCKS)
+	if (block < EXT2_NDIR_BLOCKS) {
 		kfree(buffer);
+	}
 	return block_n;
 
 error:
@@ -451,41 +453,54 @@ static int ext2_inode_add_block(struct ext2_inode * inode, int inodenum, struct 
 
 
 
-struct fs *ext2_mount(FILE *device, uint_t mode) {
-	struct ext2_fs * ext2_fs = kmalloc(sizeof(struct ext2_fs));
+struct fs *ext2_mount(FILE *device, uint_t mode)
+{
+	char * const mem0 = kcalloc(sizeof(struct ext2_fs) + sizeof(struct ext2_super_block) + sizeof(struct ext2_group_desc), 1);
+	char *mem = mem0;
+	struct ext2_fs * ext2_fs = (void*) mem;
+	mem += sizeof(struct ext2_fs);
+	if (!ext2_fs) {
+		return 0;
+	}
 
 	memcpy(&ext2_fs->std, &ext2_op, sizeof(struct fs));
-	ext2_fs->super_block = kmalloc(sizeof(struct ext2_super_block));
+	ext2_fs->super_block = (void*)mem;
+	mem += sizeof(struct ext2_super_block);
 	ext2_fs->device = device;
 
 	ext2_fs->mode = mode;
 
 	fseek(device, 1024, SEEK_SET);
-	if(fread(ext2_fs->super_block, 512, 2, device) < 2) {
+	if (fread(ext2_fs->super_block, 512, 2, device) < 2) {
 		kprintf("Couldn't read superblock!\n");
+		kfree(mem0);
 		return 0;
 	}
 	//kprintf("S_inode_size is %x and s_magic is %x\n", ext2_fs->super_block->s_inode_size, ext2_fs->super_block->s_magic);
 
-	if(ext2_fs->super_block->s_magic != EXT2_SUPER_MAGIC) {
+	if (ext2_fs->super_block->s_magic != EXT2_SUPER_MAGIC) {
 		/* Bad magic number, there is no ext2fs here */
+		kfree(mem0);
 		return 0;
 	}
-	if(ext2_fs->super_block->s_log_block_size < 3)
+	if (ext2_fs->super_block->s_log_block_size < 3) {
 		ext2_fs->block_size = 1024 << ext2_fs->super_block->s_log_block_size;
-	else {
+	} else {
 		DEBUGP("S_log_block_size is something weird\n");
+		kfree(mem0);
 		return 0;
 	}
 
 	//kprintf("inodes_count is %d\n", ext2_fs->super_block->s_inodes_count);
 
-	ext2_fs->group_desc = kmalloc(sizeof(struct ext2_group_desc));
+	ext2_fs->group_desc = (void*) mem;
+	mem += sizeof(struct ext2_group_desc);
 	ext2_fs->group_desc_n = 0;
 
 	fseek(device, 2048, SEEK_SET);
-	if(fread(ext2_fs->group_desc, sizeof(struct ext2_group_desc), 1, device) < 1) {
+	if (fread(ext2_fs->group_desc, sizeof(struct ext2_group_desc), 1, device) < 1) {
 		DEBUGP("Couldn't read group descriptor!\n");
+		kfree(mem0);
 		return 0;
 	}
 	ext2_fs->ext2_inode_bitmap = kmalloc(ext2_fs->super_block->s_inodes_per_group / 8);
@@ -493,9 +508,11 @@ struct fs *ext2_mount(FILE *device, uint_t mode) {
 	return (struct fs*)ext2_fs;
 }
 
-int ext2_umount(struct ext2_fs *this) {
-	if(this->refs_open > 0)
+int ext2_umount(struct ext2_fs *this)
+{
+	if (this->refs_open > 0) {
 		return MOUNT_ERR_BUSY;
+	}
 
 	ext2_flush_gd(this);
 	ext2_flush_sb(this);
@@ -503,12 +520,12 @@ int ext2_umount(struct ext2_fs *this) {
 
 	fflush(this->device);
 
-	if(this->ext2_inode_bitmap)
+	if (this->ext2_inode_bitmap) {
 		kfree(this->ext2_inode_bitmap);
-	if(this->ext2_block_bitmap)
+	}
+	if (this->ext2_block_bitmap) {
 		kfree(this->ext2_block_bitmap);
-	kfree(this->group_desc);
-	kfree(this->super_block);
+	}
 	kfree(this);
 
 	return 0;
@@ -517,7 +534,6 @@ int ext2_umount(struct ext2_fs *this) {
 static int ext2_search_entry(struct ext2_fs * ext2, const char * filename, const unsigned int basedir)
 {
 	char entry[EXT2_NAME_LEN + 1];
-	unsigned int chars;
 	unsigned int last_inode = -1;
 	unsigned int entry_len;
 	struct ext2_inode inode;
@@ -527,35 +543,39 @@ static int ext2_search_entry(struct ext2_fs * ext2, const char * filename, const
 	char * block;
 	int max_size;
 
-	if(filename[0] == 0)
+	if (filename[0] == 0) {
 		return EXT2_ROOT_INO;
+	}
 	block = kmalloc(ext2->block_size);
 
 	while(filename[0]) { /* while something to parse */
-roll:
 		last_inode = inode_n;
-		chars = 0;
+		entry_len = 0;
 
-		while(filename[0] && filename[0] != '/') {
-			entry[chars++] = filename[0];
+		while(filename[0] && filename[0] != '/' && entry_len < EXT2_NAME_LEN) {
+			entry[entry_len] = filename[0];
+			entry_len++;
 			filename++;
 		}
-		if(filename[0] == '/')
+		if(filename[0] == '/') {
 			filename++;
-		entry[chars] = 0;
+		} else if (filename[0]) {
+			goto error;
+		}
+		entry[entry_len] = 0;
 
-		if(chars == 0)
-			break;
+		if (entry_len == 0) {
+			goto error;
+		}
 
-		entry_len = strlen(entry);
 		inode = ext2_get_inode(ext2, inode_n);
-
-		while(cur_block < inode.i_blocks) {
-			if((inode.i_mode >> 13) != EXT2_FT_DIR) {
-				if(filename[0] == '/') {
-					goto error;
-				}
+		if ((inode.i_mode >> 13) != EXT2_FT_DIR) {
+			if (filename[0] == '/') {
+				goto error;
 			}
+		}
+
+		for (cur_block = 0; cur_block < inode.i_blocks; ++cur_block) {
 			if(!get_block(get_iblock(&inode, cur_block, ext2), ext2->block_size, ext2, block)) {
 				goto error;
 			}
@@ -572,15 +592,16 @@ roll:
 						inode_n = dir->inode;
 						//kprintf("Inode_n == %d\n", inode_n);
 						//cur_block =  (inode.i_size  + ext2->block_size - 1)* ext2->block_size;
-						goto roll;
+						goto outer_continue;
 					}
 				}
 				dir = (struct ext2_dir_entry_2*)((unsigned int) dir + dir->rec_len);
 			}
-			cur_block++;
 		}
-		if(last_inode == inode_n)
+		if (last_inode == inode_n) {
 			goto error;
+		}
+		outer_continue:;
 	}
 	kfree(block);
 	return inode_n;
@@ -733,23 +754,21 @@ out:
 
 static void ext2_separate(const char * name, char ** dir, char ** file)
 {
-	char * cur = (char*) name;
-	char * last = cur;
+	const char * cur = name;
+	const char * last = cur;
 
 	while(*cur) {
 		if(*cur == '/')
 			last = cur;
 		cur++;
 	}
-	*dir = kmalloc(last - (char*)name + 2);
-	memcpy((*dir) + 1, name, last - (char*)dir);
+	*dir = kmalloc(last - name + 2);
+	memcpy((*dir) + 1, name, last - name);
 	(*dir)[0] = '/';
-	(*dir)[last - (char*)name + 1] = 0;
+	(*dir)[1 + last - name] = 0;
 
 	*file = kmalloc(cur - last + 1);
 	memcpy(*file, last, cur - last + 1);
-
-	*last = 0;
 }
 
 static int ext2_make_entry(struct ext2_fs * this, const char * dirname, unsigned char type, int * dir_inode, int inode)
@@ -850,7 +869,6 @@ void *ext2_fopen(struct ext2_fs *ext2, const char * filename, uint_t mode)
 	int inode_n;
 	int wrote_inode = 0;
 
-
 	inode_n = ext2_search_entry(ext2, filename, EXT2_ROOT_INO);
 	if(!inode_n) {
 		if(mode & FILE_MODE_WRITE) {
@@ -874,12 +892,12 @@ void *ext2_fopen(struct ext2_fs *ext2, const char * filename, uint_t mode)
 		}
 	}
 
-	if(ext2->mode == FILE_MODE_CLEAR) {
+	if (ext2->mode == FILE_MODE_CLEAR) {
 		ext2_release_all_blocks(ext2, inode_n, &inode);
 	}
 
-	file = kcalloc(1, sizeof(struct ext2_file));
-	file->inode = kmalloc(sizeof(struct ext2_inode));
+	file = kcalloc(sizeof(struct ext2_file) + sizeof(struct ext2_inode), 1);
+	file->inode = (void*)((char*)file + sizeof(struct ext2_file));
 	memcpy(file->inode, &inode, sizeof(struct ext2_inode));
 	file->std.func = &ext2_op.std.filefunc;
 	file->fs = ext2;
@@ -887,8 +905,9 @@ void *ext2_fopen(struct ext2_fs *ext2, const char * filename, uint_t mode)
 	file->std.size = inode.i_size;
 	file->mode = mode;
 
-	if(mode & FILE_MODE_CLEAR)
+	if (mode & FILE_MODE_CLEAR) {
 		ext2_inode_add_block(file->inode, inode_n, ext2);
+	}
 
 	ext2->refs_open++;
 
@@ -904,7 +923,6 @@ int ext2_fclose(struct ext2_file *stream) {
 	if(stream->mode & FILE_MODE_WRITE)
 		ext2_write_inode(stream->fs, stream->inode_num, stream->inode);
 	stream->fs->refs_open--;
-	kfree(stream->inode);
 	kfree(stream);
 	return 0;
 }
@@ -915,7 +933,7 @@ size_t ext2_fread(void *buf, size_t size, size_t count, struct ext2_file *stream
 	size_t read = 0;
 	int to_read = size * count;
 	size_t howmuch;
-	
+
 	if(stream->std.pos >= stream->std.size)
 		return 0;
 	block = stream->std.pos / stream->fs->block_size;
@@ -963,9 +981,10 @@ size_t ext2_fwrite(void *buf, size_t size, size_t count, struct ext2_file *strea
 		to_write -= stream->fs->block_size - offset; /* if we don't write whole block this still goes under 1 and we quit, so we don't have to care about it */
 		offset = 0;
 		stream->std.pos += howmuch;
-		if(stream->inode->i_size < stream->std.pos)
+		if (stream->inode->i_size < stream->std.pos) {
 			stream->inode->i_size = stream->std.pos;
-		if((stream->std.pos / stream->fs->block_size) >= stream->inode->i_blocks) {
+		}
+		if ((stream->std.pos / stream->fs->block_size) >= stream->inode->i_blocks) {
 			ext2_inode_add_block(stream->inode, stream->inode_num, stream->fs);
 		}
 	}
@@ -982,29 +1001,6 @@ int ext2_fsetpos(struct ext2_file *stream, const fpos_t *pos) {
 
 int ext2_fflush(struct ext2_file *stream) {
 	return fflush(stream->fs->device);
-}
-
-long ext2_ftell(struct ext2_file *stream) {
-	return stream->std.pos;
-}
-
-int ext2_fseek(struct ext2_file * stream, long int offset, int origin) {
-	if(origin == SEEK_SET) {
-		if(stream->std.size >= offset)
-			stream->std.pos = stream->std.size - 1;
-		else
-			stream->std.pos = offset;
-	} else if(origin == SEEK_CUR) {
-		stream->std.pos += offset;
-		if(stream->std.pos >= stream->std.size)
-			stream->std.pos = stream->std.size - 1;
-	} else if(origin == SEEK_END) {
-		stream->std.pos = stream->std.size - offset - 1;
-		if(stream->std.pos < 0)
-			stream->std.pos = 0;
-	}
-
-	return 0;
 }
 
 int ext2_dmake(struct ext2_fs * this, const char * dirname)
@@ -1066,22 +1062,26 @@ DIR *ext2_dopen(struct ext2_fs * this, const char * dirname)
 
 	int inode_n = ext2_search_entry(this, dirname, EXT2_ROOT_INO);
 	if(!inode_n) {
+		print("(!inode_n)\n");
 		return 0;
 	}
 
 	inode = ext2_get_inode(this, inode_n);
 	if((inode.i_mode >> 13) != (EXT2_FT_DIR)) {/* not directory? */
+		print("((inode.i_mode >> 13) != (EXT2_FT_DIR))\n");
 		return 0;
 	}
 
-	dir = kmalloc(sizeof(struct ext2_dir));
-	if(!dir)
+	dir = kcalloc(sizeof(struct ext2_dir) + sizeof(struct ext2_inode) + this->block_size, 1);
+	if (!dir) {
+		print("(!dir)\n");
 		return 0;
+	}
 
 	dir->directory_inode = inode_n;
-	dir->inode = kmalloc(sizeof(struct ext2_inode));
-	if(!dir->inode)
-		return 0;
+	dir->inode = (void*)((char*)dir + sizeof(struct ext2_dir));
+	dir->buffer = (void*)((char*)dir->inode + sizeof(struct ext2_inode));
+
 	memcpy(dir->inode, &inode, sizeof(struct ext2_inode));
 
 	dir->std.func = &ext2_op.std.dirfunc;
@@ -1089,7 +1089,6 @@ DIR *ext2_dopen(struct ext2_fs * this, const char * dirname)
 	dir->std.entry.size = inode.i_size;
 	dir->std.entry.name = dir->name = 0;
 	dir->inode_num = 0;
-	dir->buffer = kmalloc(this->block_size);
 	dir->pos = 0;
 	dir->block = -1;
 
@@ -1135,17 +1134,18 @@ int ext2_dread(struct ext2_dir * listing) {
 			dir = (struct ext2_dir_entry_2*)((unsigned int) dir + dir->rec_len);
 		}
 		cur_block++;
-		if(!get_block(get_iblock(listing->inode, cur_block, ext2), ext2->block_size, ext2, listing->buffer))
+		if (!get_block(get_iblock(listing->inode, cur_block, ext2), ext2->block_size, ext2, listing->buffer)) {
 			return 1;
+		}
 	}
 	return 1;
 }
 
-int ext2_dclose(struct ext2_dir *listing) {
-	kfree(listing->inode);
-	kfree(listing->buffer);
-	if(listing->name)
+int ext2_dclose(struct ext2_dir *listing)
+{
+	if (listing->name) {
 		kfree(listing->name);
+	}
 	kfree(listing);
 
 	return 0;
@@ -1179,14 +1179,14 @@ int ext2_unlink(struct ext2_fs *ext2, const char *file)
 	unsigned int inode_n;
 	int retval = 0;
 	ext2_separate(file, &dir, &filename);
-	dir_inode = ext2_search_entry(ext2, file, EXT2_ROOT_INO);
+	dir_inode = ext2_search_entry(ext2, dir, EXT2_ROOT_INO);
 
 	if(!dir_inode) {
 		retval = -1;
 		goto out;
 	}
 
-	inode_n = ext2_search_entry(ext2, file, dir_inode);
+	inode_n = ext2_search_entry(ext2, filename, dir_inode);
 	if(!inode_n) {
 		retval = -1;
 		goto out;

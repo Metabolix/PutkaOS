@@ -561,8 +561,6 @@ size_t ext2_fread(void *buf, size_t size, size_t count, struct ext2_file *stream
 size_t ext2_fwrite(void *buf, size_t size, size_t count, struct ext2_file *stream);
 
 int ext2_fflush(struct ext2_file *stream);
-long ext2_ftell(struct ext2_file *stream);
-int ext2_fseek(struct ext2_file *stream, long int offset, int origin);
 
 int ext2_fsetpos(struct ext2_file *stream, const fpos_t *pos);
 int ext2_ioctl(struct ext2_file *f, int request, uintptr_t param);

@@ -17,7 +17,7 @@ typedef struct
 
 // Function prototypes
 static void * sysmalloc(size_t size, int user);
-static void sysfree(void * ptr, int user);
+static int sysfree(void * ptr, int user);
 static void * sysrealloc(void *ptr, size_t size, int user);
 
 // An ugly way to save allocation sizes...
@@ -71,7 +71,7 @@ static void * sysmalloc(size_t size, int user)
 	return memory_allocations[i].virt_addr;
 }
 
-static void sysfree(void * ptr, int user)
+static int sysfree(void * ptr, int user)
 {
 	uint_t address;
 	uint_t virt_page_beg, offset_beg;
@@ -79,7 +79,7 @@ static void sysfree(void * ptr, int user)
 	int i;
 
 	if (user && (ADDR_TO_PAGE(ptr) < USER_PAGES_BEG)) {
-		return; /* Someone tries to do something nasty by releasing kernel memory */
+		return -1; /* Someone tries to do something nasty by releasing kernel memory */
 	}
 
 	for (i = 0; i < MAX_ALLOCATIONS; ++i) {
@@ -95,7 +95,10 @@ static void sysfree(void * ptr, int user)
 	}
 	if (i == MAX_ALLOCATIONS) {
 		print("Ei vapautettu muistia. :(\n");
-		return;
+		if (!user) {
+			panic("kfree: viallinen vapautettava!\n");
+		}
+		return -1;
 	}
 
 	address = (uint_t) memory_allocations[i].virt_addr;
@@ -122,6 +125,7 @@ static void sysfree(void * ptr, int user)
 		unmap_virtual_page(0, virt_page_beg);
 		++virt_page_beg;
 	}
+	return 0;
 }
 
 static void * sysrealloc(void *ptr, size_t size, int user)

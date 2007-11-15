@@ -8,7 +8,7 @@ SYSCALL_MACRO( 0x01,
 	syscall_print,
 	"print",
 	"void print(const char *text)",
-	"Varaa muistia"
+	"Tulostaa tekstin. Voimassa toistaiseksi."
 )
 SYSCALL_MACRO( 0x02,
 	syscall_malloc,
