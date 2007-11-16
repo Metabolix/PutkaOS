@@ -19,7 +19,7 @@ int has_threading(void)
 
 int is_threading(void)
 {
-	return has_threading() && !is_in_irq_handler() && !is_in_exception_handler();
+	return has_threading() && !is_in_irq_handler();
 }
 
 void threading_init(void)

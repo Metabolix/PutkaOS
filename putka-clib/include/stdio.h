@@ -42,13 +42,17 @@ extern int fsetpos(FILE * stream, const fpos_t *pos);
 
 extern long ftell(FILE *stream);
 extern int fseek(FILE *stream, long int offset, int origin);
+
 extern int fprintf(FILE * restrict f, const char * restrict fmt, ...);
 extern int vfprintf(FILE * restrict f, const char * restrict fmt, va_list args);
 
 extern int sprintf(char * restrict buf, const char * restrict fmt, ...);
 extern int vsprintf(char * restrict buf, const char * restrict fmt, va_list args);
 
-extern int _xprintf(putstr_t *putstr, const char * restrict fmt, va_list args);
+extern int printf(const char * restrict fmt, ...);
+extern int vprintf(const char * restrict fmt, va_list args);
+
+extern int _xprintf(const putstr_t * const putstr, const char * restrict fmt, va_list args);
 
 /*
 extern int remove(const char *filename);

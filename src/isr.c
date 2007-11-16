@@ -13,15 +13,8 @@ struct isr_t {
 	isr_handler_t handler;
 };
 
-int exception_handling = -1;
-
-int is_in_exception_handler(void)
-{
-	return exception_handling >= 0;
-}
-
-void isr_panic_handler(struct isr_regs *regs);
-void isr_null_handler(struct isr_regs *regs);
+int isr_panic_handler(struct isr_regs *regs);
+int isr_null_handler(struct isr_regs *regs);
 
 /* These are defined in our isrs.asm */
 extern void isr0x00();
@@ -178,37 +171,34 @@ void dump_isr_regs(const struct isr_regs *regs)
 
 void isr_handler(struct isr_regs *regs)
 {
-	if (regs->int_no & 0xffffffe0) { // > 31
+	int r;
+	if (regs->int_no > 31) { // > 31
 		panic("isr_handler got an absurd interrupt!");
 	}
-	if (exception_handling >= 0) {
-		strcpy((void*)0xb8000, "T.u.p.l.a.f.a.u.l.t.t.i.!.");
-		asm_cli();
-		for(;;);
-	}
-
-	exception_handling = regs->int_no;
 	if (isrs[regs->int_no].handler) {
-		isrs[regs->int_no].handler(regs);
+		r = isrs[regs->int_no].handler(regs);
 	} else {
-		isr_panic_handler(regs);
+		r = isr_panic_handler(regs);
 	}
-	exception_handling = -1;
+	if (r) {
+		kill_thread(active_tid);
+	}
 }
 
-void isr_null_handler(struct isr_regs *regs)
+int isr_null_handler(struct isr_regs *regs)
 {
-	kprintf("(ISR number %d)\n", regs->int_no);
+	printf("(ISR number %d)\n", regs->int_no);
+	return 0;
 }
 
-void isr_panic_handler(struct isr_regs *regs)
+int isr_panic_handler(struct isr_regs *regs)
 {
-	if (regs->int_no & 0xfffffff8) { // > 7
-		kprintf("%s, code %i\n", isrs[regs->int_no], regs->error_code);
+	if (regs->int_no > 7) { // > 7
+		printf("Problem: %s, code %i\n", isrs[regs->int_no].name, regs->error_code);
 	} else {
-		kprintf("%s\n", isrs[regs->int_no]);
+		printf("Problem: %s\n", isrs[regs->int_no].name);
 	}
-	kprintf("Thread %i, process %i\n", active_tid, active_pid);
 	dump_isr_regs(regs);
-	panic("ISR not handled!");
+	printf("Killing thread %i, process %i\n", active_tid, active_pid);
+	return -1;
 }
