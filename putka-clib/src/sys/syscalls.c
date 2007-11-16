@@ -4,9 +4,9 @@
 
 extern intptr_t mksyscall(uint_t eax, ...);
 
-void syscall_print(const char *text)
+int syscall_print(const char *text)
 {
-	mksyscall(SYSCALL_PRINT, text);
+	return mksyscall(SYSCALL_PRINT, text);
 }
 
 void *syscall_malloc(size_t size)

@@ -72,7 +72,7 @@ SYSCALL_MACRO_111110(
 	SYSCALL_PRINT,
 	syscall_print,
 	"print",
-	void syscall_print(const char *text),
+	int syscall_print(const char *text),
 	"Tulostaa tekstin. Voimassa toistaiseksi."
 )
 
