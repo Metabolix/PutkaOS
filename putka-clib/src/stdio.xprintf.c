@@ -101,6 +101,9 @@ static char *fmt_uint_32(char * restrict bufend, uint32_t num)
 }
 static char *fmt_uint_64(char * restrict bufend, uint64_t num)
 {
+	if (num <= UINT32_MAX) {
+		return fmt_uint_32(bufend, num);
+	}
 	char * newend = bufend;
 	while (num) {
 		while (newend > bufend) {

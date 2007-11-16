@@ -173,9 +173,9 @@ void isr_handler(struct isr_regs *regs)
 {
 	int r;
 	if (regs->int_no > 31) { // > 31
-		panic("isr_handler got an absurd interrupt!");
-	}
-	if (isrs[regs->int_no].handler) {
+		printf("ISR handler: illegal interrupt (%d)!\n", regs->int_no);
+		r = -1;
+	} else if (isrs[regs->int_no].handler) {
 		r = isrs[regs->int_no].handler(regs);
 	} else {
 		r = isr_panic_handler(regs);

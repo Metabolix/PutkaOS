@@ -37,7 +37,6 @@ struct floppy_parameters * const floppy_params = (struct floppy_parameters *) DI
 int cylinder, status_0;
 #define wait_irq(a) kwait(0, 20*1000)
 
-struct floppy floppy_drives[2];
 char floppy_buffer[512];
 unsigned int floppy_drive_seeked = 0;
 unsigned int floppy_motors = 0;
@@ -116,8 +115,6 @@ void floppy_init(void)
 	int i;
 	uint8_t detect_floppy;
 
-	//memcpy(&floppy_params, (void*)DISK_PARAMETER_ADDRESS, sizeof(struct floppy_parameters));
-
 	if (floppy_params->bytes_per_sector > 2) {
 		print("FDD: ERROR: Sector size bigger than 512 bytes (disabled floppies)\n");
 		floppy_drives[0].type = 0;
@@ -148,7 +145,7 @@ void floppy_init(void)
 		}
 	}
 
-	install_irq_handler(6, floppy_handler);
+	install_irq_handler(FLOPPY_IRQ, floppy_handler);
 }
 
 void floppy_reset(void)

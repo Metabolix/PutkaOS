@@ -10,6 +10,8 @@ struct _BD_FILE;
 typedef struct _BD_DEVICE BD_DEVICE;
 typedef struct _BD_FILE BD_FILE;
 
+typedef int (*blockdev_refresh_t)(BD_DEVICE *dev);
+
 typedef int (*read_one_block_t)(BD_DEVICE *self, uint64_t num, void * buf);
 typedef int (*write_one_block_t)(BD_DEVICE *self, uint64_t num, const void * buf);
 typedef size_t (*read_blocks_t)(BD_DEVICE *self, uint64_t num, size_t count, void * buf);
@@ -26,6 +28,7 @@ struct _BD_DEVICE {
 	write_one_block_t write_one_block;
 	read_blocks_t read_blocks;
 	write_blocks_t write_blocks;
+	blockdev_refresh_t refresh;
 };
 
 #define BLOCKDEV_NO_BLOCK ((uint64_t)(-1))

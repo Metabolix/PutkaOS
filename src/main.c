@@ -150,7 +150,7 @@ void kmain2(void)
 	sh_tid = new_thread(0, run_sh, 0, 0, 0);
 
 	// Idle thread. ;)
-	for (;;) asm_hlt();
+	for (;;) switch_thread();
 }
 
 void testattava_koodi()

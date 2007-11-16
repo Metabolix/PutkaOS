@@ -31,9 +31,9 @@ static void hdd_partition_found(ide_device_t *dev, uint64_t secstart, uint64_t s
 	newdev->diskdev.blockdev.block_count = seccount;
 
 	nimi = (char*)(newdev + 1);
-	memcpy(nimi, dev->blockdev.std.name, len);
-	// sprintf(&nimi[len], "_p%d", pnum);
-	nimi[len] = 'p'; nimi[len+1] = '0' + pnum; nimi[len+2] = 0;
+	//memcpy(nimi, dev->blockdev.std.name, len);
+	sprintf(nimi, "%sp%d", dev->blockdev.std.name, pnum);
+	//nimi[len] = 'p'; nimi[len+1] = '0' + pnum; nimi[len+2] = 0;
 	newdev->diskdev.blockdev.std.name = nimi;
 
 	device_insert((DEVICE*) newdev);

@@ -85,8 +85,8 @@ BD_FILE *blockdev_fopen(BD_DEVICE *dev, uint_t mode)
 {
 	if (!dev ||
 	(dev->std.dev_class != DEV_CLASS_BLOCK && dev->std.dev_class != DEV_CLASS_OTHER) ||
-	dev->std.dev_type == DEV_TYPE_NONE ||
-	dev->std.dev_type == DEV_TYPE_ERROR ||
+	(dev->refresh && dev->refresh(dev)) ||
+	(dev->std.dev_type == DEV_TYPE_NONE || dev->std.dev_type == DEV_TYPE_ERROR) ||
 	!dev->block_size) {
 		return 0;
 	}
@@ -218,7 +218,7 @@ static size_t blockdev_freadwrite(void *buffer, size_t size, size_t count, BD_FI
 error_etc:
 return_etc:
 	f->std.pos = f->pos_in_block + f->block_in_file * dev->block_size;
-	return (f->std.pos - alkupos) / size;
+	return (size_t)(f->std.pos - alkupos) / size;
 }
 
 size_t blockdev_fread(void *buffer, size_t size, size_t count, BD_FILE *f)
