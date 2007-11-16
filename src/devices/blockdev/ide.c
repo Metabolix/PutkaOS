@@ -36,7 +36,8 @@ const BD_DEVICE ide_blockdev = {
 	.read_one_block = (read_one_block_t)  ata_read_one_sector,
 	.write_one_block = (write_one_block_t) ata_write_one_sector,
 	.read_blocks = (read_blocks_t)  ata_read,
-	.write_blocks = (write_blocks_t) ata_write
+	.write_blocks = (write_blocks_t) ata_write,
+	.refresh = 0
 };
 
 // params[0] = device
@@ -224,9 +225,8 @@ void ide_identify_device(uint_t controller, uint_t device)
 		ide_devices[device].blockdev.read_one_block = (read_one_block_t) atapi_read_one_sector;
 		ide_devices[device].blockdev.write_blocks = 0;
 		ide_devices[device].blockdev.write_one_block = 0;
+		ide_devices[device].blockdev.refresh = (blockdev_refresh_t)atapi_refresh;
 
-		// luetaan levyn tiedot
-		atapi_start(device);
 	} else {
 		// on ATA, joten käytetään ATA-IDENTIFY:ä
 		ata_identify(device, buffer);
@@ -372,8 +372,9 @@ int ata_safely_remove(ide_device_t *device)
 	return 0; // Success
 }
 
-int atapi_start(int device)
+int atapi_refresh(ide_device_t *dev)
 {
+	int device = dev->devnum;
 	uint16_t in_word;
 	uint_t num_sectors, sector_size;
 	// käynnistetään moottori?
@@ -401,7 +402,7 @@ int atapi_start(int device)
 	in_word = inportw(ide_ports[device >> 1].data);
 	sector_size |= ((in_word & 0x0FF) << 8) | ((in_word & 0xFF00) >> 8);
 
-	kprintf("Sector count: %d, Sector size: %d\n", num_sectors, sector_size);
+	//kprintf("Sector count: %d, Sector size: %d\n", num_sectors, sector_size);
 
 	//ide_devices[device].blockdev.std.remove = atapi_safely_remove;
 	//ide_devices[device].blockdev.block_size = sector_size;
@@ -471,11 +472,11 @@ size_t atapi_real_read(int device, uint32_t sector, size_t count, uint16_t * buf
 
 	words_to_read = count * (ATAPI_BYTES_PER_SECTOR >> 1);
 
-	if (!ide_devices[device].media_available) {
-		if (atapi_start(device) != 0) {
-			return -1;
-		}
-	}
+	//if (!ide_devices[device].media_available) {
+	//	if (atapi_start(device) != 0) {
+	//		return -1;
+	//	}
+	//}
 
 	while (inportb(ide_ports[device >> 1].altComStat) & 0x08) {
 		if (inportb(ide_ports[device >> 1].altComStat) & 0x01) {

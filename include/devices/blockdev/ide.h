@@ -84,9 +84,9 @@ int ata_write_one_sector (ide_device_t *device, uint64_t sector, void * buf);
 
 int ata_safely_remove(ide_device_t *device);
 
+int atapi_refresh(ide_device_t *dev);
 int atapi_send_packet(int device, uint_t bytecount, uint16_t * packet);
 int atapi_reset(int device);
-int atapi_start(int device);
 size_t atapi_real_read(int device, uint32_t sector, size_t count, uint16_t * buffer);
 
 size_t atapi_read(ide_device_t *device, uint64_t sector, size_t count, void * buf);
