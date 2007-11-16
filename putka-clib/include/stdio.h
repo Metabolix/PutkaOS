@@ -1,7 +1,7 @@
 #ifndef _STDIO_H
 #define _STDIO_H 1
 
-extern void print(const char *str);
+extern int print(const char *str);
 
 #include <stddef.h>
 #include <stdint.h>

@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <sys/file.h>
+#include <pos/file.h>
 
 struct fs;
 

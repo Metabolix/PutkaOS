@@ -118,7 +118,7 @@ static int sys_ioctl(FILE * stream, int request, intptr_t param)
 }
 
 #define SYSCALL_TYPEDEFS 1
-#include <sys/syscalls.h>
+#include <pos/syscalls.h>
 
 /**
 * syscall_fopen2: fopen2(ecx, edx)

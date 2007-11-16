@@ -1,7 +1,7 @@
 #include <sh.h>
 #include <screen.h>
 #include <panic.h>
-#include <sys/time.h>
+#include <pos/time.h>
 #include <timer.h>
 #include <io.h>
 #include <stdio.h>

@@ -1,7 +1,7 @@
 #include <idt.h>
 #include <screen.h>
 
-#include <sys/syscalls.list.h>
+#include <pos/syscalls.list.h>
 #include <panic.h>
 
 extern void asm_syscall();
@@ -52,7 +52,7 @@ void init_syscalls(void)
 	if (set_syscall(number, (syscall_t) func) != 0) { \
 		goto paniikki; \
 	}
-	#include <sys/syscalls.list.h>
+	#include <pos/syscalls.list.h>
 
 	#undef SYSCALL_MACRO
 

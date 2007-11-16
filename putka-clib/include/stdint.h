@@ -49,4 +49,8 @@ typedef uint64_t uintmax_t;
 #define INT32_MAX (0x7fffffffL)
 #define INT32_MIN (-0x7fffffffL-1L)
 
+#define UINTMAX_MAX (0xffffffffffffffffULL)
+#define INTMAX_MAX (0x7fffffffffffffffLL)
+#define INTMAX_MIN (-0x7fffffffffffffffLL-1LL)
+
 #endif

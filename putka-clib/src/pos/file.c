@@ -1,6 +1,6 @@
 #include <stdio.h>
-#include <sys/file.h>
-#include <sys/syscalls.h>
+#include <pos/file.h>
+#include <pos/syscalls.h>
 
 FILE *fopen2(const char * filename, uint_t flags)
 {

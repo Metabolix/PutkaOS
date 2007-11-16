@@ -29,8 +29,8 @@ Other virtual mappings
 #define KERNEL_PAGE_DIRECTORY (0x3f)
 #define KERNEL_PAGE_TABLES (0x40)
 
-//#define ACTIVE_PAGE_DIRECTORY (0x3ff)
-//#define ACTIVE_PAGE_TABLES (0x400)
+#define KERNEL_PD_ADDR ((page_entry_t *) PAGE_TO_ADDR(KERNEL_PAGE_DIRECTORY))
+#define KERNEL_PT_ADDR ((page_entry_t *) PAGE_TO_ADDR(KERNEL_PAGE_TABLES))
 
 struct memory_info {
 	uint32_t ram_pages, ram_pages_free;
@@ -113,7 +113,7 @@ extern void * temp_virt_page(uint_t page, uint_t phys_pd, uint_t virt_page);
 extern page_entry_t * temp_page_directory(uint_t phys_page);
 extern page_entry_t * temp_page_table(uint_t phys_page);
 
-extern void use_pagedir(uint_t phys_pd);
+extern uint_t cur_phys_pd(void);
 
 extern uint_t find_free_virtual_pages(uint_t phys_pd, uint_t count, int user);
 extern uint_t alloc_virtual_pages(uint_t phys_pd, uint_t count, int user);

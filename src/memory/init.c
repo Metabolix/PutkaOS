@@ -10,8 +10,6 @@ uint32_t * const phys_pages_noswap = PAGE_TO_ADDR (PHYSICAL_PAGES_NOSWAP_BITMAP)
 
 uint_t first_phys_pages_not_alloced = 0;
 
-uint_t cur_phys_pd;
-
 struct memory_info memory = {0};
 
 /**
@@ -104,30 +102,30 @@ void memory_init(uint_t mem_kib)
 	init_phys_page_bitmaps(mem_kib);
 
 	// Nollataan taulut
-	memset(kernel_page_directory, 0, MEMORY_PAGE_SIZE);
-	memset(kernel_page_tables, 0, MEMORY_PAGE_SIZE * KMEM_PDE_END);
+	memset(KERNEL_PD_ADDR, 0, MEMORY_PAGE_SIZE);
+	memset(KERNEL_PT_ADDR, 0, MEMORY_PAGE_SIZE * KMEM_PDE_END);
 
 	// Page directory osoittaa tietenkin sivutauluihin
 	for (i = 0; i < KMEM_PDE_END; i++) {
-		kernel_page_directory[i] = KERNEL_PE(KERNEL_PAGE_TABLES + i);
+		KERNEL_PD_ADDR[i] = KERNEL_PE(KERNEL_PAGE_TABLES + i);
 	}
 
 	// Suora fyysinen muisti (KERNEL_IMAGE_PAGES)
 	for (i = 0; i < KERNEL_IMAGE_PAGES; i++) {
-		kernel_page_tables[i] = KERNEL_PE(i);
+		KERNEL_PT_ADDR[i] = KERNEL_PE(i);
 	}
-
+/*
 	// Viimeinen "kernelin sivu" osoittaa directoryyn
-	kernel_page_tables[KERNEL_IMAGE_PAGES - 1] = KERNEL_PE(KERNEL_PAGE_DIRECTORY);
+	KERNEL_PT_ADDR[KERNEL_IMAGE_PAGES - 1] = KERNEL_PE(KERNEL_PAGE_DIRECTORY);
 
 	// Muisti kernelin sivujen jälkeen osoittaa sivutauluihin
 	for (i = 0; i < KMEM_PDE_END; i++) {
-		kernel_page_tables[KERNEL_IMAGE_PAGES + i] = KERNEL_PE(KERNEL_PAGE_TABLES + i);
+		KERNEL_PT_ADDR[KERNEL_IMAGE_PAGES + i] = KERNEL_PE(KERNEL_PAGE_TABLES + i);
 	}
+*/
 
 	// Sitten kerrotaan asioista prosessorille
-	cur_phys_pd = ADDR_TO_PAGE(kernel_page_directory);
-	asm_set_cr3(kernel_page_directory);
+	asm_set_cr3(KERNEL_PD_ADDR);
 	asm_set_cr0(asm_get_cr0() | 0x80000000);
 
 	if (!(asm_get_cr0() & 0x80000000)) {

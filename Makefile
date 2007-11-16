@@ -34,7 +34,7 @@ KERNEL_DIRS= \
 		filesys/iso9660 \
 	utils
 
-STD_C_DIRS=sys
+STD_C_DIRS=pos
 
 ASM_SRC=start.asm irq.asm isrs.asm bit.asm io.asm read_cmos.asm misc_asm.asm syscall/syscall.asm
 
@@ -105,15 +105,15 @@ CO_OBJS=$(addsuffix .o,$(addprefix build/,$(CO_SRC)))
 
 KERNEL_OBJS=$(ASM_OBJS) $(C_OBJS) $(CO_OBJS)
 
-STD_C_ASM_SRC=string.asm math.asm sys/mksyscall.asm build_tweaks.asm
-STD_C_C_SRC=int64.c string.c stdlib.c stdio.fmt.c stdio.xprintf.c stdio.c math.c time.c ctype.c sys/time.c sys/file.c
+STD_C_ASM_SRC=string.asm math.asm pos/mksyscall.asm build_tweaks.asm
+STD_C_C_SRC=int64.c string.c stdlib.c stdio.fmt.c stdio.xprintf.c stdio.c inttypes.c math.c time.c ctype.c pos/time.c pos/file.c
 STD_C_ASM_OBJS=$(addsuffix .o,$(addprefix build/putka-clib/,$(STD_C_ASM_SRC)))
 STD_C_C_OBJS=$(addsuffix .o,$(addprefix build/putka-clib/,$(STD_C_C_SRC)))
 STD_C_OBJS=$(STD_C_C_OBJS) $(STD_C_ASM_OBJS)
 
-RTL_SYSCALL_C_SRC=sys/syscalls.c
+RTL_SYSCALL_C_SRC=pos/syscalls.c
 RTL_SYSCALL_C_OBJ=$(addsuffix .o,$(addprefix build/putka-clib/,$(RTL_SYSCALL_C_SRC)))
-RTL_START_ASM=sys/start.asm
+RTL_START_ASM=pos/start.asm
 RTL_START_ASM_OBJ=$(addsuffix .o,$(addprefix build/putka-clib/,$(RTL_START_ASM)))
 
 all: kernel std_c rtl

@@ -1,10 +1,10 @@
 #include <stdio.h>
-#include <sys/syscalls.h>
-#include <sys/file.h>
+#include <pos/syscalls.h>
+#include <pos/file.h>
 
-void print(const char *str)
+int print(const char *str)
 {
-	syscall_print(str);
+	return syscall_print(str);
 }
 
 FILE *fopen(const char * filename, const char * mode)

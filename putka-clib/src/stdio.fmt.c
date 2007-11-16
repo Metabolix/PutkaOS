@@ -15,15 +15,13 @@ struct sprintf_putter {
 
 size_t fprintf_putstr(const char *str, size_t len, struct fprintf_putter *f)
 {
-	return fwrite(str, len, 1, f->file);
+	return fwrite(str, 1, len, f->file);
 }
 
 size_t sprintf_putstr(const char *str, size_t len, struct sprintf_putter *f)
 {
-	int ret = 0;
 	if (len > f->buf_end - f->buf) {
 		len = f->buf_end - f->buf;
-		ret = -1;
 	}
 	memcpy(f->buf, str, len);
 	f->buf += len;

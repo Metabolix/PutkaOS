@@ -1,6 +1,6 @@
 #include <time.h>
-#include <sys/time.h>
-#include <sys/syscalls.h>
+#include <pos/time.h>
+#include <pos/syscalls.h>
 
 int get_system_time(struct tm *sys_time_ptr)
 {

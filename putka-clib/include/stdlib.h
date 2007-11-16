@@ -20,10 +20,19 @@ typedef struct _lldiv_t {
 
 // TODO: MB_CUR_MAX
 
-// TODO: atof, atoi, atol, atoll
-// TODO: strtod, strtof, strtold
-// TODO: strtol, strtoll, strtoul, strtoull
-// TODO: rand, srand
+extern double atof(const char *str);
+extern int atoi(const char *str);
+extern long int atol(const char *str);
+extern long long int atoll(const char *str);
+
+extern double strtod(const char * restrict nptr, char ** restrict end);
+extern float strtof(const char * restrict nptr, char ** restrict end);
+extern long double strtold(const char * restrict nptr, char ** restrict end);
+
+extern long int strtol(const char * restrict nptr, char ** restrict end, int base);
+extern unsigned long int strtoul(const char * restrict nptr, char ** restrict end, int base);
+extern long long int strtoll(const char * restrict nptr, char ** restrict end, int base);
+extern unsigned long long int strtoull(const char * restrict nptr, char ** restrict end, int base);
 
 int rand(void);
 void srand(unsigned int seed);

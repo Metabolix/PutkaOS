@@ -7,9 +7,6 @@
 #include <stdint.h>
 #include <misc_asm.h>
 
-static page_entry_t * const cur_virt_pd = PAGE_TO_ADDR(KERNEL_IMAGE_PAGES - 1);
-static page_entry_t * const cur_virt_pt = PAGE_TO_ADDR(KERNEL_IMAGE_PAGES);
-
 static uint_t alloc_phys_page(int noswap);
 static void free_phys_page(uint_t block);
 
@@ -37,13 +34,22 @@ uint32_t memory_free(void)
 }
 
 /**
-* use_pagedir - vaihtaa käytettävää sivutaulua
-* @phys_pd: fyysinen sivu, jota käytetään
+* cur_phys_pd - hakee cr3:sta sivutaulun sivunumeron (ei osoitetta)
 **/
-void use_pagedir(uint_t phys_pd)
+uint_t cur_phys_pd(void)
 {
-	cur_phys_pd = phys_pd;
-	asm_set_cr3(PAGE_TO_ADDR(phys_pd));
+	return ADDR_TO_PAGE(asm_get_cr3());
+}
+
+/**
+* flush_pagedir - jos sivutaulu on käytössä, flushataan cr3
+* @phys_pd: fyysinen sivutaulu, jonka toimivuus tarkistetaan
+**/
+void flush_pagedir(uint_t phys_pd)
+{
+	if (phys_pd == cur_phys_pd()) {
+		asm_flush_cr3();
+	}
 }
 
 /**
@@ -131,7 +137,7 @@ void * temp_phys_page(uint_t page, uint_t phys_page)
 	}
 	void *address = PAGE_TO_ADDR(page);
 	if (phys_page == 0) {
-		cur_virt_pt[page].pagenum = page;
+		KERNEL_PT_ADDR[page].pagenum = page;
 		asm_invlpg(address);
 		if (!skip_check) {
 			used[used_n] &= ~(1 << used_b);
@@ -145,7 +151,7 @@ void * temp_phys_page(uint_t page, uint_t phys_page)
 		}
 		used[used_n] |= (1 << used_b);
 	}
-	cur_virt_pt[page].pagenum = phys_page;
+	KERNEL_PT_ADDR[page].pagenum = phys_page;
 	asm_invlpg(address);
 	return address;
 }
@@ -256,15 +262,12 @@ uint_t find_free_virtual_pages(uint_t phys_pd, uint_t count, int user)
 			kprintf("%d >= %d - %d\n", count, memory.ram_pages, memory.kernel_ram_pages);
 			return 0;
 		}
-		phys_pd = cur_phys_pd; // Kaikilla on samat kernelsivut
+		// Kaikilla on samat kernelsivut
+		phys_pd = cur_phys_pd();
 	}
 	const uint_t phys_pd0 = phys_pd;
 
-	if (phys_pd0) {
-		pd = temp_page_directory(phys_pd0);
-	} else {
-		pd = cur_virt_pd;
-	}
+	pd = temp_page_directory(phys_pd0);
 	found_beg = found_end = 0;
 	for (pde = pde_beg; pde < pde_end; ++pde) {
 		if (!pd[pde].pagenum) {
@@ -277,11 +280,7 @@ uint_t find_free_virtual_pages(uint_t phys_pd, uint_t count, int user)
 			}
 			continue;
 		}
-		if (phys_pd0) {
-			pt = temp_page_table(pd[pde].pagenum);
-		} else {
-			pt = cur_virt_pt + (pde * MEMORY_PE_COUNT);
-		}
+		pt = temp_page_table(pd[pde].pagenum);
 		for (pte = 0; pte < MEMORY_PE_COUNT; ++pte) {
 			if (pt[pte].pagenum) {
 				found_beg = found_end = 0;
@@ -312,7 +311,8 @@ uint_t alloc_virtual_pages(uint_t phys_pd, uint_t count, int user)
 	uint_t first, page;
 
 	if (!user || !phys_pd) {
-		phys_pd = cur_phys_pd; // Kaikilla on samat kernelsivut
+		// Kaikilla on samat kernelsivut
+		phys_pd = cur_phys_pd();
 	}
 
 	first = find_free_virtual_pages(phys_pd, count, user);
@@ -354,36 +354,9 @@ int map_virtual_page(uint_t phys_pd, uint_t virt_page, int noswap, int user)
 	pte = virt_page % MEMORY_PE_COUNT;
 
 	if (!phys_pd) {
-		phys_pd = cur_phys_pd;
+		phys_pd = cur_phys_pd();
 	}
-	goto external; // TODO
-	if (virt_page >= KMEM_PAGES_END && phys_pd != cur_phys_pd) {
-		goto external;
-	}
-	goto current;
 
-current:
-	if (cur_virt_pd[pde].pagenum == 0) {
-		if (!(phys_page = alloc_phys_page(PT_NOSWAP_FLAG))) {
-			return -1;
-		}
-		void *ptr = temp_phys_page(0, phys_page);
-		memset(ptr, 0, MEMORY_PAGE_SIZE);
-		temp_phys_page(0, 0);
-		cur_virt_pd[pde] = KERNEL_PE(phys_page);
-		//cur_virt_pt[KERNEL_IMAGE_PAGES + pde] = KERNEL_PE(phys_page);
-		asm_flush_cr3();
-	}
-	phys_page = alloc_phys_page(noswap);
-	if (!phys_page) {
-		return -2;
-	}
-	// TODO: nollaus?
-	cur_virt_pt[virt_page] = NEW_PE(phys_page, user);
-	asm_flush_cr3();
-	return 0;
-
-external:
 	pd = temp_page_directory(phys_pd);
 	if (pd[pde].pagenum == 0) {
 		if (!(phys_page = alloc_phys_page(PT_NOSWAP_FLAG))) {
@@ -401,7 +374,7 @@ external:
 	}
 	// TODO: nollaus?
 	pt[pte] = NEW_PE(phys_page, user);
-	asm_flush_cr3();
+	flush_pagedir(phys_pd);
 	return 0;
 }
 
@@ -420,44 +393,9 @@ void unmap_virtual_page(uint_t phys_pd, uint_t virt_page)
 	pte = virt_page % MEMORY_PE_COUNT;
 
 	if (!phys_pd) {
-		phys_pd = cur_phys_pd;
-	}
-	goto external; // TODO
-	if (virt_page >= KMEM_PAGES_END && phys_pd != cur_phys_pd) {
-		goto external;
-	}
-	goto current;
-
-current:
-	if (cur_virt_pd[pde].pagenum == 0) {
-		panic("unmap_virtual_page: (cur_virt_pd[pde].pagenum == 0)!");
-	}
-	if (!cur_virt_pd[pde].present) {
-		new_location = swap_in(phys_pd, cur_virt_pd[pde].pagenum);
-		if (!new_location) {
-			panic("unmap_virtual_page (1)");
-		}
-		cur_virt_pd[pde].pagenum = new_location;
-		cur_virt_pd[pde].present = 1;
+		phys_pd = cur_phys_pd();
 	}
 
-	if (cur_virt_pt[virt_page].pagenum == 0) {
-		panic("unmap_virtual_page: (cur_virt_pt[virt_page].pagenum == 0)!");
-	}
-	if (!cur_virt_pt[virt_page].present) {
-		new_location = swap_in(phys_pd, cur_virt_pt[virt_page].pagenum);
-		if (!new_location) {
-			panic("unmap_virtual_page (2)");
-		}
-		cur_virt_pt[virt_page].pagenum = new_location;
-		cur_virt_pt[virt_page].present = 1;
-	}
-	free_phys_page(cur_virt_pt[virt_page].pagenum);
-	cur_virt_pt[virt_page] = NULL_PE;
-	asm_flush_cr3();
-	return;
-
-external:
 	pd = temp_page_directory(phys_pd);
 	if (pd[pde].pagenum == 0) {
 		panic("unmap_virtual_page: (pd[pde].pagenum == 0)!");
@@ -485,7 +423,7 @@ external:
 	}
 	free_phys_page(pt[pte].pagenum);
 	pt[pte] = NULL_PE;
-	asm_flush_cr3();
+	flush_pagedir(phys_pd);
 	return;
 }
 
@@ -507,7 +445,7 @@ uint_t build_new_pagedir(uint_t old_phys_pd)
 
 	// Kopioidaan
 	memset(new_pd, 0, MEMORY_PAGE_SIZE);
-	memcpy(new_pd, kernel_page_directory, KMEM_PDE_END * sizeof(page_entry_t));
+	memcpy(new_pd, KERNEL_PD_ADDR, KMEM_PDE_END * sizeof(page_entry_t));
 
 	if (!old_phys_pd) {
 		return new_phys_pd;
