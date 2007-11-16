@@ -64,6 +64,9 @@ void kill_thread(tid_t tid)
 	}
 	const pid_t pid = threads[tid].pid;
 
+	if (tid == active_tid) {
+		asm_cli();
+	}
 	threads[tid].state = TP_STATE_ENDED;
 	threads_ended_arr[threads_ended] = tid;
 	++threads_ended;
@@ -72,6 +75,10 @@ void kill_thread(tid_t tid)
 	if (tid == processes[pid].threads.tid0) {
 		// TODO: kill_thread: jatkavatko prosessin muut säikeet, jos tid0 kuolee?
 		kill_process(pid);
+	}
+	if (tid == active_tid) {
+		// Pitää vaihtaa uusi säie
+		asm_int(IDT_SCHEDULER);
 	}
 }
 

@@ -20,6 +20,7 @@ enum thread_state_t {
 	TP_STATE_RUNNING,
 	TP_STATE_SLEEPING,
 	TP_STATE_ENDED,
+	TP_STATE_ENDING,
 
 	TP_STATE_ERR,
 };

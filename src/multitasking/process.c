@@ -20,12 +20,11 @@ static pid_t alloc_process(void);
 
 void kill_process(pid_t pid)
 {
-	if (processes[pid].state == TP_STATE_FREE || processes[pid].state == TP_STATE_ENDED) {
+	if (processes[pid].state == TP_STATE_FREE || processes[pid].state == TP_STATE_ENDED || processes[pid].state == TP_STATE_ENDING) {
 		return;
 	}
-	if (pid == active_pid) {
-	}
 	tid_t tid;
+	processes[pid].state = TP_STATE_ENDING;
 	size_t count = processes[pid].threads.count;
 	for (tid = 0; tid < MAX_THREADS && count; tid++) {
 		if (threads[tid].pid == pid) {
@@ -202,6 +201,8 @@ pid_t new_process(const void *code, size_t code_size, uint_t entry_offset, const
 	process->threads.tid0 = tid;
 	process->vt_num = VT_KERN_LOG;
 	process->state = TP_STATE_RUNNING;
+
+	++process_count;
 
 	return pid;
 }

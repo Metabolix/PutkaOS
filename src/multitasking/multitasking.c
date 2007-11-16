@@ -40,6 +40,7 @@ void threading_init(void)
 			.count = 0,
 		},
 	};
+	process_count = 1;
 	active_pid = 0;
 	processes[0].threads.tid0 = active_tid = new_thread(0, kmain2, 0, 0, 0);
 	processes[0].threads.count = 1;

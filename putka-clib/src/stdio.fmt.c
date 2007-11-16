@@ -36,7 +36,9 @@ int vsprintf(char * restrict buf, const char * restrict fmt, va_list args)
 		.buf_end = buf + INT32_MAX,
 	};
 
-	return _xprintf(&putter.putstr, fmt, args);
+	int ret = _xprintf(&putter.putstr, fmt, args);
+	*putter.buf = 0;
+	return ret;
 }
 
 int sprintf(char * restrict buf, const char * restrict fmt, ...)
