@@ -9,8 +9,10 @@ intmax_t imaxabs(intmax_t j)
 
 imaxdiv_t imaxdiv(intmax_t yla, intmax_t ala) // TODO
 {
+	imaxdiv_t r;
 	int i = 0, j = 0;
 	i /= j;
+	return r;
 }
 
 uintmax_t _strtoumax_sgn(const char * restrict nptr, char ** restrict end, int base, int * restrict negative)
