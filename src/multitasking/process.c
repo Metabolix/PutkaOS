@@ -20,6 +20,7 @@ static pid_t alloc_process(void);
 
 void kill_process(pid_t pid)
 {
+	if (pid >= MAX_PROCESSES) return;
 	if (processes[pid].state == TP_STATE_FREE || processes[pid].state == TP_STATE_ENDED || processes[pid].state == TP_STATE_ENDING) {
 		return;
 	}

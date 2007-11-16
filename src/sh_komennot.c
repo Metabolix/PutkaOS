@@ -14,6 +14,7 @@
 #include <memory/malloc.h>
 #include <memory/kmalloc.h>
 #include <utils/texteditor.h>
+#include <multitasking/process.h>
 
 /***********************
 ** JULKISET ESITTELYT **
@@ -62,6 +63,8 @@ void sh_rm(char *buf);
 void sh_editor(char *buf);
 
 void sh_exec(char *buffer);
+void sh_kill(char *buf);
+void sh_ps(char *buf);
 
 /**********
 ** LISTA **
@@ -117,6 +120,8 @@ struct sh_komento komentotaulu[] = {
 	{"editor", "editor tiedoston_nimi; avaa tiedosto hienoon editoriin. esc + q = poistu, esc + w = kirjoita", sh_editor},
 	{"a", "mount /dev/c0d0 /koe ; editor /koe/f", sh_a},
 	{"exec", "exec ohjelma; lataa ja ajaa tiedoston [ohjelma]", sh_exec},
+	{"kill", "kill pid; tappaa ohjelman [pid]", sh_kill},
+	{"ps", "ps; listaa prosessit", sh_ps},
 
 	{0, 0, sh_ei_tunnistettu} /* Terminaattori */
 };
@@ -931,4 +936,33 @@ void sh_exec(char *buffer)
 	kwait(0, 100000);
 	new_process(code, size, 0, 0, 0, 1);
 	kwait(0, 100000);
+}
+
+void sh_kill(char *buf)
+{
+	pid_t pid;
+	while (*buf && !(*buf <= '9' && *buf >= '0')) ++buf;
+	if (!*buf) return;
+	pid = sh_read_int(&buf);
+	if (pid >= MAX_PROCESSES) {
+		kprintf("Invalid pid (%u)\n", pid);
+		return;
+	}
+	if (processes[pid].state == TP_STATE_FREE || processes[pid].state == TP_STATE_ENDED) {
+		kprintf("Process %d is not running\n", pid);
+		return;
+	}
+	kill_process(pid);
+	kprintf("Process %d killed\n", pid);
+}
+
+void sh_ps(char *buf)
+{
+	kprintf("PID\tNAME\n");
+	for (int i = 0; i < MAX_PROCESSES; i++) {
+		if (processes[i].state == TP_STATE_RUNNING) {
+			kprintf("%d\t%s\n", i, /*processes[i].name*/ "N/A");
+		}
+	}
+	kprintf("%d processes running.\n", process_count);
 }
