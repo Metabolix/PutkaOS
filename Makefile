@@ -1,5 +1,5 @@
-LINKER_SCRIPT=misc/link.ld
-KERNEL_FILE=kernel
+LINKER_SCRIPT=./misc/link.ld
+KERNEL_FILE=./kernel
 
 LDFLAGS=--oformat=elf32-i386 -melf_i386
 
@@ -99,85 +99,94 @@ C_SRC= $(C_SRC_CORE)  $(C_SRC_MEM)  $(C_SRC_MULTITASK) $(C_SRC_DEVICES) $(C_SRC_
 CO_SRC=$(CO_SRC_CORE) $(CO_SRC_MEM) $(CO_SRC_STDROUTINES) $(CO_SRC_FS) $(CO_SRC_DEVICES) $(CO_SRC_SYSCALL) $(CO_SRC_UTILS) $(CO_SRC_MISC)
 
 # file.c => build/file.c.o
-ASM_OBJS=$(addsuffix .o,$(addprefix build/,$(ASM_SRC)))
-C_OBJS=$(addsuffix .o,$(addprefix build/,$(C_SRC)))
-CO_OBJS=$(addsuffix .o,$(addprefix build/,$(CO_SRC)))
+ASM_OBJS=$(addsuffix .o,$(addprefix ./build/,$(ASM_SRC)))
+C_OBJS=$(addsuffix .o,$(addprefix ./build/,$(C_SRC)))
+CO_OBJS=$(addsuffix .o,$(addprefix ./build/,$(CO_SRC)))
 
 KERNEL_OBJS=$(ASM_OBJS) $(C_OBJS) $(CO_OBJS)
 
 STD_C_ASM_SRC=string.asm math.asm pos/mksyscall.asm build_tweaks.asm
 STD_C_C_SRC=int64.c string.c stdlib.c stdio.fmt.c stdio.xprintf.c stdio.c inttypes.c math.c time.c ctype.c pos/time.c pos/file.c
-STD_C_ASM_OBJS=$(addsuffix .o,$(addprefix build/putka-clib/,$(STD_C_ASM_SRC)))
-STD_C_C_OBJS=$(addsuffix .o,$(addprefix build/putka-clib/,$(STD_C_C_SRC)))
+STD_C_ASM_OBJS=$(addsuffix .o,$(addprefix ./build/putka-clib/,$(STD_C_ASM_SRC)))
+STD_C_C_OBJS=$(addsuffix .o,$(addprefix ./build/putka-clib/,$(STD_C_C_SRC)))
 STD_C_OBJS=$(STD_C_C_OBJS) $(STD_C_ASM_OBJS)
 
 RTL_SYSCALL_C_SRC=pos/syscalls.c
-RTL_SYSCALL_C_OBJ=$(addsuffix .o,$(addprefix build/putka-clib/,$(RTL_SYSCALL_C_SRC)))
+RTL_SYSCALL_C_OBJ=$(addsuffix .o,$(addprefix ./build/putka-clib/,$(RTL_SYSCALL_C_SRC)))
 RTL_START_ASM=pos/start.asm
-RTL_START_ASM_OBJ=$(addsuffix .o,$(addprefix build/putka-clib/,$(RTL_START_ASM)))
+RTL_START_ASM_OBJ=$(addsuffix .o,$(addprefix ./build/putka-clib/,$(RTL_START_ASM)))
 
-all: kernel std_c rtl
-kernel: kernel_builddirs $(KERNEL_OBJS) std_c kernel_link
+RTL_FINAL_OBJ=./build/rtl.o
+
+all: kernel rtl
 std_c: std_c_builddirs $(STD_C_OBJS)
-rtl: std_c $(RTL_SYSCALL_C_OBJ) $(RTL_START_ASM_OBJ) rtl_link
+kernel: kernel_builddirs $(KERNEL_OBJS) std_c
+rtl: std_c $(RTL_SYSCALL_C_OBJ) $(RTL_START_ASM_OBJ) $(RTL_FINAL_OBJ)
 
 builddirs: kernel_builddirs std_c_builddirs
+clean: clean_kernel clean_std_c clean_rtl
 
 kernel_builddirs:
-	@mkdir -p build $(addprefix build/,$(KERNEL_DIRS)) || echo "mkdir failed!"
+	@mkdir -p ./build $(addprefix ./build/,$(KERNEL_DIRS)) || echo "mkdir failed!"
 
-kernel_link:
+kernel:
 	@echo Linking kernel...
 	@ld -T $(LINKER_SCRIPT) $(LDFLAGS) -o $(KERNEL_FILE) $(KERNEL_OBJS) $(STD_C_OBJS)
 	@echo Kernel linked!
 
 std_c_builddirs:
-	@mkdir -p build build/putka-clib $(addprefix build/putka-clib/,$(STD_C_DIRS)) || echo "mkdir failed!"
+	@mkdir -p ./build ./build/putka-clib $(addprefix ./build/putka-clib/,$(STD_C_DIRS)) || echo "mkdir failed!"
 
-rtl_link:
-	@ld $(RTL_START_ASM_OBJ) $(RTL_SYSCALL_C_OBJ) $(STD_C_OBJS) $(LDFLAGS) -r -o build/rtl.o 
+rtl:
 	@echo "#!/bin/sh" > link.sh
-	@echo "ld -melf_i386 --oformat=binary -Ttext 0x20000000 build/rtl.o \044@ " >> link.sh
+	@echo "ld -melf_i386 --oformat=binary -Ttext 0x20000000 $(RTL_FINAL_OBJ) \044@ " >> link.sh
 	@chmod +x link.sh
-	@echo "Ajonaikainen kirjasto build/rtl.o ja skripti link.sh luotu."
+	@echo "Ajonaikainen kirjasto $(RTL_FINAL_OBJ) ja skripti link.sh luotu."
 	@echo
 	@echo "Ohje omaa ohjelmaa varten: (-m32 mukaan amd64:lla)"
 	@echo "gcc -ffreestanding -nostdinc -I./putka-clib/include -std=c99 -c -o a.o a.c"
 	@echo "gcc ... -c -o b.o b.c"
 	@echo "./link.sh a.o b.o -o ohjelma.bin"
 
+$(RTL_FINAL_OBJ): $(RTL_START_ASM_OBJ) $(RTL_SYSCALL_C_OBJ) std_c
+	@ld $(RTL_START_ASM_OBJ) $(RTL_SYSCALL_C_OBJ) $(STD_C_OBJS) $(LDFLAGS) -r -o $(RTL_FINAL_OBJ)
+
 #$(ASM_OBJS): builddirs
 #$(C_OBJS): builddirs
 #$(CO_OBJS): builddirs
 
-$(ASM_OBJS): build/%.o: src/%
+$(ASM_OBJS): ./build/%.o: src/%
 	@echo [ASM] $@
 	@$(ASM) $(ASMFLAGS) $< -o $@
 
-$(C_OBJS): build/%.o: src/%
+$(C_OBJS): ./build/%.o: src/%
 	@echo [CC] $@
 	@$(CC) $(CFLAGS_KERNEL) $< -c -o $@
 
-$(CO_OBJS): build/%.o: src/%
+$(CO_OBJS): ./build/%.o: src/%
 	@echo [CC] $@
 	@$(CC) $(CFLAGS_KERNEL) $(COFLAGS) $< -c -o $@
 
-$(STD_C_ASM_OBJS): build/putka-clib/%.o: putka-clib/src/%
+$(STD_C_ASM_OBJS): ./build/putka-clib/%.o: putka-clib/src/%
 	@echo [ASM] $@
 	@$(ASM) $(ASMFLAGS_STD_C) $< -o $@
 
-$(STD_C_C_OBJS): build/putka-clib/%.o: putka-clib/src/%
+$(STD_C_C_OBJS): ./build/putka-clib/%.o: putka-clib/src/%
 	@echo [CC] $@
 	@$(CC) $(CFLAGS_STD_C) $< -c -o $@
 
-$(RTL_SYSCALL_C_OBJ): build/putka-clib/%.o: putka-clib/src/%
+$(RTL_SYSCALL_C_OBJ): ./build/putka-clib/%.o: putka-clib/src/%
 	@echo [CC] $@
 	@$(CC) $(CFLAGS_STD_C) $< -c -o $@
 
-$(RTL_START_ASM_OBJ): build/putka-clib/%.o: putka-clib/src/%
+$(RTL_START_ASM_OBJ): ./build/putka-clib/%.o: putka-clib/src/%
 	@echo [ASM] $@
 	@$(ASM) $(ASMFLAGS_STD_C) $< -o $@
 
-clean:
+clean_kernel: clean_std_c
 	rm -f $(ASM_OBJS) $(CO_OBJS) $(C_OBJS)
+clean_rtl: clean_std_c
+	rm -f $(RTL_START_ASM_OBJ) $(RTL_SYSCALL_C_OBJ) $(RTL_FINAL_OBJ)
+clean_std_c:
+	rm -f $(STD_C_OBJS)
 

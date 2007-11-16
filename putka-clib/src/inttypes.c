@@ -7,9 +7,9 @@ intmax_t imaxabs(intmax_t j)
 	return (j < 0) ? -j : j;
 }
 
-imaxdiv_t imaxdiv(intmax_t yla, intmax_t ala) // TODO
+imaxdiv_t imaxdiv(intmax_t yla, intmax_t ala) // TODO (liitä int64.h)
 {
-	imaxdiv_t r;
+	imaxdiv_t r = {0};
 	int i = 0, j = 0;
 	i /= j;
 	return r;
