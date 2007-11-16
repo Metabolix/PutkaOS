@@ -135,13 +135,13 @@ std_c_builddirs:
 	@mkdir -p build build/putka-clib $(addprefix build/putka-clib/,$(STD_C_DIRS)) || echo "mkdir failed!"
 
 rtl_link:
-	@ld $(RTL_START_ASM_OBJ) $(RTL_SYSCALL_C_OBJ) $(STD_C_OBJS) -r -o build/rtl.o
+	@ld $(RTL_START_ASM_OBJ) $(RTL_SYSCALL_C_OBJ) $(STD_C_OBJS) $(LDFLAGS) -r -o build/rtl.o 
 	@echo "#!/bin/sh" > link.sh
-	@echo "ld --oformat=binary -Ttext 0x20000000 build/rtl.o \044@" >> link.sh
+	@echo "ld -melf_i386 --oformat=binary -Ttext 0x20000000 build/rtl.o \044@ " >> link.sh
 	@chmod +x link.sh
 	@echo "Ajonaikainen kirjasto build/rtl.o ja skripti link.sh luotu."
 	@echo
-	@echo "Ohje omaa ohjelmaa varten:"
+	@echo "Ohje omaa ohjelmaa varten: (-m32 mukaan amd64:lla)"
 	@echo "gcc -ffreestanding -nostdinc -I./putka-clib/include -std=c99 -c -o a.o a.c"
 	@echo "gcc ... -c -o b.o b.c"
 	@echo "./link.sh a.o b.o -o ohjelma.bin"
