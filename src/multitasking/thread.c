@@ -18,7 +18,7 @@ size_t thread_count = 0;
 tid_t active_tid = NO_THREAD;
 struct thread * active_thread = 0;
 
-tid_t threads_ended_arr[MAX_PROCESSES];
+tid_t threads_ended_arr[MAX_THREADS];
 uint_t threads_ended = 0;
 
 const struct tss kernel_space_tss = {
@@ -47,6 +47,11 @@ const struct tss user_space_tss = {
 
 static void free_thread(tid_t tid);
 void clean_threads(void);
+
+void switch_thread(void)
+{
+	asm_int(IDT_SCHEDULER);
+}
 
 void kill_thread(tid_t tid)
 {
@@ -78,7 +83,7 @@ void kill_thread(tid_t tid)
 	}
 	if (tid == active_tid) {
 		// Pitää vaihtaa uusi säie
-		asm_int(IDT_SCHEDULER);
+		switch_thread();
 	}
 }
 
@@ -119,7 +124,7 @@ void thread_ending(void)
 		panic("Thread 0 ending!\n");
 	}
 	kill_thread(active_tid);
-	for (;;) asm_int(IDT_SCHEDULER);
+	for (;;) switch_thread();
 }
 
 tid_t alloc_thread(void)

@@ -46,10 +46,10 @@ void threading_init(void)
 	processes[0].threads.count = 1;
 
 	active_process = processes + active_pid;
-	asm_int(IDT_SCHEDULER);
+	switch_thread();
 }
 
-void next_thread(void)
+void select_next_thread(void)
 {
 	if (!active_process) {
 		return;

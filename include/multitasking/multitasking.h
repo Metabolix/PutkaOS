@@ -41,7 +41,8 @@ extern struct thread * active_thread;
 extern size_t process_count;
 extern size_t thread_count;
 
-extern void next_thread(void);
+extern void switch_thread(void);
+extern void select_next_thread(void);
 
 extern void threading_init(void);
 extern void start_threading(void);

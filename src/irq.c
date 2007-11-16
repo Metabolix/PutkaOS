@@ -167,6 +167,6 @@ static void load_thread_state(void)
 void scheduler(void)
 {
 	save_thread_state();
-	next_thread();
+	select_next_thread();
 	load_thread_state();
 }
