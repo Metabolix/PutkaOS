@@ -29,6 +29,13 @@ enum {
 };
 
 enum { VT_MODE_NORMAL, VT_MODE_RAWEVENTS };
+/*
+ * näppiseventit:
+ * unsigned inttejä, 8. bitti (0x100) on ylhäällä jos nappi nousee ylös,
+ * biteissä 0-7 (0xff) on keyboard.h:n KEYCODE-juttuja. Niitä voi muuttaa
+ * asciiksi (tai joksikin sen tapaiseksi) keyboard.c/h:n key_to_asciilla.
+ */
+
 enum { VT_BLOCK, VT_NOBLOCK };
 
 enum {
