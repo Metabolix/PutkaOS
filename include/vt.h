@@ -8,6 +8,7 @@
 #include <irq.h>
 #include <multitasking/multitasking.h>
 #include <memory/kmalloc.h>
+#include <devices/devmanager.h>
 
 #define VT_BUF_H 60
 #define VT_COUNT 6
@@ -28,7 +29,7 @@ enum {
 	IOCTL_DISPLAY_ROLL_UP
 };
 
-enum { VT_MODE_NORMAL, VT_MODE_RAWEVENTS };
+enum { VT_MODE_NORMAL=0, VT_MODE_RAWEVENTS=1 };
 /*
  * näppiseventit:
  * unsigned inttejä, 8. bitti (0x100) on ylhäällä jos nappi nousee ylös,
@@ -36,22 +37,22 @@ enum { VT_MODE_NORMAL, VT_MODE_RAWEVENTS };
  * asciiksi (tai joksikin sen tapaiseksi) keyboard.c/h:n key_to_asciilla.
  */
 
-enum { VT_NOBLOCK, VT_BLOCK };
+enum { VT_BLOCKMODE_NOBLOCK=0, VT_BLOCKMODE_BLOCK=1 };
 
 enum {
 	IOCTL_VT_MODE, //VT_MODE_NORMAL/VT_MODE_EVENTS
 	IOCTL_VT_BLOCKMODE, //VT_NOBLOCK/VT_BLOCK
 };
 
-/*struct lockkeystates_str{
-	unsigned char scroll, caps, num;
-};*/
-
 struct vt_t {
+	DEVICE std;
+
+	char name[5];
+	unsigned int index;
+
 	volatile int kb_buf[KB_BUFFER_SIZE];
 	volatile int kb_buf_start, kb_buf_end, kb_buf_count;
 	unsigned int realtime_kb_mods, kb_mods;
-	//struct lockkeystates_str realtime_kb_locks, kb_locks;
 	//struct spinlock kb_buf_lock;
 
 	char * buffer;
@@ -69,39 +70,36 @@ struct vt_t {
 	unsigned char mode, block;
 };
 
-extern unsigned char vt_get_color(unsigned int vt_num);
-extern void vt_set_color(unsigned int vt_num, unsigned char c);
-extern void vt_getdisplaysize(unsigned int vt_num, unsigned int *w, unsigned int *h);
-extern int vt_locate(unsigned int vt_num, unsigned int x, unsigned int y);
-extern int vt_getpos(unsigned int vt_num, unsigned int *x, unsigned int *y);
-extern void vt_cls(unsigned int vt_num);
-//extern int vt_fastprint(unsigned int vt_num, const char *buf, unsigned int len);
-extern int vt_print(unsigned int vt_num, const char *string);
-extern int vt_putch(unsigned int vt_num, int c);
+extern unsigned char vt_get_color(struct vt_t *vtptr);
+extern void vt_set_color(struct vt_t *vtptr, unsigned char c);
+extern void vt_getdisplaysize(struct vt_t *vtptr, unsigned int *w, unsigned int *h);
+extern int vt_locate(struct vt_t *vtptr, unsigned int x, unsigned int y);
+extern int vt_getpos(struct vt_t *vtptr, unsigned int *x, unsigned int *y);
+extern void vt_cls(struct vt_t *vtptr);
+//extern int vt_fastprint(struct vt_t *vtptr, const char *buf, unsigned int len);
+extern int vt_print(struct vt_t *vtptr, const char *string);
+extern int vt_putch(struct vt_t *vtptr, int c);
 extern void vt_change(unsigned int vt_num);
 extern void vt_scroll(int lines);
 extern unsigned int vt_get_display_height(void);
 
-extern unsigned int vt_out_get(void);
+extern struct vt_t * vt_out_get(void);
 extern void vt_keyboard_event(int code, int up);
-extern int vt_get_kbmods(unsigned int vt_num); //tämän antamat kbmodsit
+extern int vt_get_kbmods(struct vt_t *vtptr); //tämän antamat kbmodsit
                                 //päivittyvät sitä mukaa kun vt:ltä luetaan
 								//näppäimiä
-extern int vt_get_next_key_event(unsigned int vt_num);
-extern int vt_wait_and_get_next_key_event(unsigned int vt_num);
-extern int vt_kb_get(unsigned int vt_num);
-extern int vt_kb_peek(unsigned int vt_num);
+extern int vt_get_next_key_event(struct vt_t *vtptr);
+extern int vt_wait_and_get_next_key_event(struct vt_t *vtptr);
+extern int vt_kb_get(struct vt_t *vtptr);
+extern int vt_kb_peek(struct vt_t *vtptr);
 
-extern void vt_kprintflock(unsigned int vt_num);
-extern void vt_kprintfunlock(unsigned int vt_num);
+/*extern void vt_kprintflock(struct vt_t *vtptr);
+extern void vt_kprintfunlock(struct vt_t *vtptr);*/
 extern void vt_unlockspinlocks(void);
 
 extern void vt_init(void);
 extern void vt_dev_init(void);
 extern int vt_setdriver(char *filename);
-
-//extern struct vt_t vt[VT_COUNT];
-//extern unsigned int cur_vt;
 
 #endif
 

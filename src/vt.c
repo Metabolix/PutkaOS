@@ -11,29 +11,23 @@
 #include <stdio.h>
 #include <misc_asm.h>
 #include <panic.h>
-#include <devices/devmanager.h>
 
 /////////////////////////////////////////////
 
 int initialized = 0;
 
 struct vt_t vt[VT_COUNT];
-unsigned int cur_vt;
-int change_to_vt;
+unsigned int cur_vt = 0;
+int change_to_vt = -1;
 
 FILE *driverstream = NULL;
 struct displayinfo driverinfo;
 
 int devices_not_removed_count = 0;
 
-struct vt_device_str {
-	DEVICE std;
-	unsigned int vt_num;
-} **vt_devs;
-
-struct vt_file_str {
+struct vt_file_t {
 	FILE std;
-	unsigned int vt_num;
+	struct vt_t *vtptr;
 };
 
 /////////////////////////////////////////////
@@ -95,7 +89,7 @@ void do_eop(void)
 {
 	if(!initialized) return;
 	/* if user wants to change vt while printing we queue it */
-	if (change_to_vt) {
+	if (change_to_vt!=-1) {
 		vt_change(change_to_vt);
 	}
 }
@@ -133,76 +127,76 @@ void update_from_current_buf(void)
 	}
 }
 
-void buffer_add_lines(unsigned int vt_num, unsigned int lines)
+void buffer_add_lines(struct vt_t *vtptr, unsigned int lines)
 {
 	if(!initialized) return;
 	if(!driverstream) return; //ei bufferia fallbackina
-	if (vt_num >= VT_COUNT) return;
+	if (vtptr==NULL) return;
 	if(vt[cur_vt].buffer){
 		memmove(vt[cur_vt].buffer, vt[cur_vt].buffer + (lines * vt[cur_vt].bufw * 2),
-				vt[vt_num].bufsize - (lines * vt[vt_num].bufw * 2));
-		vt_fill_with_blank(vt[vt_num].buffer + vt[vt_num].bufsize
-				- (lines * vt[vt_num].bufw * 2), (lines * vt[vt_num].bufw));
+				(*vtptr).bufsize - (lines * (*vtptr).bufw * 2));
+		vt_fill_with_blank((*vtptr).buffer + (*vtptr).bufsize
+				- (lines * (*vtptr).bufw * 2), (lines * (*vtptr).bufw));
 	}
 }
 
-void vt_scroll_if_needed(unsigned int vt_num)
+void vt_scroll_if_needed(struct vt_t *vtptr)
 {
 	if(driverstream){
-		if (vt[vt_num].cy >= driverinfo.h) { /* scroll screen */
-			unsigned int amount = vt[vt_num].cy - (driverinfo.h - 1);
+		if ((*vtptr).cy >= driverinfo.h) { /* scroll screen */
+			unsigned int amount = (*vtptr).cy - (driverinfo.h - 1);
 			if(amount > driverinfo.h) amount = driverinfo.h;
-			buffer_add_lines(vt_num, amount);
+			buffer_add_lines(vtptr, amount);
 			ioctl(driverstream, IOCTL_DISPLAY_ROLL_UP, amount);
-			vt[vt_num].cy = driverinfo.h - 1;
+			(*vtptr).cy = driverinfo.h - 1;
 			vt_update_cursor();
 		}
 	}
 	else{
-		if (vt[vt_num].cy >= 25) { /* scroll screen */
-			int amount = vt[vt_num].cy - (25 - 1);
+		if ((*vtptr).cy >= 25) { /* scroll screen */
+			int amount = (*vtptr).cy - (25 - 1);
 
 			memmove((char *)0xB8000, (char *)0xB8000 + amount * 160,
 					(25 - amount) * 160);
 			vt_fill_with_blank((char *)0xB8000 + (25 - amount) * 160, 80 * amount);
 
-			vt[vt_num].cy = 25 - 1;
+			(*vtptr).cy = 25 - 1;
 		}
 	}
 }
 
 //////////////////////////////////////
 
-unsigned int vt_out_get(void)
+struct vt_t * vt_out_get(void)
 {
 	if(!initialized) return 0;
 	if (is_threading()) {
-		return active_process->vt_num;
+		//return active_process->vt_num;
+		return &vt[active_process->vt_num];
 	}
-
-	return VT_KERN_LOG;
+	return &vt[VT_KERN_LOG];
 }
 
-unsigned char vt_get_color(unsigned int vt_num)
+unsigned char vt_get_color(struct vt_t *vtptr)
 {
 	if(!initialized) return -1;
-	if (vt_num >= VT_COUNT) return -1;
-	return vt[vt_num].color;
+	if (vtptr==NULL) return -1;
+	return (*vtptr).color;
 }
 
-void vt_set_color(unsigned int vt_num, unsigned char c)
+void vt_set_color(struct vt_t *vtptr, unsigned char c)
 {
 	if(!initialized) return;
-	if (vt_num >= VT_COUNT) {
+	if (vtptr==NULL) {
 		return;
 	}
-	vt[vt_num].color = c;
+	(*vtptr).color = c;
 }
 
-void vt_getdisplaysize(unsigned int vt_num, unsigned int *w, unsigned int *h)
+void vt_getdisplaysize(struct vt_t *vtptr, unsigned int *w, unsigned int *h)
 {
 	if(!initialized) return;
-	if(vt_num >= VT_COUNT) return;
+	if(vtptr==NULL) return;
 	if(driverstream){
 		*w = driverinfo.w;
 		*h = driverinfo.h;
@@ -213,10 +207,10 @@ void vt_getdisplaysize(unsigned int vt_num, unsigned int *w, unsigned int *h)
 	}
 }
 
-int vt_locate(unsigned int vt_num, unsigned int x, unsigned int y)
+int vt_locate(struct vt_t *vtptr, unsigned int x, unsigned int y)
 {
 	if(!initialized) return 1;
-	if(vt_num >= VT_COUNT) return 1;
+	if(vtptr==NULL) return 1;
 	int ret = 0;
 	if(driverstream){
 		if(x >= driverinfo.w){
@@ -238,31 +232,31 @@ int vt_locate(unsigned int vt_num, unsigned int x, unsigned int y)
 			ret = 1;
 		}
 	}
-	vt[vt_num].cx = x;
-	vt[vt_num].cy = y;
-	if(vt_num == cur_vt){
+	(*vtptr).cx = x;
+	(*vtptr).cy = y;
+	if(vtptr->index == cur_vt){
 		vt_update_cursor();
 	}
 
 	return ret;
 }
 
-int vt_getpos(unsigned int vt_num, unsigned int *x, unsigned int *y)
+int vt_getpos(struct vt_t *vtptr, unsigned int *x, unsigned int *y)
 {
 	if(!initialized) return 1;
-	if(vt_num >= VT_COUNT) return 1;
-	*x = vt[vt_num].cx;
-	*y = vt[vt_num].cy;
+	if(vtptr==NULL) return 1;
+	*x = (*vtptr).cx;
+	*y = (*vtptr).cy;
 	return 0;
 }
 
-void vt_cls(unsigned int vt_num)
+void vt_cls(struct vt_t *vtptr)
 {
 	if(!initialized) return;
-	if (vt_num >= VT_COUNT) return;
-	vt[vt_num].cx = 0;
-	vt[vt_num].cy = 0;
-	if(vt_num == cur_vt){
+	if(vtptr==NULL) return;
+	vtptr->cx = 0;
+	vtptr->cy = 0;
+	if(vtptr->index == cur_vt){
 		if(driverstream){
 			ioctl(driverstream, IOCTL_DISPLAY_CLS, NULL);
 		}
@@ -270,8 +264,8 @@ void vt_cls(unsigned int vt_num)
 			vt_fallback_cls();
 		}
 	}
-	if(vt[vt_num].buffer){
-		vt_fill_with_blank(vt[vt_num].buffer + vt[vt_num].bufsize - driverinfo.h*vt[vt_num].bufw*2, driverinfo.h*vt[vt_num].bufw);
+	if((*vtptr).buffer){
+		vt_fill_with_blank((*vtptr).buffer + (*vtptr).bufsize - driverinfo.h*(*vtptr).bufw*2, driverinfo.h*(*vtptr).bufw);
 	}
 }
 
@@ -286,16 +280,15 @@ void vt_change(unsigned int vt_num)
 {
 	if(!initialized) return;
 	if(!driverstream) return; //ei vt:n vaihtoa fallbackina (ei bufferia)
-	if (vt_num >= VT_COUNT) return;
-	if (cur_vt == vt_num) return;
-	if (spinl_locked(&vt[cur_vt].writelock) || spinl_locked(&vt[cur_vt].printlock)) {
+	if(vt_num >= VT_COUNT) return;
+	if(cur_vt == vt_num) return;
+	if(spinl_locked(&vt[cur_vt].writelock) || spinl_locked(&vt[cur_vt].printlock)) {
 		change_to_vt = vt_num;
 		return;
 	}
-	change_to_vt = 0;
+	change_to_vt = -1;
 	cur_vt = vt_num;
 	update_from_current_buf();
-	do_eop();
 }
 
 void vt_scroll(int lines) {
@@ -317,13 +310,13 @@ void vt_scroll(int lines) {
 //- Piirtää nopeasti suoraan merkki-väri-muodossa.
 //- len on piirrettävän pituus tavuina.
 //- Toimii aioastaan normaalia display-driveriä käytettäessä
-int vt_fastprint(unsigned int vt_num, const char *buf, unsigned int len)
+int vt_fastprint(struct vt_t *vtptr, const char *buf, unsigned int len)
 {
 	if(!initialized) return 1;
 	if(!driverstream) return 1;
-	if(vt_num >= VT_COUNT) return 1;
+	if(vtptr==NULL) return 1;
 
-	int cx = vt[vt_num].cx, cy = vt[vt_num].cy;
+	int cx = (*vtptr).cx, cy = (*vtptr).cy;
 	//int oldcx = cx, oldcy = cy;
 	cx += len/2;
 	int rowsmore = cx / driverinfo.w;
@@ -332,7 +325,7 @@ int vt_fastprint(unsigned int vt_num, const char *buf, unsigned int len)
 	cy += rowsmore;
 	if(cy > (driverinfo.h - 1)){
 		int scrollamount = cy - (driverinfo.h - 1);
-		buffer_add_lines(vt_num, scrollamount);
+		buffer_add_lines(vtptr->index, scrollamount);
 		ioctl(driverstream, IOCTL_DISPLAY_ROLL_UP, scrollamount);
 		cy -= scrollamount;
 	}
@@ -340,16 +333,16 @@ int vt_fastprint(unsigned int vt_num, const char *buf, unsigned int len)
 	vt_display_locate(cx, cy);
 
 	if (is_threading()) {
-		spinl_lock(&vt[vt_num].writelock);
+		spinl_lock(&(*vtptr).writelock);
 	}
 	fwrite(buf, 1, len, driverstream);
-	memcpy(vt[vt_num].buffer + vt[vt_num].bufsize - (driverinfo.h*driverinfo.w*2) + cy * (driverinfo.w*2) + cx * 2, buf, len);
+	memcpy((*vtptr).buffer + (*vtptr).bufsize - (driverinfo.h*driverinfo.w*2) + cy * (driverinfo.w*2) + cx * 2, buf, len);
 
-	vt[vt_num].cx = cx;
-	vt[vt_num].cy = cy+rowsmore;
+	(*vtptr).cx = cx;
+	(*vtptr).cy = cy+rowsmore;
 
 	if (is_threading()) {
-		spinl_unlock(&vt[vt_num].writelock);
+		spinl_unlock(&(*vtptr).writelock);
 	}
 
 	return 0;
@@ -358,14 +351,14 @@ int vt_fastprint(unsigned int vt_num, const char *buf, unsigned int len)
 
 //jos zero_ends != 0, tulostetaan niin pitkästi että tulee 0, muuten
 //tulostetaan lengthin verran
-int vt_print_length(unsigned int vt_num, const char *string,
+int vt_print_length(struct vt_t *vtptr, const char *string,
 		unsigned int length, unsigned char zero_ends)
 {
 	if (!initialized) return -1;
-	if (vt_num >= VT_COUNT) return -1;
-	if (!vt[vt_num].in_kprintf) {
+	if (vtptr==NULL) return -1;
+	if (!(*vtptr).in_kprintf) {
 		if (is_threading()) {
-			spinl_lock(&vt[vt_num].printlock);
+			spinl_lock(&(*vtptr).printlock);
 		}
 	}
 
@@ -377,68 +370,68 @@ int vt_print_length(unsigned int vt_num, const char *string,
 	while((zero_ends) ? (*s) : (a<length)){
 		//kirjoitetaan nopeammin ohjausmerkittömiä pätkiä jos käytetään ajuria
 		if(driverstream && *s >= ' '){
-			vt_scroll_if_needed(vt_num);
-			//vt_putch(vt_num, '|');
+			vt_scroll_if_needed(vtptr);
+			//vt_putch(vtptr->index, '|');
 			maxl = sizeof(tempbuf);
-			if(maxl > vt[vt_num].bufw*2 - vt[vt_num].cx*2)
-				maxl = vt[vt_num].bufw*2 - vt[vt_num].cx*2;
+			if(maxl > (*vtptr).bufw*2 - (*vtptr).cx*2)
+				maxl = (*vtptr).bufw*2 - (*vtptr).cx*2;
 			i=0;
 			while(*s >= ' ' && ((zero_ends) ? (*s) : (a<length)) && i + 1 < maxl){
 				tempbuf[i++] = *s;
-				tempbuf[i++] = vt[vt_num].color;
+				tempbuf[i++] = (*vtptr).color;
 				s++;
 				a++;
 			}
 
 			if (is_threading()) {
-				spinl_lock(&vt[vt_num].writelock);
+				spinl_lock(&(*vtptr).writelock);
 			}
 
 			//ja bufferiin sama sössö
-			s2 = vt[vt_num].buffer + vt[vt_num].bufsize - (driverinfo.h*driverinfo.w*2)
-					+ vt[vt_num].cy * (driverinfo.w*2) + vt[vt_num].cx * 2;
+			s2 = (*vtptr).buffer + (*vtptr).bufsize - (driverinfo.h*driverinfo.w*2)
+					+ (*vtptr).cy * (driverinfo.w*2) + (*vtptr).cx * 2;
 			s3 = tempbuf;
 			memcpy(s2, s3, i);
 
 			fwrite(tempbuf, 1, i, driverstream);
 
-			vt[vt_num].cx += i/2;
-			if(vt[vt_num].cx >= vt[vt_num].bufw){
-				vt[vt_num].cx = 0;
-				vt[vt_num].cy++;
+			(*vtptr).cx += i/2;
+			if((*vtptr).cx >= (*vtptr).bufw){
+				(*vtptr).cx = 0;
+				(*vtptr).cy++;
 			}
 
 			if (is_threading()) {
-				spinl_unlock(&vt[vt_num].writelock);
+				spinl_unlock(&(*vtptr).writelock);
 			}
 		}
 		//muuten jumitellaan putchilla
 		else{
-			vt_putch(vt_num, *s);
+			vt_putch(vtptr, *s);
 			s++;
 			a++;
 		}
 	}
 
-	if (!vt[vt_num].in_kprintf) {
+	if (!(*vtptr).in_kprintf) {
 		if (is_threading()) {
-			spinl_unlock(&vt[vt_num].printlock);
+			spinl_unlock(&(*vtptr).printlock);
 		}
 	}
 
 	return s - string;
 }
 
-int vt_print(unsigned int vt_num, const char *string)
+int vt_print(struct vt_t *vtptr, const char *string)
 {
-	return vt_print_length(vt_num, string, 0, 1);
+	return vt_print_length(vtptr, string, 0, 1);
 	
 	/*
 	if (!initialized) return 1;
-	if (vt_num >= VT_COUNT) return 1;
-	if (!vt[vt_num].in_kprintf) {
+	if (vtptr==NULL) return 1;
+	if (!(*vtptr).in_kprintf) {
 		if (is_threading()) {
-			spinl_lock(&vt[vt_num].printlock);
+			spinl_lock(&(*vtptr).printlock);
 		}
 	}
 
@@ -449,128 +442,128 @@ int vt_print(unsigned int vt_num, const char *string)
 	while (*s) {
 		//kirjoitetaan nopeammin ohjausmerkittömiä pätkiä jos käytetään ajuria
 		if(driverstream && *s >= ' '){
-			vt_scroll_if_needed(vt_num);
-			//vt_putch(vt_num, '|');
+			vt_scroll_if_needed(vtptr->index);
+			//vt_putch(vtptr->index, '|');
 			maxl = sizeof(tempbuf);
-			if(maxl > vt[vt_num].bufw*2 - vt[vt_num].cx*2)
-				maxl = vt[vt_num].bufw*2 - vt[vt_num].cx*2;
+			if(maxl > (*vtptr).bufw*2 - (*vtptr).cx*2)
+				maxl = (*vtptr).bufw*2 - (*vtptr).cx*2;
 			i=0;
 			while(*s >= ' ' && i + 1 < maxl){
 				tempbuf[i++] = *s;
-				tempbuf[i++] = vt[vt_num].color;
+				tempbuf[i++] = (*vtptr).color;
 				s++;
 			}
 
 			if (is_threading()) {
-				spinl_lock(&vt[vt_num].writelock);
+				spinl_lock(&(*vtptr).writelock);
 			}
 
 			//ja bufferiin sama sössö
-			s2 = vt[vt_num].buffer + vt[vt_num].bufsize - (driverinfo.h*driverinfo.w*2)
-					+ vt[vt_num].cy * (driverinfo.w*2) + vt[vt_num].cx * 2;
+			s2 = (*vtptr).buffer + (*vtptr).bufsize - (driverinfo.h*driverinfo.w*2)
+					+ (*vtptr).cy * (driverinfo.w*2) + (*vtptr).cx * 2;
 			s3 = tempbuf;
 			memcpy(s2, s3, i);
 
 			fwrite(tempbuf, 1, i, driverstream);
 
-			vt[vt_num].cx += i/2;
-			if(vt[vt_num].cx >= vt[vt_num].bufw){
-				vt[vt_num].cx = 0;
-				vt[vt_num].cy++;
+			(*vtptr).cx += i/2;
+			if((*vtptr).cx >= (*vtptr).bufw){
+				(*vtptr).cx = 0;
+				(*vtptr).cy++;
 			}
 
 			if (is_threading()) {
-				spinl_unlock(&vt[vt_num].writelock);
+				spinl_unlock(&(*vtptr).writelock);
 			}
 		}
 		//muuten jumitellaan putchilla
 		else{
-			vt_putch(vt_num, *s);
+			vt_putch(vtptr->index, *s);
 			s++;
 		}
 	}
 
-	if (!vt[vt_num].in_kprintf) {
+	if (!(*vtptr).in_kprintf) {
 		if (is_threading()) {
-			spinl_unlock(&vt[vt_num].printlock);
+			spinl_unlock(&(*vtptr).printlock);
 		}
 	}
 
 	return s - string;*/
 }
 
-int vt_putch(unsigned int vt_num, int c)
+int vt_putch(struct vt_t *vtptr, int c)
 {
 	if(!initialized) return 1;
-	if (vt_num >= VT_COUNT) return 1;
+	if (vtptr==NULL) return 1;
 	if (is_threading()) {
-		spinl_lock(&vt[vt_num].writelock);
+		spinl_lock(&(*vtptr).writelock);
 	}
 
-	if (vt[vt_num].scroll != 0) {
-		vt[vt_num].scroll = 0;
+	if ((*vtptr).scroll != 0) {
+		(*vtptr).scroll = 0;
 		vt_scroll(0);
 	}
 
 	if (c == '\b') { /* backspace */
-		if (vt[vt_num].cx > 0) {
-			vt[vt_num].cx--;
+		if ((*vtptr).cx > 0) {
+			(*vtptr).cx--;
 		} else {
-			vt[vt_num].cx = (driverinfo.w) - 1;
-			vt[vt_num].cy--;
+			(*vtptr).cx = (driverinfo.w) - 1;
+			(*vtptr).cy--;
 		}
 		vt_update_cursor();
 	}
 	else if (c == '\t') { /* tab */
-		vt[vt_num].cx = (vt[vt_num].cx + 8) & ~7;
+		(*vtptr).cx = ((*vtptr).cx + 8) & ~7;
 		vt_update_cursor();
 	}
 	else if (c == '\r') { /* return */
-		vt[vt_num].cx = 0;
+		(*vtptr).cx = 0;
 		vt_update_cursor();
 	}
 	else if (c == '\n') { /* new line */
-		vt[vt_num].cx = 0;
-		vt_scroll_if_needed(vt_num);
-		vt[vt_num].cy++;
+		(*vtptr).cx = 0;
+		vt_scroll_if_needed(vtptr);
+		(*vtptr).cy++;
 		vt_update_cursor();
 	}
 	else if (c >= ' ') { /* printable character */
-		vt_scroll_if_needed(vt_num);
-		if(vt_num == cur_vt) {
+		vt_scroll_if_needed(vtptr);
+		if(vtptr->index == cur_vt) {
 			if(driverstream){
 				char cc[2];
 				cc[0] = c;
-				cc[1] = vt[vt_num].color;
+				cc[1] = (*vtptr).color;
 				fwrite(cc, 1, 2, driverstream);
 			}
 			else{
-				*(char*)(0xB8000 + vt[vt_num].cy * 160 + vt[vt_num].cx * 2) = c;
-				*(char*)(0xB8000 + vt[vt_num].cy * 160 + vt[vt_num].cx * 2 + 1) = 0x7;
+				*(char*)(0xB8000 + (*vtptr).cy * 160 + (*vtptr).cx * 2) = c;
+				*(char*)(0xB8000 + (*vtptr).cy * 160 + (*vtptr).cx * 2 + 1) = 0x7;
 			}
 		}
-		if(vt[vt_num].buffer && initialized) {
-			*(vt[vt_num].buffer + vt[vt_num].bufsize - (driverinfo.h*driverinfo.w*2) + vt[vt_num].cy * (driverinfo.w*2) + vt[vt_num].cx * 2) = c;
-			*(vt[vt_num].buffer + vt[vt_num].bufsize - (driverinfo.h*driverinfo.w*2) + vt[vt_num].cy * (driverinfo.w*2) + vt[vt_num].cx * 2 + 1) = vt[vt_num].color;
+		if((*vtptr).buffer && initialized) {
+			*((*vtptr).buffer + (*vtptr).bufsize - (driverinfo.h*driverinfo.w*2) + (*vtptr).cy * (driverinfo.w*2) + (*vtptr).cx * 2) = c;
+			*((*vtptr).buffer + (*vtptr).bufsize - (driverinfo.h*driverinfo.w*2) + (*vtptr).cy * (driverinfo.w*2) + (*vtptr).cx * 2 + 1) = (*vtptr).color;
 		}
-		vt[vt_num].cx++;
+		(*vtptr).cx++;
 	}
 
 	if(driverstream){
-		if (vt[vt_num].cx >= (driverinfo.w)) {
-			vt[vt_num].cx = 0;
-			vt[vt_num].cy++;
+		if ((*vtptr).cx >= (driverinfo.w)) {
+			(*vtptr).cx = 0;
+			(*vtptr).cy++;
 		}
 	}
 	else{
-		if (vt[vt_num].cx >= 80) {
-			vt[vt_num].cx = 0;
-			vt[vt_num].cy++;
+		if ((*vtptr).cx >= 80) {
+			(*vtptr).cx = 0;
+			(*vtptr).cy++;
 		}
 	}
 
 	if (is_threading()) {
-		spinl_unlock(&vt[vt_num].writelock);
+		spinl_unlock(&(*vtptr).writelock);
 	}
 	do_eop();
 	return 0;
@@ -580,7 +573,7 @@ int vt_putch(unsigned int vt_num, int c)
 //####### näppisjuttuja ######
 
 
-void do_kb_mods(int code, int up, /*struct lockkeystates_str *locks, */uint_t *kb_mods)
+void do_kb_mods(int code, int up, /*struct lockkeystates_t *locks, */uint_t *kb_mods)
 {
 	switch (code) {
 		case KEYCODE_LSHIFT:
@@ -673,61 +666,61 @@ void vt_keyboard_event(int code, int up)
 	//spinl_unlock(&vt[cur_vt].kb_buf_lock);
 }
 
-int vt_get_and_parse_next_key_event(unsigned int vt_num)
+int vt_get_and_parse_next_key_event(struct vt_t *vtptr)
 {
 	//static unsigned char capsl_key, numl_key, scroll_key;
 
 	if(!initialized) return -3;
-	if (vt_num >= VT_COUNT) return -3;
-	if (!vt[vt_num].kb_buf_count) {
+	if (vtptr==NULL) return -3;
+	if (!(*vtptr).kb_buf_count) {
 		return -1;
 	}
 
-	//spinl_lock(&vt[vt_num].kb_buf_lock);
+	//spinl_lock(&(*vtptr).kb_buf_lock);
 	
-	unsigned int keyevent = vt[vt_num].kb_buf[vt[vt_num].kb_buf_start];
-	--vt[vt_num].kb_buf_count;
-	++vt[vt_num].kb_buf_start;
-	vt[vt_num].kb_buf_start %= KB_BUFFER_SIZE;
+	unsigned int keyevent = (*vtptr).kb_buf[(*vtptr).kb_buf_start];
+	--(*vtptr).kb_buf_count;
+	++(*vtptr).kb_buf_start;
+	(*vtptr).kb_buf_start %= KB_BUFFER_SIZE;
 	unsigned char code = keyevent & 0xff;
 	unsigned char up = (keyevent & 0x100)?1:0;
 
 	do_kb_mods(code, up, /*&vt[cur_vt].kb_locks,*/ &vt[cur_vt].kb_mods);
 
-	//kprintf(" [[%s]] ",(vt[vt_num].kb_mods&(KEYB_MOD_LSHIFT|KEYB_MOD_RSHIFT))?"s":"n");
+	//kprintf(" [[%s]] ",((*vtptr).kb_mods&(KEYB_MOD_LSHIFT|KEYB_MOD_RSHIFT))?"s":"n");
 
-	//spinl_unlock(&vt[vt_num].kb_buf_lock);
+	//spinl_unlock(&(*vtptr).kb_buf_lock);
 
 	return keyevent;
 }
 
 //-1 jos ei ole
-int vt_get_next_key_event(unsigned int vt_num)
+int vt_get_next_key_event(struct vt_t *vtptr)
 {
-	return vt_get_and_parse_next_key_event(vt_num);
+	return vt_get_and_parse_next_key_event(vtptr);
 }
 
-int vt_wait_and_get_next_key_event(unsigned int vt_num)
+int vt_wait_and_get_next_key_event(struct vt_t *vtptr)
 {
-	while (!vt[vt_num].kb_buf_count) {
+	while (!(*vtptr).kb_buf_count) {
 		switch_thread();
 	}
-	return vt_get_and_parse_next_key_event(vt_num);
+	return vt_get_and_parse_next_key_event(vtptr);
 }
 
-int vt_get_kbmods(unsigned int vt_num)
+int vt_get_kbmods(struct vt_t *vtptr)
 {
-	return vt[vt_num].kb_mods;
+	return (*vtptr).kb_mods;
 }
 
 //palauttaa -1 jos ei löydetty bufferista merkkejä ja muita <0-lukuja muina
 //virheinä
-int vt_get_next_char(unsigned int vt_num)
+int vt_get_next_char(struct vt_t *vtptr)
 {
 	if(!initialized) return -5;
-	if (vt_num >= VT_COUNT) return -5;
+	if (vtptr==NULL) return -5;
 	for(;;){
-		int keyevent = vt_get_and_parse_next_key_event(vt_num);
+		int keyevent = vt_get_and_parse_next_key_event(vtptr);
 		if(keyevent<0){
 			//print("[<0]");
 			return keyevent;
@@ -743,9 +736,9 @@ int vt_get_next_char(unsigned int vt_num)
 				|| code == KEYCODE_NUMLOCK) continue;
 		//kprintf("[c=%i|u=%i]", code, up);
 		if(!up){
-			//kprintf(" [%s] ",(vt[vt_num].kb_mods&(KEYB_MOD_LSHIFT|KEYB_MOD_RSHIFT))?"s":"n");
-			//kprintf(" [[%s]] ",(vt[vt_num].kb_mods&(KEYB_MOD_CAPS))?"c":"n");
-			int c = key_to_ascii(code, vt[vt_num].kb_mods);
+			//kprintf(" [%s] ",((*vtptr).kb_mods&(KEYB_MOD_LSHIFT|KEYB_MOD_RSHIFT))?"s":"n");
+			//kprintf(" [[%s]] ",((*vtptr).kb_mods&(KEYB_MOD_CAPS))?"c":"n");
+			int c = key_to_ascii(code, (*vtptr).kb_mods);
 			/*kprintf("[%x]", c);
 			while(1);*/
 			return c;
@@ -755,26 +748,26 @@ int vt_get_next_char(unsigned int vt_num)
 }
 
 //palauttaa -2 jos ei ole initialisoitu ja -1 jos bufferi on tyhjä
-int vt_kb_peek(unsigned int vt_num)
+int vt_kb_peek(struct vt_t *vtptr)
 {
-	return vt_get_next_char(vt_num);
+	return vt_get_next_char(vtptr);
 	/*if(!initialized) return -1;
-	if (!vt[vt_num].kb_buf_count) {
+	if (!(*vtptr).kb_buf_count) {
 		return -1;
 	}
-	return vt[vt_num].kb_buf[vt[vt_num].kb_buf_start++];*/
+	return (*vtptr).kb_buf[(*vtptr).kb_buf_start++];*/
 }
 
-int vt_kb_get(unsigned int vt_num)
+int vt_kb_get(struct vt_t *vtptr)
 {
 	if(!initialized) return -1;
 	int c;
 	for(;;){
-		while (!vt[vt_num].kb_buf_count) {
+		while (!(*vtptr).kb_buf_count) {
 			switch_thread();
 		}
 		//print(" count>0 ");
-		c = vt_get_next_char(vt_num);
+		c = vt_get_next_char(vtptr);
 		if(c==-1){
 			//print("(-1)\n");
 			//continue; //oli joku turha event
@@ -793,14 +786,14 @@ int vt_kb_get(unsigned int vt_num)
 	
 	/*int ret;
 
-	while (!vt[vt_num].kb_buf_count) {
-		asm_hlt(&vt[vt_num].kb_buf_count);
+	while (!(*vtptr).kb_buf_count) {
+		asm_hlt(&(*vtptr).kb_buf_count);
 	}
 
-	ret = vt[vt_num].kb_buf[vt[vt_num].kb_buf_start];
-	--vt[vt_num].kb_buf_count;
-	++vt[vt_num].kb_buf_start;
-	vt[vt_num].kb_buf_start %= KB_BUFFER_SIZE;*/
+	ret = (*vtptr).kb_buf[(*vtptr).kb_buf_start];
+	--(*vtptr).kb_buf_count;
+	++(*vtptr).kb_buf_start;
+	(*vtptr).kb_buf_start %= KB_BUFFER_SIZE;*/
 
 	/*if (kb_buf_full) {
 		asm_cli();
@@ -814,23 +807,23 @@ int vt_kb_get(unsigned int vt_num)
 	//return ret;
 }
 
-void vt_kprintflock(unsigned int vt_num)
+/*void vt_kprintflock(struct vt_t *vtptr)
 {
 	if(!initialized) return;
 	if(is_threading()) {
-		spinl_lock(&vt[vt_num].printlock);
-		vt[vt_num].in_kprintf = 1;
+		spinl_lock(&(*vtptr).printlock);
+		(*vtptr).in_kprintf = 1;
 	}
 }
 
-void vt_kprintfunlock(unsigned int vt_num)
+void vt_kprintfunlock(struct vt_t *vtptr)
 {
 	if(!initialized) return;
 	if(is_threading()) {
-		spinl_unlock(&vt[vt_num].printlock);
-		vt[vt_num].in_kprintf = 0;
+		spinl_unlock(&(*vtptr).printlock);
+		(*vtptr).in_kprintf = 0;
 	}
-}
+}*/
 
 void vt_unlockspinlocks(void)
 {
@@ -843,6 +836,10 @@ void vt_unlockspinlocks(void)
 
 int vt_setdriver(char *fname)
 {
+	if(VT_COUNT > 99){
+		kprintf("vt_setdriver(): error: too many vts requested!\n");
+		return 1;
+	}
 	int i;
 	if(fname==NULL){ //NULL = fallback
 		for(i = 0; i < VT_COUNT; i++) {
@@ -850,6 +847,8 @@ int vt_setdriver(char *fname)
 			memset(&vt[i], 0, sizeof(struct vt_t));
 			vt[i].color = 0x7;
 			vt[i].block = 1;
+			sprintf(vt[i].name, "vt%d", i);
+			vt[i].index = i;
 			spinl_init(&vt[i].writelock);
 			spinl_init(&vt[i].printlock);
 			//spinl_init(&vt[i].kb_buf_lock);
@@ -907,29 +906,29 @@ void vt_init(void)
 }
 
 
-/////////////////////////7
+//################# devicejuttuja #################
 
 
 size_t vt_fwrite(const void *buf, size_t size, size_t count,
-		struct vt_file_str *vt_file)
+		struct vt_file_t *vt_file)
 {
 	int i;
-	if((i = vt_print_length(vt_file->vt_num, buf, size*count, 0)) == -1)
+	if((i = vt_print_length(vt_file->vtptr, buf, size*count, 0)) == -1)
 		return 0;
 	return i/size;
 }
 
 size_t vt_fread(void *buf, size_t size, size_t count,
-		struct vt_file_str *vt_file)
+		struct vt_file_t *vt_file)
 {
-	switch(vt[vt_file->vt_num].mode){
+	switch((*vt_file->vtptr).mode){
 	case VT_MODE_NORMAL:
 		for(unsigned int i=0;i<size*count;){
 			int ch;
-			if(vt[vt_file->vt_num].block)
-				ch = vt_kb_get(vt_file->vt_num);
+			if((*vt_file->vtptr).block)
+				ch = vt_kb_get(vt_file->vtptr);
 			else
-				ch = vt_kb_peek(vt_file->vt_num);
+				ch = vt_kb_peek(vt_file->vtptr);
 			if(ch < 0) return i/size;
 			if(ch<0xff && ch>=0){
 				((char*)buf)[i] = (char)ch;
@@ -941,18 +940,25 @@ size_t vt_fread(void *buf, size_t size, size_t count,
 		}
 		break;
 	case VT_MODE_RAWEVENTS:
-		for(unsigned int i=0;i<size*count/4;){
-			int event = vt_get_and_parse_next_key_event(vt_file->vt_num);
+		//print("vt_fread(): rawevents\n");
+		for(unsigned int i=0;i+3 < size*count/4;){
+			if((*vt_file->vtptr).block){
+				while(!(*vt_file->vtptr).kb_buf_count) switch_thread();
+			}
+			int event = vt_get_and_parse_next_key_event(vt_file->vtptr);
+			//kprintf("event=%d\n", event);
 			if(event < -1){
 				print("vt_fread(): error in vt_get_and_parse_next_key_event\n");
 				return i*sizeof(uint_t)/size;
 			}
-			else if(event == -1){
-				if(vt[vt_file->vt_num].block){
-					while(!vt[vt_file->vt_num].kb_buf_count) switch_thread();
+			if(event == -1){
+				if((*vt_file->vtptr).block){
 					continue;
 				}
-				else return i*sizeof(uint_t)/size;
+				else{
+					//print("vt_thread(): not blocking -> returning\n");
+					return i*sizeof(uint_t)/size;
+				}
 			}
 			((uint_t*)buf)[i] = event;
 			i++;
@@ -964,45 +970,54 @@ size_t vt_fread(void *buf, size_t size, size_t count,
 	return count;
 }
 
-int vt_ioctl(struct vt_file_str *vt_file, int request, uintptr_t param)
+int vt_ioctl(struct vt_file_t *vt_file, int request, uintptr_t param)
 {
 	if(request == IOCTL_VT_MODE){
-		if(param>1) return 1;
-		vt[vt_file->vt_num].mode = param;
+		if(param>1){
+			print("vt_ioctl(): invalid mode\n");
+			return 1;
+		}
+		(*vt_file->vtptr).mode = param;
+		kprintf("vt_ioctl(): set mode to %d\n", param);
 		return 0;
 	}
 	if(request == IOCTL_VT_BLOCKMODE){
-		if(param>1) return 1;
-		vt[vt_file->vt_num].block = param;
+		if(param>1){
+			print("vt_ioctl(): invalid blockmode\n");
+			return 1;
+		}
+		(*vt_file->vtptr).block = param;
+		kprintf("vt_ioctl(): set blockmode to %d\n", param);
 		return 0;
 	}
+	print("vt_ioctl(): invalid request\n");
 	return 1;
 }
 
-int vt_fclose(struct vt_file_str *vt_file)
+int vt_fclose(struct vt_file_t *vt_file)
 {
-	if(vt[vt_file->vt_num].num_open==0) return 1;
-	int vt_num = vt_file->vt_num;
 	if(vt_file){
-		if(vt_file){
-			if(vt_file->std.func) kfree((void*)vt_file->std.func);
-			kfree(vt_file);
+		if(vt_file->vtptr->num_open==0){
+			print("vt_fclose(): warning: closing too many files!\n");
 		}
+		struct vt_t *vtptr = vt_file->vtptr;
+		if(vt_file->std.func) kfree((void*)vt_file->std.func);
+		kfree(vt_file);
+		vtptr->num_open--;
+		kprintf("vt_fclose(): closed (vtptr->index=%d, vtptr->num_open=%d)\n",
+				vtptr->index, vtptr->num_open);
 	}
-	vt[vt_num].num_open--;
-	kprintf("vt_fclose(): closed (vt_num=%d, num_open=%d\n",
-			vt_num, vt[vt_num].num_open);
 	return 0;
 }
 
-FILE *vt_open(struct vt_device_str *device, uint_t mode)
+FILE *vt_open(struct vt_t *device, uint_t mode)
 {
 	if( !( (mode & FILE_MODE_WRITE) || (mode & FILE_MODE_READ) ) ){
 		kprintf("vt_open(): only read and/or write supported\n");
 		return NULL;
 	}
-	struct vt_file_str *vt_file =
-			(struct vt_file_str*)kmalloc(sizeof(struct vt_file_str));
+	struct vt_file_t *vt_file =
+			(struct vt_file_t*)kmalloc(sizeof(struct vt_file_t));
 	if(vt_file == NULL){
 		kprintf("vt_open(): kmalloc failed (1)\n");
 		return NULL;
@@ -1025,64 +1040,46 @@ FILE *vt_open(struct vt_device_str *device, uint_t mode)
 
 	vt_file->std.func = func;
 	
-	vt_file->vt_num = device->vt_num;
+	//vt_file->vtptr->index = device->index;
+	vt_file->vtptr = device;
 
-	vt[device->vt_num].num_open++;
+	vt[device->index].num_open++;
 
 	kprintf("vt_open(): opened\n");
 
 	return (FILE*)vt_file;
 }
 
-int vt_remove(struct vt_device_str *device)
+int vt_remove(struct vt_t *device)
 {
-	if(devices_not_removed_count==0) return 0;
+	/*if(devices_not_removed_count==0) return 0;
 	devices_not_removed_count--;
 	if(devices_not_removed_count==0){
 		for(unsigned int i=0; i<VT_COUNT; i++){
 			kfree(vt_devs[i]);
 		}
 		kfree(vt_devs);
-	}
+	}*/
 	return 0;
 }
 
 void vt_dev_init(void)
 {
+	if(VT_COUNT > 99){
+		kprintf("vt_dev_init(): error: too many vts requested!\n");
+		return;
+	}
+
 	if(!initialized) vt_init();
 	
-	if(VT_COUNT > 99){
-		kprintf("vt_init(): error: too many vts requested!\n");
-		return;
-	}
-	//vt_device_str **
-	vt_devs = (struct vt_device_str**)
-			kcalloc(sizeof(struct vt_device_str*) * VT_COUNT, 1);
-	if(vt_devs==NULL){
-		kprintf("vt_init(): error: could not kcalloc (1)\n");
-		return;
-	}
 	for(unsigned int i=0; i<VT_COUNT; i++){
-		vt_devs[i] = kcalloc(sizeof(struct vt_device_str), 1);
-		if(vt_devs[i]==NULL){
-			kprintf("vt_init(): warning: could not kcalloc (2)\n");
-			continue;
-		}
-		char *name = (char*)kmalloc(sizeof(char)*5);
-		if(name == NULL){
-			kprintf("vt_init(): warning: could not kmalloc (3)\n");
-			kfree(vt_devs[i]);
-			continue;
-		}
-		sprintf(name, "vt%i", i);
-		vt_devs[i]->std.name = name;
-		vt_devs[i]->std.dev_class = DEV_CLASS_OTHER;
-		vt_devs[i]->std.dev_type = DEV_TYPE_VT;
-		vt_devs[i]->std.devopen = (devopen_t) vt_open;
-		vt_devs[i]->std.remove = (devrm_t) vt_remove;
-		vt_devs[i]->vt_num = i;
-		kprintf("vt_init(): adding %s\n", name);
-		switch (device_insert(&vt_devs[i]->std)) {
+		vt[i].std.name = vt[i].name;
+		vt[i].std.dev_class = DEV_CLASS_OTHER;
+		vt[i].std.dev_type = DEV_TYPE_VT;
+		vt[i].std.devopen = (devopen_t) vt_open;
+		vt[i].std.remove = (devrm_t) vt_remove;
+		kprintf("vt_init(): adding %s\n", vt[i].std.name);
+		switch (device_insert(&vt[i].std)) {
 			case 0:
 				devices_not_removed_count++;
 				break;
@@ -1101,3 +1098,4 @@ void vt_dev_init(void)
 			}
 	}
 }
+

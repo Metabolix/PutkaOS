@@ -170,14 +170,19 @@ void testattava_koodi()
 	f = fopen("/dev/vt0", "r+");
 	if(f==NULL) panic("apuva!");
 	print("opened\n");
-	fwrite("moi vt", 6, 1, f);
+	fwrite("moi vt\n", 1, 7, f);
 	print("printed\n");
-	ioctl(f, IOCTL_VT_BLOCKMODE, VT_NOBLOCK);
+	//ioctl(f, IOCTL_VT_BLOCKMODE, VT_BLOCKMODE_BLOCK);
+	//ioctl(f, IOCTL_VT_MODE, VT_MODE_RAWEVENTS);
 	print("ioctl'd\n");
-	char jee[10];
-	fread(jee, 2, 1, f);
+	/*uint_t jee[10];
+	fread(jee, 4, 10, f);
 	print("read\n");
-	kprintf("%i, %i", jee[0], jee[1]);
+	for(unsigned int i=0; i<10; i++) kprintf("%i, ", jee[i]);*/
+	char jee[5];
+	fread(jee, 1, 5, f);
+	fwrite(jee, 1, 5, f);
+	kprintf("\n");
 	fclose(f);
 	print("closed\n");
 #endif

@@ -126,9 +126,9 @@ static int sprintf_heX(unsigned int num)
 int kprintf(const char *fmt, ...)
 {
 	int retval = 0, numbytes = 0, len, apu;
-	int vt_out = vt_out_get();
+	//struct vt_t *vt_out = vt_out_get();
 
-	vt_kprintflock(vt_out);
+	//vt_kprintflock(vt_out);
 
 	union {
 		char c;
@@ -412,7 +412,7 @@ int kprintf(const char *fmt, ...)
 	}
 	va_end(args);
 
-	vt_kprintfunlock(vt_out);
+	//vt_kprintfunlock(vt_out);
 
 	return retval;
 }
