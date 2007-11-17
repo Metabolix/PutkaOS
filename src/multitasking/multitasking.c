@@ -12,6 +12,8 @@
 extern void kmain2(void);
 extern void switch_task(void);
 
+int threading_started = 0;
+
 int has_threading(void)
 {
 	return active_thread || 0;
@@ -41,35 +43,21 @@ void threading_init(void)
 		},
 	};
 	process_count = 1;
-	active_pid = 0;
-	processes[0].threads.tid0 = active_tid = new_thread(0, kmain2, 0, 0, 0);
+	processes[0].threads.tid0 = new_thread(0, kmain2, 0, 0, 0);
 	processes[0].threads.count = 1;
 
+	active_pid = 0;
+	active_tid = processes[active_pid].threads.tid0;
 	active_process = processes + active_pid;
-	switch_thread();
+	active_thread = 0;
 }
 
-void select_next_thread(void)
+void threading_start(void)
 {
-	if (!active_process) {
-		return;
-	}
-	if (thread_count > 1 || !active_thread) {
-		tid_t tid;
-		pid_t pid;
-		do {
-			tid = find_running_thread();
-		} while (tid == NO_THREAD);
-		pid = threads[tid].pid;
-
-		active_tid = tid;
-		active_pid = pid;
-	}
-
-	active_thread = threads + active_tid;
+	active_pid = 0;
+	active_tid = processes[active_pid].threads.tid0;
 	active_process = processes + active_pid;
 
-	if (!active_process->mem.phys_pd) {
-		panic("PD puuttuu!\n");
-	}
+	threading_started = 1;
+	switch_thread();
 }

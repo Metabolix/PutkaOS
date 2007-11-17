@@ -35,17 +35,13 @@ enum thread_state_t {
 extern pid_t active_pid;
 extern tid_t active_tid;
 
-extern struct process * active_process;
-extern struct thread * active_thread;
+extern int threading_started;
 
 extern size_t process_count;
 extern size_t thread_count;
 
-extern void switch_thread(void);
-extern void select_next_thread(void);
-
 extern void threading_init(void);
-extern void start_threading(void);
+extern void threading_start(void);
 
 extern int has_threading(void); /* Onko aloitettu */
 extern int is_threading(void);  /* Onko päällä, siis HUOMIOI IRQ:t yms! TODO: vähän muuttunut kaikki... ;) */
@@ -55,5 +51,7 @@ extern tid_t new_thread(pid_t pid, entry_t entry, const void * stack, size_t sta
 
 extern void kill_process(pid_t pid);
 extern void kill_thread(tid_t tid);
+
+#include <multitasking/scheduler.h>
 
 #endif

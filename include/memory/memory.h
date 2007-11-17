@@ -14,10 +14,6 @@ Mapping of the first 1M = 256 pages of memory (virtual and physical!)
 0x3e - 0x3e : ( 1 page ) temporary page table for use in creating new ones
 0x3f - 0x3f : ( 1 page ) kernel page directory
 0x40 - 0x7f : (64 pages) kernel page tables
-
-Other virtual mappings
-0x3ff - 0x3ff : ( 1 page ) active page directory
-0x400 - 0x7ff : (1024 pages) active page tables
 **/
 
 #define TEMP_PAGES_START (0x01)
@@ -53,7 +49,7 @@ struct page_entry_t {
 // #define KERNEL_PAGE_PARAMS	3
 #define NULL_PE ((page_entry_t){0})
 #define USER_PE(page) ((page_entry_t){1,1,1,(0),(page)})
-#define KERNEL_PE(page) ((page_entry_t){1,1,1,(0),(page)})
+#define KERNEL_PE(page) ((page_entry_t){1,1,0,(0),(page)})
 #define NEW_PE(page, user) (user ? USER_PE(page) : KERNEL_PE(page))
 
 #define MEMORY_PAGE_SIZE (4096)

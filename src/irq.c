@@ -5,13 +5,9 @@
 #include <io.h>
 #include <panic.h>
 #include <stdint.h>
-#include <multitasking/multitasking.h>
-#include <multitasking/thread.h>
 #include <misc_asm.h>
 
 #define io_wait() asm_nop()
-
-void scheduler(void);
 
 irq_handler_t irq_handlers[16];
 volatile char irq_wait[16] = {0};
@@ -144,29 +140,4 @@ void uninstall_irq_handler(unsigned int irq)
 	} else {
 		irq_handlers[irq] = irq_null_handler;
 	}
-}
-
-extern struct tss tss_for_active_thread;
-
-static void save_thread_state(void)
-{
-	if (!active_thread) {
-		return;
-	}
-	memcpy(&active_thread->tss, &tss_for_active_thread, sizeof(tss_for_active_thread));
-}
-
-static void load_thread_state(void)
-{
-	if (!active_thread) {
-		return;
-	}
-	memcpy(&tss_for_active_thread, &active_thread->tss, sizeof(tss_for_active_thread));
-}
-
-void scheduler(void)
-{
-	save_thread_state();
-	select_next_thread();
-	load_thread_state();
 }

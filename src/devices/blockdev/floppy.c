@@ -33,7 +33,7 @@ int floppy_rw_sector(uint_t drive, uint8_t sector, uint8_t head, uint8_t cylinde
 int floppy_read_one_block(struct floppy *self, uint64_t num64, void * buf);
 int floppy_write_one_block(struct floppy *self, uint64_t num64, const void * buf);
 
-struct floppy_parameters * const floppy_params = (struct floppy_parameters *) DISK_PARAMETER_ADDRESS;
+struct floppy_parameters floppy_params;
 int cylinder, status_0;
 #define wait_irq(a) kwait(0, 20*1000)
 
@@ -65,57 +65,60 @@ const char * floppy_drive_types[16] = {
 
 struct floppy floppy_drives[2] = {
 	{
-		{
+		.blockdev = {
 			{
-				"fd0",
-				DEV_CLASS_BLOCK,
-				DEV_TYPE_FLOPPY,
-				-1, // devmanager sets
-				(devopen_t) blockdev_fopen,
-				(devrm_t) 0, // TODO: safely remove... :P
+				.name = "fd0",
+				.dev_class = DEV_CLASS_BLOCK,
+				.dev_type = DEV_TYPE_FLOPPY,
+				.index = -1, // devmanager sets
+				.devopen = (devopen_t) blockdev_fopen,
+				.remove = (devrm_t) 0, // TODO: safely remove... :P
 			},
 
-			0, // uint64_t block_size; Filled in install_floppy
-			0, // uint64_t block_count; Filled in install_floppy
-			0, // uint64_t first_block_num;
+			// Filled in install_floppy
+			.block_size = 0, .block_count = 0, .first_block_num = 0,
 
-			(read_one_block_t) floppy_read_one_block,
-			(write_one_block_t) floppy_write_one_block,
-			(read_blocks_t) 0,
-			(write_blocks_t) 0
+			.read_one_block = (read_one_block_t) floppy_read_one_block,
+			.write_one_block = (write_one_block_t) floppy_write_one_block,
+			.read_blocks = 0, .write_blocks = 0,
 		},
-		0, 0, 0, 0, 0, 0
+		.num = 0,
+		.motor = 0, .type = 0, .track = 0, .status = 0, .motor_off_timer = 0,
 	},
 	{
-		{
+		.blockdev = {
 			{
-				"fd1",
-				DEV_CLASS_BLOCK,
-				DEV_TYPE_FLOPPY,
-				-1, // devmanager sets
-				(devopen_t) blockdev_fopen,
-				(devrm_t) 0, // TODO: safely remove... :P
+				.name = "fd1",
+				.dev_class = DEV_CLASS_BLOCK,
+				.dev_type = DEV_TYPE_FLOPPY,
+				.index = -1, // devmanager sets
+				.devopen = (devopen_t) blockdev_fopen,
+				.remove = (devrm_t) 0, // TODO: safely remove... :P
 			},
 
-			0, // uint64_t block_size; Filled in install_floppy
-			0, // uint64_t block_count; Filled in install_floppy
-			0, // uint64_t first_block_num;
+			// Filled in install_floppy
+			.block_size = 0, .block_count = 0, .first_block_num = 0,
 
-			(read_one_block_t) floppy_read_one_block,
-			(write_one_block_t) floppy_write_one_block,
-			(read_blocks_t) 0,
-			(write_blocks_t) 0
+			.read_one_block = (read_one_block_t) floppy_read_one_block,
+			.write_one_block = (write_one_block_t) floppy_write_one_block,
+			.read_blocks = 0, .write_blocks = 0,
 		},
-		1, 0, 0, 0, 0, 0
+		.num = 1,
+		.motor = 0, .type = 0, .track = 0, .status = 0, .motor_off_timer = 0,
 	}
 };
+
+void floppy_cp_mem(void)
+{
+	memcpy(&floppy_params, FLOPPY_PARAMETER_ADDRESS, sizeof(floppy_params));
+}
 
 void floppy_init(void)
 {
 	int i;
 	uint8_t detect_floppy;
 
-	if (floppy_params->bytes_per_sector > 2) {
+	if (floppy_params.bytes_per_sector > 2) {
 		print("FDD: ERROR: Sector size bigger than 512 bytes (disabled floppies)\n");
 		floppy_drives[0].type = 0;
 		floppy_drives[1].type = 0;
@@ -133,8 +136,8 @@ void floppy_init(void)
 			device_insert(&floppy_drives[i].blockdev.std);
 
 			/* with 1.44MB 3.5" floppy disk, 2 sides and 80 tracks per side */
-			floppy_drives[i].blockdev.block_size = 128 * (1 << floppy_params->bytes_per_sector);
-			floppy_drives[i].blockdev.block_count = 2 * 80 * floppy_params->sectors_per_track;
+			floppy_drives[i].blockdev.block_size = 128 * (1 << floppy_params.bytes_per_sector);
+			floppy_drives[i].blockdev.block_count = 2 * 80 * floppy_params.sectors_per_track;
 		} else {
 			if (floppy_drives[i].type) {
 				kprintf("FDD: Found %s at %s, that's not supported.\n",
@@ -188,8 +191,8 @@ void floppy_wait_data(void)
 void floppy_configure(void)
 {
 	floppy_command(SPECIFY);
-	floppy_command(floppy_params->steprate_headunload);
-	floppy_command(floppy_params->headload_ndma & 254);
+	floppy_command(floppy_params.steprate_headunload);
+	floppy_command(floppy_params.headload_ndma & 254);
 	print("FDD: Drive configured\n");
 }
 
@@ -355,7 +358,7 @@ alku:
 	/* block size */
 	floppy_init_dma(buffer, 512, write);
 
-	kwait(0, 1000 * floppy_params->head_settle_time);
+	kwait(0, 1000 * floppy_params.head_settle_time);
 	floppy_wait();
 
 	prepare_wait_irq(FLOPPY_IRQ);
@@ -364,12 +367,12 @@ alku:
 	floppy_command(cylinder);
 	floppy_command(head);
 	floppy_command(sector);
-	floppy_command(floppy_params->bytes_per_sector);  /*sector size = 128*2^size*/
-	floppy_command(floppy_params->sectors_per_track); /*last sector*/
-	floppy_command(floppy_params->gap_length);        /*27 default gap3 value*/
-	floppy_command(floppy_params->data_length);       /*default value for data length*/
+	floppy_command(floppy_params.bytes_per_sector);  /*sector size = 128*2^size*/
+	floppy_command(floppy_params.sectors_per_track); /*last sector*/
+	floppy_command(floppy_params.gap_length);        /*27 default gap3 value*/
+	floppy_command(floppy_params.data_length);       /*default value for data length*/
 
-	//kprintf("FDD: BPS: %u, SPT: %u, GL: %u, DL: %u\n", floppy_params->bytes_per_sector, floppy_params->sectors_per_track, floppy_params->gap_length, floppy_params->data_length);
+	//kprintf("FDD: BPS: %u, SPT: %u, GL: %u, DL: %u\n", floppy_params.bytes_per_sector, floppy_params.sectors_per_track, floppy_params.gap_length, floppy_params.data_length);
 
 	wait_irq(FLOPPY_IRQ);
 	//kprintf("We got values ");
@@ -391,9 +394,9 @@ int floppy_read_one_block(struct floppy *self, uint64_t num64, void * buf)
 	int retval;
 	size_t num = num64;
 
-	head = (num / floppy_params->sectors_per_track) & 1;
-	cylinder = num / (floppy_params->sectors_per_track * 2);
-	sector = (num % (floppy_params->sectors_per_track)) + 1;
+	head = (num / floppy_params.sectors_per_track) & 1;
+	cylinder = num / (floppy_params.sectors_per_track * 2);
+	sector = (num % (floppy_params.sectors_per_track)) + 1;
 
 	retval = floppy_rw_sector(self->num, sector, head, cylinder, (uintptr_t) floppy_buffer, 0);
 	if (retval == 0) {
@@ -409,9 +412,9 @@ int floppy_write_one_block(struct floppy *self, uint64_t num64, const void * buf
 	int cylinder;
 	size_t num = num64;
 
-	head = (num / floppy_params->sectors_per_track) & 1;
-	cylinder = num / (floppy_params->sectors_per_track * 2);
-	sector = (num % (floppy_params->sectors_per_track)) + 1;
+	head = (num / floppy_params.sectors_per_track) & 1;
+	cylinder = num / (floppy_params.sectors_per_track * 2);
+	sector = (num % (floppy_params.sectors_per_track)) + 1;
 
 	memcpy(floppy_buffer, buf, self->blockdev.block_size);
 	return floppy_rw_sector(self->num, sector, head, cylinder, (uintptr_t) floppy_buffer, 1);

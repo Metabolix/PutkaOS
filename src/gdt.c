@@ -21,53 +21,52 @@ union gdt_entry gdt[32];
 
 struct gdt_ptr gdt_ptr;
 
-struct tss tss_for_hw_int = {
-	.cs = KERNEL_CS_SEL,
-	.eip = (uintptr_t) irq_task,
-	.ds = KERNEL_DS_SEL,
-	.es = KERNEL_DS_SEL,
-	.fs = KERNEL_DS_SEL,
-	.gs = KERNEL_DS_SEL,
-	.ss = KERNEL_DS_SEL,
-	.esp = (uintptr_t) &stack_for_hw_int_task,
-	.ebp = (uintptr_t) &stack_for_hw_int_task,
-	.cr3 = (uintptr_t) PAGE_TO_ADDR(KERNEL_PAGE_DIRECTORY),
-	.eflags = 0x02,
-};
-
-struct tss tss_for_page_fault = {
-	.cs = KERNEL_CS_SEL,
-	.eip = (uintptr_t) page_fault_handler,
-	.ds = KERNEL_DS_SEL,
-	.es = KERNEL_DS_SEL,
-	.fs = KERNEL_DS_SEL,
-	.gs = KERNEL_DS_SEL,
-	.ss = KERNEL_DS_SEL,
-	.esp = (uintptr_t) &stack_for_page_fault,
-	.ebp = (uintptr_t) &stack_for_page_fault,
-	.cr3 = (uintptr_t) PAGE_TO_ADDR(KERNEL_PAGE_DIRECTORY),
-	.eflags = 0x02,
-};
-
-struct tss tss_for_double_fault = {
-	.cs = KERNEL_CS_SEL,
-	.eip = (uintptr_t) double_fault_handler,
-	.ds = KERNEL_DS_SEL,
-	.es = KERNEL_DS_SEL,
-	.fs = KERNEL_DS_SEL,
-	.gs = KERNEL_DS_SEL,
-	.ss = KERNEL_DS_SEL,
-	.esp = (uintptr_t) &stack_for_double_fault,
-	.ebp = (uintptr_t) &stack_for_double_fault,
-	.cr3 = (uintptr_t) PAGE_TO_ADDR(KERNEL_PAGE_DIRECTORY),
-	.eflags = 0x02,
-};
-
-struct tss tss_for_active_thread = {
-	.ss0 = KERNEL_DS_SEL,
-	.esp0 = (uintptr_t) &stack_for_hw_interrupt,
-	.cr3 = (uintptr_t) PAGE_TO_ADDR(KERNEL_PAGE_DIRECTORY),
-	.eflags = 0x02,
+struct kernel_tasks kernel_tasks = {
+	.tss_for_hw_int = {
+		.cs = KERNEL_CS_SEL,
+		.eip = (uintptr_t) irq_task,
+		.ds = KERNEL_DS_SEL,
+		.es = KERNEL_DS_SEL,
+		.fs = KERNEL_DS_SEL,
+		.gs = KERNEL_DS_SEL,
+		.ss = KERNEL_DS_SEL,
+		.esp = (uintptr_t) &stack_for_hw_int_task,
+		.ebp = (uintptr_t) &stack_for_hw_int_task,
+		.cr3 = (uintptr_t) PAGE_TO_ADDR(KERNEL_PAGE_DIRECTORY),
+		.eflags = 0x02,
+	},
+	.tss_for_page_fault = {
+		.cs = KERNEL_CS_SEL,
+		.eip = (uintptr_t) asm_page_fault_handler,
+		.ds = KERNEL_DS_SEL,
+		.es = KERNEL_DS_SEL,
+		.fs = KERNEL_DS_SEL,
+		.gs = KERNEL_DS_SEL,
+		.ss = KERNEL_DS_SEL,
+		.esp = (uintptr_t) &stack_for_page_fault,
+		.ebp = (uintptr_t) &stack_for_page_fault,
+		.cr3 = (uintptr_t) PAGE_TO_ADDR(KERNEL_PAGE_DIRECTORY),
+		.eflags = 0x02,
+	},
+	.tss_for_double_fault = {
+		.cs = KERNEL_CS_SEL,
+		.eip = (uintptr_t) asm_double_fault_handler,
+		.ds = KERNEL_DS_SEL,
+		.es = KERNEL_DS_SEL,
+		.fs = KERNEL_DS_SEL,
+		.gs = KERNEL_DS_SEL,
+		.ss = KERNEL_DS_SEL,
+		.esp = (uintptr_t) &stack_for_double_fault,
+		.ebp = (uintptr_t) &stack_for_double_fault,
+		.cr3 = (uintptr_t) PAGE_TO_ADDR(KERNEL_PAGE_DIRECTORY),
+		.eflags = 0x02,
+	},
+	.tss_for_active_thread = {
+		.ss0 = KERNEL_DS_SEL,
+		.esp0 = (uintptr_t) &stack_for_hw_interrupt,
+		.cr3 = (uintptr_t) PAGE_TO_ADDR(KERNEL_PAGE_DIRECTORY),
+		.eflags = 0x02,
+	},
 };
 
 void gdt_set_gate(struct gdt_memseg_desc *ptr, uint32_t base, uint32_t limit, uint8_t privs, uint8_t exec)
@@ -135,10 +134,10 @@ void gdt_install(void)
 	gdt_set_gate(&gdt[GDT_USER_DS].memseg, 0, 0xFFFFF, 3, 0);
 
 	// IRQ, faults, thread
-	gdt_set_tss(&gdt[GDT_HW_INT_TSS].tss, &tss_for_hw_int);
-	gdt_set_tss(&gdt[GDT_PAGE_FAULT_TSS].tss, &tss_for_page_fault);
-	gdt_set_tss(&gdt[GDT_DOUBLE_FAULT_TSS].tss, &tss_for_double_fault);
-	gdt_set_tss(&gdt[GDT_ACTIVE_THREAD_TSS].tss, &tss_for_active_thread);
+	gdt_set_tss(&gdt[GDT_HW_INT_TSS].tss, &kernel_tasks.tss_for_hw_int);
+	gdt_set_tss(&gdt[GDT_PAGE_FAULT_TSS].tss, &kernel_tasks.tss_for_page_fault);
+	gdt_set_tss(&gdt[GDT_DOUBLE_FAULT_TSS].tss, &kernel_tasks.tss_for_double_fault);
+	gdt_set_tss(&gdt[GDT_ACTIVE_THREAD_TSS].tss, &kernel_tasks.tss_for_active_thread);
 
 	asm_gdt_flush(&gdt_ptr);
 	asm_set_tr(8 * GDT_ACTIVE_THREAD_TSS);

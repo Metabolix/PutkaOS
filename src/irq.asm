@@ -3,7 +3,7 @@
 extern irq_handlers
 extern irq_handling
 extern irq_illegal_handler
-extern tss_for_hw_int
+extern kernel_tasks
 extern scheduler
 extern thread_ending
 
@@ -23,7 +23,7 @@ irq%1:
 
 irq_common:
 	push eax
-	mov eax, tss_for_hw_int
+	mov eax, kernel_tasks
 	mov [eax+4*8], DWORD irq_task
 	pop eax
 	call 0x08:0 ; HW INT TSS
@@ -65,7 +65,7 @@ isr_scheduler:
 	cli
 	mov [irq_handling], DWORD 0x100
 	push eax
-	mov eax, tss_for_hw_int
+	mov eax, kernel_tasks
 	mov [eax+4*8], DWORD irq_scheduler_only
 	pop eax
 	call 0x08:0 ; HW INT TSS

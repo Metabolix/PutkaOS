@@ -29,6 +29,7 @@ struct _BD_DEVICE {
 	read_blocks_t read_blocks;
 	write_blocks_t write_blocks;
 	blockdev_refresh_t refresh;
+	size_t refs;
 };
 
 #define BLOCKDEV_NO_BLOCK ((uint64_t)(-1))

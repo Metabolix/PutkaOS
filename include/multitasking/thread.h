@@ -26,6 +26,7 @@ struct thread {
 
 extern struct thread threads[MAX_THREADS];
 extern size_t thread_count;
+extern struct thread * active_thread;
 
 extern void clean_threads(void);
 extern tid_t find_running_thread(void);

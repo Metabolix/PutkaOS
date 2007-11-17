@@ -29,6 +29,7 @@ struct process {
 
 extern struct process processes[MAX_PROCESSES];
 extern size_t process_count;
+extern struct process * active_process;
 
 extern int process_alloc_thread_num(pid_t pid);
 extern void process_free_thread_num(pid_t pid, int thread_of_proc);

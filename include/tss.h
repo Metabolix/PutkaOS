@@ -18,4 +18,11 @@ struct tss {
 	uint16_t reserved01, iopb_offset;
 };
 
+struct kernel_tasks {
+	struct tss tss_for_hw_int;
+	struct tss tss_for_page_fault;
+	struct tss tss_for_double_fault;
+	struct tss tss_for_active_thread;
+};
+
 #endif

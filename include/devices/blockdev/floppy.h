@@ -53,9 +53,10 @@ struct floppy_parameters {
 	uint8_t motor_start_time; /*specified in 1/8 seconds*/
 }__attribute__ ((packed));
 
-#define DISK_PARAMETER_ADDRESS 0x000fefc7
+#define FLOPPY_PARAMETER_ADDRESS ((void*)0x000fefc7)
 
 extern void floppy_init(void);
+extern void floppy_cp_mem(void);
 extern void floppy_reset(void);
 
 #endif

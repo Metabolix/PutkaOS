@@ -30,12 +30,14 @@ void malloc_init(void)
 
 static void * sysmalloc(size_t size, int user)
 {
+	pid_t pid = (active_pid == NO_PROCESS) ? 0 : active_pid;
 	if (memory_free() < size) {
 		return 0; /* Out of physical memory */
 	}
 	if (!size) {
 		return 0;
 	}
+
 	// TODO: sysmalloc: varataan jo varatuilta sivuilta vapaat osat
 	size = (1 + (size-1)/MEMORY_PAGE_SIZE) * MEMORY_PAGE_SIZE;
 
@@ -61,11 +63,11 @@ static void * sysmalloc(size_t size, int user)
 
 	memory_allocations[i].virt_addr = (void*)(virt_page * MEMORY_PAGE_SIZE);
 	memory_allocations[i].size = size;
-	memory_allocations[i].pid = active_pid;
+	memory_allocations[i].pid = pid;
 	memory_allocations[i].user = user;
 
-	if (active_pid == NO_PROCESS) {
-		//print("Varattiin vaarallista muistia!\n");
+	if (pid != active_pid) {
+		printf("Varattiin vaarallista muistia, active_pid == NO_PROCESS!\n");
 	}
 
 	return memory_allocations[i].virt_addr;
@@ -73,6 +75,7 @@ static void * sysmalloc(size_t size, int user)
 
 static int sysfree(void * ptr, int user)
 {
+	pid_t pid = (active_pid == NO_PROCESS) ? 0 : active_pid;
 	uint_t address;
 	uint_t virt_page_beg, offset_beg;
 	uint_t virt_page_end, offset_end;
@@ -84,11 +87,7 @@ static int sysfree(void * ptr, int user)
 
 	for (i = 0; i < MAX_ALLOCATIONS; ++i) {
 		if (memory_allocations[i].virt_addr == ptr) {
-			if (memory_allocations[i].pid == active_pid) {
-				break;
-			}
-			if (!memory_allocations[i].user && !user && memory_allocations[i].pid == NO_PROCESS) {
-				print("Vapautettiin vaarallista muistia <3\n");
+			if (memory_allocations[i].pid == pid) {
 				break;
 			}
 		}

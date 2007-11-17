@@ -81,7 +81,7 @@ char *pciGetDevStr(uint16_t ven, uint16_t dev)
 			return PciDevTable[i].ChipDesc;
 		}
 	}
-	
+
 	return devstr;
 }
 
@@ -99,7 +99,7 @@ uint32_t pciReadConfigDword(int bus, int dev, int func, int reg)
 
 	outportdw(0xcf8, cmd.ci);
 	base = 0xcfc + (reg & 0x03);
-	
+
 	return inportdw(base);
 }
 
@@ -137,7 +137,7 @@ uint8_t pciReadConfigByte(int bus, int dev, int func, int reg)
     outportdw(0xCF8, cmd.ci);
     base = 0xCFC + (reg & 0x03);
 
-    return inportb(base);	
+    return inportb(base);
 }
 
 void pciWriteConfigDword(int bus, int dev, int func, int reg, uint32_t data)
@@ -152,8 +152,8 @@ void pciWriteConfigDword(int bus, int dev, int func, int reg, uint32_t data)
     cmd.cc.dev = dev;
     cmd.cc.func = func;
     cmd.cc.reg = reg & 0xFC;
-   
-	base = 0xcfc + (reg & 0x03); 
+
+	base = 0xcfc + (reg & 0x03);
     outportdw(0xCF8, cmd.ci);
 	outportdw(base, data);
 }
@@ -246,17 +246,17 @@ static void pciReadBases(pciDev_t *p, int count, int rom)
 			p->type[i] = PCI_IO_RESOURCE_IO;
 		}
 	}
-	
+
 	if(rom) {
 		p->rom_base = 0;
 		p->rom_size = 0;
-	
+
 		l = pciReadConfigDword(p->bus, p->dev, p->func, rom);
-		pciWriteConfigDword(p->bus, p->dev, p->func, 
+		pciWriteConfigDword(p->bus, p->dev, p->func,
 							rom, ~PCI_ROM_ADDRESS_ENABLE);
 		sz = pciReadConfigDword(p->bus, p->dev, p->func, rom);
 		pciWriteConfigDword(p->bus, p->dev, p->func, rom, l);
-		
+
 		if (sz && sz != 0xFFFFFFFF) {
 			p->rom_base = l & PCI_ROM_ADDRESS_MASK;
 			sz = pciSize(sz, PCI_ROM_ADDRESS_MASK);
@@ -270,7 +270,7 @@ uint16_t pci_probe(int bus, int dev, int func, pciDev_t *pciDev)
 {
 	int i;
 	uint32_t *temp = (uint32_t *)pciDev;
-	
+
 	for(i=0; i<4; i++) {
 		temp[i] = pciReadConfigDword(bus, dev, func, i<<2);
 	}
@@ -282,26 +282,26 @@ uint16_t pci_probe(int bus, int dev, int func, pciDev_t *pciDev)
 	pciDev->bus = bus;
 	pciDev->func = func;
 	pciDev->dev = dev;
-	
+
 	pciDev->current_state = 4;
 
 	switch(pciDev->header_type) {
 		case PCI_HEADER_TYPE_NORMAL:
 			pciReadIrq(pciDev);
 			pciReadBases(pciDev, 6, PCI_ROM_ADDRESS);
-			pciDev->subsys_vendor = 
+			pciDev->subsys_vendor =
 					pciReadConfigWord(bus, dev, func, PCI_SUBSYSTEM_VENDOR_ID);
-			pciDev->subsys_device = 
+			pciDev->subsys_device =
 					pciReadConfigWord(bus, dev, func, PCI_SUBSYSTEM_ID);
-			kprintf("%s - %s %x:%x\n", 
-					pciGetVendorStr(pciDev->vendor_id), 
+			kprintf("%s - %s %x:%x\n",
+					pciGetVendorStr(pciDev->vendor_id),
 					pciGetDevStr(pciDev->vendor_id, pciDev->device_id),
 					pciDev->vendor_id, pciDev->device_id);
 			break;
 		case PCI_HEADER_TYPE_BRIDGE:
 			pciReadBases(pciDev, 2, PCI_ROM_ADDRESS_1);
-			kprintf("%s - %s %x:%x\n", 
-					pciGetVendorStr(pciDev->vendor_id), 
+			kprintf("%s - %s %x:%x\n",
+					pciGetVendorStr(pciDev->vendor_id),
 					pciGetDevStr(pciDev->vendor_id, pciDev->device_id),
 					pciDev->vendor_id, pciDev->device_id);
 			break;
@@ -310,7 +310,7 @@ uint16_t pci_probe(int bus, int dev, int func, pciDev_t *pciDev)
 			pciReadBases(pciDev, 1, 0);
             pciDev->subsys_vendor = pciReadConfigWord(bus, dev, func, PCI_SUBSYSTEM_VENDOR_ID);
             pciDev->subsys_device = pciReadConfigWord(bus, dev, func, PCI_SUBSYSTEM_ID);
-			kprintf("%s - %s %x:%x\n", 
+			kprintf("%s - %s %x:%x\n",
 					pciGetVendorStr(pciDev->vendor_id),
 					pciGetDevStr(pciDev->vendor_id, pciDev->device_id),
 					pciDev->vendor_id, pciDev->device_id);
@@ -326,7 +326,7 @@ pciDev_t *pciGetDeviceById(uint16_t vendor, uint32_t device, int index)
 {
 	int i = 0;
 	int c = 0;
-	
+
 	while(i < pciCount) {
 		if(pciDevices[i]->vendor_id == vendor && pciDevices[i]->device_id == device) {
 			c++;
@@ -352,7 +352,7 @@ int pci_init (void)
 
 	for (int bus = 0; bus < 4; bus++) {
 		for (int dev = 0; dev < 32; dev++) {
-			for (int func = 0; func < 8; func++) {				
+			for (int func = 0; func < 8; func++) {
 				if (pci_probe(bus, dev, func, &pciDev)) {
 					if (func && !(pciDev.header_type & 0x80)) {
 						// Löytyi monta tästä, jatketaan.
@@ -366,7 +366,7 @@ int pci_init (void)
 						pciDevices = (pciDev_t **)kmalloc(sizeof(pciDev_t *)* pciCount);
 					}
 					pciDevices[pciCount-1] = (pciDev_t *)kmalloc(sizeof(pciDev_t));
-					memcpy(pciDevices[pciCount-1], &pciDev, 
+					memcpy(pciDevices[pciCount-1], &pciDev,
 							sizeof(pciDev_t));
 				}
 			}

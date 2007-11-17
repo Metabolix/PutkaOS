@@ -166,7 +166,7 @@ void dump_isr_regs(const struct isr_regs *regs)
 		kprintf(" %08x %08x  %08x %08x  | %s\n", c, buf);
 	}
 #endif
-	putch('\n');
+	print("\n");
 }
 
 void isr_handler(struct isr_regs *regs)

@@ -23,14 +23,20 @@ struct filefunc blockdev_func = {
 	.ioctl = (ioctl_t) blockdev_ioctl
 };
 
-int blockdev_ioctl(BD_FILE *dev, int request, uintptr_t param)
+int blockdev_ioctl(BD_FILE *f, int request, uintptr_t param)
 {
+	if (!f->dev->refs) {
+		return -1;
+	}
 	// TODO: blockdev_ioctl
 	return -1;
 }
 
 int blockdev_fsetpos(BD_FILE *f, const fpos_t *pos)
 {
+	if (!f->dev->refs) {
+		return EOF;
+	}
 	uint64_t block, pos_in;
 	block = uint64_div_rem(*pos, f->dev->block_size, &pos_in);
 	if (block > f->dev->block_count) {
@@ -50,10 +56,13 @@ int blockdev_fsetpos(BD_FILE *f, const fpos_t *pos)
 
 int blockdev_fflush(BD_FILE *f)
 {
+	if (!f->dev->refs) {
+		return EOF;
+	}
 	if (f->buffer_changed) {
 		if (f->dev->write_one_block(f->dev, f->dev->first_block_num + f->block_in_buffer, f->buf)) {
 			kprintf("blockdev_fflush: failure: device %s block %#010llx\n", f->dev->std.name, f->block_in_buffer);
-			return -1;
+			return EOF;
 		}
 		f->buffer_changed = 0;
 	}
@@ -134,14 +143,20 @@ BD_FILE *blockdev_fopen(BD_DEVICE *dev, uint_t mode)
 	memcpy(f, &real, sizeof(BD_FILE));
 	f->buf = (char*)f + sizeof(BD_FILE);
 
+	++dev->refs;
 	return f;
 }
 
 int blockdev_fclose(BD_FILE *f)
 {
 	int retval;
+	BD_DEVICE *dev = f->dev;
+	if (dev->refs == 0) {
+		return EOF;
+	}
 	retval = blockdev_fflush(f);
 	kfree(f);
+	--dev->refs;
 	return retval;
 }
 
@@ -152,7 +167,7 @@ static size_t blockdev_freadwrite(void *buffer, size_t size, size_t count, BD_FI
 	const fpos_t alkupos = f->std.pos;
 	BD_DEVICE * const dev = f->dev;
 
-	if (!tavuja) {
+	if (!tavuja || !dev->refs) {
 		return 0;
 	}
 

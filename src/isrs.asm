@@ -95,6 +95,18 @@ isr_common:
 	add esp, 8
 	iret
 
+global asm_page_fault_handler
+asm_page_fault_handler:
+	extern page_fault_handler
+	call page_fault_handler
+	iret
+
+global asm_double_fault_handler
+asm_double_fault_handler:
+	extern double_fault_handler
+	call double_fault_handler
+	iret
+
 isr_00_07 0x00
 isr_00_07 0x01
 isr_00_07 0x02

@@ -365,7 +365,11 @@ int map_virtual_page(uint_t phys_pd, uint_t virt_page, int noswap, int user)
 		void *ptr = temp_phys_page(0, phys_page);
 		memset(ptr, 0, MEMORY_PAGE_SIZE);
 		temp_phys_page(0, 0);
-		pd[pde] = KERNEL_PE(phys_page);
+		if (pde < KMEM_PDE_END) {
+			pd[pde] = KERNEL_PE(phys_page);
+		} else {
+			pd[pde] = USER_PE(phys_page);
+		}
 	}
 	pt = temp_page_table(pd[pde].pagenum);
 	phys_page = alloc_phys_page(noswap);

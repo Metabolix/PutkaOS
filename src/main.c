@@ -33,7 +33,7 @@ const char versio[] = "v. 0.006";
 tid_t sh_tid;
 
 multiboot_info_t mbt_real;
-multiboot_info_t *mbt = &mbt_real;
+multiboot_info_t *mbt;
 
 extern int sprintf(char * restrict str, const char * restrict fmt, ...);
 
@@ -107,37 +107,45 @@ void parse_multiboot(multiboot_info_t *mbt)
 
 void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 {
+	mbt = &mbt_real;
 	mbt_real = *param_mbt;
 	parse_multiboot(mbt);
 	vt_init(); //vt:t jäävät vielä fallback-tilaan
 	cls();
+
 	gdt_install();
 	idt_install();
 	isr_install();
-	memory_init(mbt->mem_upper + mbt->mem_lower);
 	irq_install();
+	init_syscalls();
+
+	floppy_cp_mem();
 	timer_install();
+
+	memory_init(mbt->mem_upper + mbt->mem_lower);
 	malloc_init();
 
 	threading_init();
-}
-void kmain2(void)
-{
+
 	keyboard_install();
 	//mouse_install();
 
 	fs_init();
 	devmanager_init();
+
 	vt_dev_init();
-	floppy_init();
 	serial_init();
 
-	init_syscalls();
 	ide_init();
 	pci_init();
 
+	threading_start();
+}
+void kmain2(void)
+{
 	irq_unmask();
 
+	floppy_init();
 	floppy_reset();
 	mount_init(mbt->boot_device, mbt->cmdline);
 

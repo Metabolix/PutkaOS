@@ -7,10 +7,11 @@ ASM=nasm
 ASMFLAGS=-f elf -O1
 
 CC=gcc
-CFLAGS_41=-V 4.1 -fno-stack-protector
-CFLAGS_40=-V 4.0
-CFLAGS_34=-V 3.4
-CFLAGS_ALL=-Wall -ffreestanding -nostdinc -I./putka-clib/include -g -m32 -pedantic -std=c99
+CFLAG_NO_STACK_PROTECTOR := $(shell echo "int main(void) {return 0;}" | gcc -fno-stack-protector -x c - -o /dev/null && echo "-fno-stack-protector")
+#CFLAGS_41 := -V 4.1 -fno-stack-protector
+#CFLAGS_40 := -V 4.0
+#CFLAGS_34 := -V 3.4
+CFLAGS_ALL := $(CFLAG_NO_STACK_PROTECTOR) -Wall -ffreestanding -nostdinc -I./putka-clib/include -g -m32 -pedantic -std=c99
 #-pedantic -std=c99 -Werror
 
 CFLAGS_KERNEL=$(CFLAGS_ALL) -I./include
@@ -43,7 +44,7 @@ CO_SRC_STDROUTINES=endian.c list.c
 CO_SRC_MEM_1=init.c memory.c malloc.c swap.c pagefault.c
 CO_SRC_MEM=$(addprefix memory/,$(CO_SRC_MEM_1))
 
-C_SRC_MULTITASK_1=multitasking.c thread.c process.c
+C_SRC_MULTITASK_1=multitasking.c thread.c process.c scheduler.c
 C_SRC_MULTITASK=$(addprefix multitasking/,$(C_SRC_MULTITASK_1))
 
 # Storage
