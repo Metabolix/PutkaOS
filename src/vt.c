@@ -849,6 +849,7 @@ int vt_setdriver(char *fname)
 			if(vt[i].buffer) kfree(vt[i].buffer);
 			memset(&vt[i], 0, sizeof(struct vt_t));
 			vt[i].color = 0x7;
+			vt[i].block = 1;
 			spinl_init(&vt[i].writelock);
 			spinl_init(&vt[i].printlock);
 			//spinl_init(&vt[i].kb_buf_lock);
@@ -981,13 +982,16 @@ int vt_ioctl(struct vt_file_str *vt_file, int request, uintptr_t param)
 int vt_fclose(struct vt_file_str *vt_file)
 {
 	if(vt[vt_file->vt_num].num_open==0) return 1;
+	int vt_num = vt_file->vt_num;
 	if(vt_file){
-		if(vt_file->std.func) kfree((void*)vt_file->std.func);
-		kfree(vt_file);
+		if(vt_file){
+			if(vt_file->std.func) kfree((void*)vt_file->std.func);
+			kfree(vt_file);
+		}
 	}
-	vt[vt_file->vt_num].num_open--;
+	vt[vt_num].num_open--;
 	kprintf("vt_fclose(): closed (vt_num=%d, num_open=%d\n",
-			vt_file->vt_num, vt[vt_file->vt_num].num_open);
+			vt_num, vt[vt_num].num_open);
 	return 0;
 }
 

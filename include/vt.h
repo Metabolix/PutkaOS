@@ -36,11 +36,11 @@ enum { VT_MODE_NORMAL, VT_MODE_RAWEVENTS };
  * asciiksi (tai joksikin sen tapaiseksi) keyboard.c/h:n key_to_asciilla.
  */
 
-enum { VT_BLOCK, VT_NOBLOCK };
+enum { VT_NOBLOCK, VT_BLOCK };
 
 enum {
 	IOCTL_VT_MODE, //VT_MODE_NORMAL/VT_MODE_EVENTS
-	IOCTL_VT_BLOCKMODE, //VT_BLOCK/VT_NOBLOCK
+	IOCTL_VT_BLOCKMODE, //VT_NOBLOCK/VT_BLOCK
 };
 
 /*struct lockkeystates_str{

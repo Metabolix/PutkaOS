@@ -158,6 +158,22 @@ void testattava_koodi()
 {
 	print("<testattava_koodi>\n");
 #if 0
+	FILE *f;
+	f = fopen("/dev/vt0", "r+");
+	if(f==NULL) panic("apuva!");
+	print("opened\n");
+	fwrite("moi vt", 6, 1, f);
+	print("printed\n");
+	ioctl(f, IOCTL_VT_BLOCKMODE, VT_NOBLOCK);
+	print("ioctl'd\n");
+	char jee[10];
+	fread(jee, 2, 1, f);
+	print("read\n");
+	kprintf("%i, %i", jee[0], jee[1]);
+	fclose(f);
+	print("closed\n");
+#endif
+#if 0
 	time_t a, b, c, d;
 	struct tm tm = {
 		.tm_year = 70,
