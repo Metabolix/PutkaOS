@@ -758,6 +758,22 @@ int vt_setdriver(char *fname)
 		cur_vt = 0;
 		memset(&driverinfo, 0, sizeof(driverinfo));
 		driverstream = NULL;
+		
+		//haetaan viimeinen rivi ja jatketaan siitä kirjoittelua
+		unsigned int currentrow = 0;
+		for(unsigned int y=24; currentrow == 0; y--){
+			for(unsigned int x=0; x<80; x++){
+				char ch = *((char *)0xB8000 + y*160 + x*2);
+				if(ch != 0 && ch != ' '){
+					currentrow = y+1;
+					break;
+				}
+			}
+			if(y==0) break;
+		}
+		vt[0].cy = currentrow;
+		vt[0].cx = 0;
+
 		return 0;
 	}
 
