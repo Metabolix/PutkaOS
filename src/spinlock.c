@@ -11,7 +11,7 @@ void spinl_unlock(struct spinlock * spinl) {
 }
 
 void spinl_spin(struct spinlock * spinl) {
-	while (spinl->count) asm_nop(spinl);
+	while (spinl->count) switch_thread();
 }
 
 void spinl_lock(struct spinlock * spinl) {

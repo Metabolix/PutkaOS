@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <int64.h>
 
+#define STATIC static
+
 typedef uint32_t wint_t;
 
 // TODO: jokainen fprintf_stub.
@@ -43,7 +45,7 @@ struct printf_format_tag {
 	fmt_lenmod_t lenmod;
 };
 
-static int fprintf_stub(const putstr_t * const putstr, const char *what)
+STATIC int fprintf_stub(const putstr_t * const putstr, const char *what)
 {
 	const char *str1 = "[fprintf (";
 	const char *str2 = "): STUB!]";
@@ -53,7 +55,7 @@ static int fprintf_stub(const putstr_t * const putstr, const char *what)
 		(*putstr)(str2, strlen(str2), putstr);
 }
 /*
-static int sprintf_uint(char *sprintf_buf, unsigned int num)
+STATIC int sprintf_uint(char *sprintf_buf, unsigned int num)
 {
 	int i = BUF_KOKO;
 	if (!num) {
@@ -70,7 +72,7 @@ static int sprintf_uint(char *sprintf_buf, unsigned int num)
 	return BUF_KOKO - i;
 }
 
-static int sprintf_uoct(char *sprintf_buf, unsigned int num)
+STATIC int sprintf_uoct(char *sprintf_buf, unsigned int num)
 {
 	int i = BUF_KOKO;
 	do {
@@ -91,7 +93,7 @@ static int sprintf_uoct(char *sprintf_buf, unsigned int num)
 }
 */
 
-static char *fmt_uint_32(char * restrict bufend, uint32_t num)
+STATIC char *fmt_uint_32(char * restrict bufend, uint32_t num)
 {
 	while (num) {
 		*(--bufend) = '0' + (num % 10);
@@ -99,7 +101,7 @@ static char *fmt_uint_32(char * restrict bufend, uint32_t num)
 	}
 	return bufend;
 }
-static char *fmt_uint_64(char * restrict bufend, uint64_t num)
+STATIC char *fmt_uint_64(char * restrict bufend, uint64_t num)
 {
 	if (num <= UINT32_MAX) {
 		return fmt_uint_32(bufend, num);
@@ -124,7 +126,7 @@ static char *fmt_uint_64(char * restrict bufend, uint64_t num)
 	return newend;
 }
 /*
-static char *fmt_int_64(char * restrict bufend, int64_t num)
+STATIC char *fmt_int_64(char * restrict bufend, int64_t num)
 {
 	if (num < 0) {
 		bufend = fmt_uint_64(bufend, -num);
@@ -134,7 +136,7 @@ static char *fmt_int_64(char * restrict bufend, int64_t num)
 	}
 	return bufend;
 }
-static char *fmt_int_32(char * restrict bufend, int32_t num)
+STATIC char *fmt_int_32(char * restrict bufend, int32_t num)
 {
 	if (num < 0) {
 		bufend = fmt_uint_32(bufend, -num);
@@ -145,37 +147,32 @@ static char *fmt_int_32(char * restrict bufend, int32_t num)
 	return bufend;
 }*/
 
-static char *fmt_hex_64(char * restrict bufend, uint64_t num, int bigtxt)
+STATIC char *fmt_hex_64(char * restrict bufend, uint64_t num, int bigtxt)
 {
-	uint32_t shl;
 	const char *merkit = ((bigtxt && bigtxt != 'x') ? fprintf_heXmarks : fprintf_hexmarks);
-	bufend[-1] = merkit[0];
-	for (shl = 0; num >> shl; shl += 4) {
-		*(--bufend) = merkit[(uint32_t)(num >> shl) & 0x0f];
+	for (; num; num >>= 4) {
+		*(--bufend) = merkit[(uint32_t)num & 0x0f];
 	}
 	return bufend;
 }
-static char *fmt_hex_32(char * restrict bufend, uint32_t num, int bigtxt)
+STATIC char *fmt_hex_32(char * restrict bufend, uint32_t num, int bigtxt)
 {
-	uint32_t shl;
 	const char *merkit = ((bigtxt && bigtxt != 'x') ? fprintf_heXmarks : fprintf_hexmarks);
-	bufend[-1] = merkit[0];
-	for (shl = 0; num >> shl; shl += 4) {
-		*(--bufend) = merkit[(uint32_t)(num >> shl) & 0x0f];
+	for (; num; num >>= 4) {
+		*(--bufend) = merkit[(uint32_t)num & 0x0f];
 	}
 	return bufend;
 }
 
-static char *fmt_oct_64(char * restrict bufend, uint64_t num)
+STATIC char *fmt_oct_64(char * restrict bufend, uint64_t num)
 {
-	uint32_t shl;
-	for (shl = 0; num >> shl; shl += 3) {
-		*(--bufend) = '0' + ((uint32_t)(num >> shl) & 0x07);
+	for (; num; num >>= 3) {
+		*(--bufend) = '0' + ((uint32_t)num & 0x07);
 	}
 	return bufend;
 }
 
-static int fprintf_heX(const putstr_t * const putstr, struct printf_format_tag *tag, uintmax_t num)
+STATIC int fprintf_heX(const putstr_t * const putstr, struct printf_format_tag *tag, uintmax_t num)
 {
 	// TODO
 	char buf[32], *ptr;
@@ -188,7 +185,7 @@ static int fprintf_heX(const putstr_t * const putstr, struct printf_format_tag *
 	return fprintf_stub(putstr, ptr);
 }
 
-static int fprintf_hex(const putstr_t * const putstr, struct printf_format_tag *tag, uintmax_t num)
+STATIC int fprintf_hex(const putstr_t * const putstr, struct printf_format_tag *tag, uintmax_t num)
 {
 	// TODO
 	char buf[32], *ptr;
@@ -201,7 +198,7 @@ static int fprintf_hex(const putstr_t * const putstr, struct printf_format_tag *
 	return fprintf_stub(putstr, ptr);
 }
 
-static int fprintf_oct(const putstr_t * const putstr, struct printf_format_tag *tag, uintmax_t num)
+STATIC int fprintf_oct(const putstr_t * const putstr, struct printf_format_tag *tag, uintmax_t num)
 {
 	// TODO
 	char buf[32], *ptr;
@@ -214,7 +211,7 @@ static int fprintf_oct(const putstr_t * const putstr, struct printf_format_tag *
 	return fprintf_stub(putstr, ptr);
 }
 
-static int fprintf_uint(const putstr_t * const putstr, struct printf_format_tag *tag, uintmax_t num)
+STATIC int fprintf_uint(const putstr_t * const putstr, struct printf_format_tag *tag, uintmax_t num)
 {
 	char buf[32], *ptr;
 	int numstrlen, numlen, preclen, minlen, len;
@@ -283,7 +280,7 @@ static int fprintf_uint(const putstr_t * const putstr, struct printf_format_tag 
 	return len;
 }
 
-static int fprintf_int(const putstr_t * const putstr, struct printf_format_tag *tag, intmax_t num)
+STATIC int fprintf_int(const putstr_t * const putstr, struct printf_format_tag *tag, intmax_t num)
 {
 	if (num < 0) {
 		tag->always_sign = '-';
@@ -292,23 +289,23 @@ static int fprintf_int(const putstr_t * const putstr, struct printf_format_tag *
 	return fprintf_uint(putstr, tag, num);
 }
 
-static int fprintf_fnan(const putstr_t * const putstr, struct printf_format_tag *tag)
+STATIC int fprintf_fnan(const putstr_t * const putstr, struct printf_format_tag *tag)
 {
 	// TODO
 	return fprintf_stub(putstr, "fnan");
 }
-static int fprintf_finf(const putstr_t * const putstr, struct printf_format_tag *tag, int sign)
+STATIC int fprintf_finf(const putstr_t * const putstr, struct printf_format_tag *tag, int sign)
 {
 	// TODO
 	return fprintf_stub(putstr, "finf");
 }
-static int fprintf_fzero(const putstr_t * const putstr, struct printf_format_tag *tag, int sign)
+STATIC int fprintf_fzero(const putstr_t * const putstr, struct printf_format_tag *tag, int sign)
 {
 	// TODO
 	return fprintf_stub(putstr, "fzero");
 }
 
-static long int fprintf_longdouble(const putstr_t * const putstr, struct printf_format_tag *tag, long double val)
+STATIC long int fprintf_longdouble(const putstr_t * const putstr, struct printf_format_tag *tag, long double val)
 {
 	// TODO
 	const long double inf = 1.0 / 0.0;
@@ -381,35 +378,35 @@ c = f / 10^d
 
 	return (*putstr)(str, strlen(str), putstr);
 }
-static int fprintf_double(const putstr_t * const putstr, struct printf_format_tag *tag, double val)
+STATIC int fprintf_double(const putstr_t * const putstr, struct printf_format_tag *tag, double val)
 {
 	// TODO
 	return fprintf_longdouble(putstr, tag, val);
 }
 
-static int fprintf_double_short(const putstr_t * const putstr, struct printf_format_tag *tag, double d, char bigchar)
+STATIC int fprintf_double_short(const putstr_t * const putstr, struct printf_format_tag *tag, double d, char bigchar)
 {
 	// TODO
 	return fprintf_double(putstr, tag, d);
 }
-static int fprintf_longdouble_short(const putstr_t * const putstr, struct printf_format_tag *tag, long double d, char bigchar)
+STATIC int fprintf_longdouble_short(const putstr_t * const putstr, struct printf_format_tag *tag, long double d, char bigchar)
 {
 	// TODO
 	return fprintf_longdouble(putstr, tag, d);
 }
 
-static int fprintf_double_exp(const putstr_t * const putstr, struct printf_format_tag *tag, double d, char bigchar)
+STATIC int fprintf_double_exp(const putstr_t * const putstr, struct printf_format_tag *tag, double d, char bigchar)
 {
 	// TODO
 	return fprintf_double(putstr, tag, d);
 }
-static int fprintf_longdouble_exp(const putstr_t * const putstr, struct printf_format_tag *tag, long double d, char bigchar)
+STATIC int fprintf_longdouble_exp(const putstr_t * const putstr, struct printf_format_tag *tag, long double d, char bigchar)
 {
 	// TODO
 	return fprintf_longdouble(putstr, tag, d);
 }
 
-static int fprintf_ptr(const putstr_t * const putstr, struct printf_format_tag *tag, uintptr_t addr)
+STATIC int fprintf_ptr(const putstr_t * const putstr, struct printf_format_tag *tag, uintptr_t addr)
 {
 	tag->fillchar = ' ';
 	int ret = 0, len = 12; // [12345678xP]
@@ -433,7 +430,7 @@ static int fprintf_ptr(const putstr_t * const putstr, struct printf_format_tag *
 	return ret;
 }
 
-static int fprintf_char(const putstr_t * const putstr, struct printf_format_tag *tag, unsigned char c)
+STATIC int fprintf_char(const putstr_t * const putstr, struct printf_format_tag *tag, unsigned char c)
 {
 	int len = 1;
 	if (tag->left_align) {
@@ -448,7 +445,7 @@ static int fprintf_char(const putstr_t * const putstr, struct printf_format_tag 
 	}
 	return len;
 }
-static int fprintf_str(const putstr_t * const putstr, struct printf_format_tag *tag, const char *str)
+STATIC int fprintf_str(const putstr_t * const putstr, struct printf_format_tag *tag, const char *str)
 {
 	if (!str) {
 		return 6;
@@ -474,19 +471,19 @@ static int fprintf_str(const putstr_t * const putstr, struct printf_format_tag *
 	return len;
 }
 
-static int fprintf_wchar(const putstr_t * const putstr, struct printf_format_tag *tag, wchar_t c)
+STATIC int fprintf_wchar(const putstr_t * const putstr, struct printf_format_tag *tag, wchar_t c)
 {
 	// TODO!
 	return fprintf_stub(putstr, "wchar");
 }
 
-static int fprintf_wstr(const putstr_t * const putstr, struct printf_format_tag *tag, const wchar_t *str)
+STATIC int fprintf_wstr(const putstr_t * const putstr, struct printf_format_tag *tag, const wchar_t *str)
 {
 	// TODO!
 	return fprintf_stub(putstr, "wstr");
 }
 
-static void fprintf_numbytes(void *ptr, struct printf_format_tag *tag, int numbytes)
+STATIC void fprintf_numbytes(void *ptr, struct printf_format_tag *tag, int numbytes)
 {
 	switch (tag->lenmod) {
 		case LEN_hh:
@@ -516,7 +513,7 @@ static void fprintf_numbytes(void *ptr, struct printf_format_tag *tag, int numby
 	}
 }
 
-static const char *fprintf_lenmod(const char * const fmt, fmt_lenmod_t *lenmod)
+STATIC const char *fprintf_lenmod(const char * const fmt, fmt_lenmod_t *lenmod)
 {
 	switch (*fmt) {
 	case 'h':
@@ -551,7 +548,7 @@ static const char *fprintf_lenmod(const char * const fmt, fmt_lenmod_t *lenmod)
 	return fmt;
 }
 
-static const char *fprintf_flags(const char *fmt, struct printf_format_tag *tag)
+STATIC const char *fprintf_flags(const char *fmt, struct printf_format_tag *tag)
 {
 	do { switch (*fmt) {
 		case '-':

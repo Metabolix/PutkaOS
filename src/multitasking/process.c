@@ -200,8 +200,11 @@ pid_t new_process(const void *code, size_t code_size, uint_t entry_offset, const
 		return NO_PROCESS;
 	}
 	process->threads.tid0 = tid;
-	process->vt_num = VT_KERN_LOG;
 	process->state = TP_STATE_RUNNING;
+
+	process->stdin = stdin;
+	process->stdout = stdout;
+	process->stderr = stderr;
 
 	++process_count;
 

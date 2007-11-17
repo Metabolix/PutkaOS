@@ -2,7 +2,7 @@
 #include <idt.h>
 #include <gdt.h>
 #include <panic.h>
-#include <screen.h>
+#include <kprintf.h>
 #include <ctype.h>
 #include <multitasking/multitasking.h>
 #include <misc_asm.h>
@@ -94,7 +94,6 @@ void isr_install(void)
 
 	idt_set_interrupt(IDT_THREAD_ENDING, isr_thread_ending, IDT_PRIV_USER);
 	idt_set_interrupt(IDT_SCHEDULER, isr_scheduler, IDT_PRIV_USER);
-	print("ISRs enabled\n");
 }
 struct isr_t isrs[32] = {
 	{"Division By Zero", 0},
@@ -136,14 +135,14 @@ struct isr_t isrs[32] = {
 
 void dump_isr_regs(const struct isr_regs *regs)
 {
-	print("Registers:\n");
+	kprintf("Registers:\n");
 	kprintf(" eax = %08x     ebx = %08x     ecx = %08x     edx = %08x\n", regs->eax, regs->ebx, regs->ecx, regs->edx);
 	kprintf(" esp = %08x     ebp = %08x      ss = %08x\n", regs->esp, regs->ebp, regs->ss);
 	kprintf(" eip = %08x      cs = %08x  eflags = %08x\n", regs->eip, regs->cs, regs->eflags);
 	kprintf(" esi = %08x     edi = %08x\n", regs->esi, regs->edi);
 	kprintf("  ds = %08x      es = %08x      fs = %08x      gs = %08x\n", regs->ds, regs->es, regs->fs, regs->gs);
 #if 0
-	print("\nStack:\n");
+	kprintf("\nStack:\n");
 	int i, j;
 	typedef struct _c16_t {char c[16]; } c16_t;
 	const c16_t * const stack = (const void*)(regs + 1);
@@ -166,14 +165,14 @@ void dump_isr_regs(const struct isr_regs *regs)
 		kprintf(" %08x %08x  %08x %08x  | %s\n", c, buf);
 	}
 #endif
-	print("\n");
+	kprintf("\n");
 }
 
 void isr_handler(struct isr_regs *regs)
 {
 	int r;
 	if (regs->int_no > 31) { // > 31
-		printf("ISR handler: illegal interrupt (%d)!\n", regs->int_no);
+		kprintf("ISR handler: illegal interrupt (%d)!\n", regs->int_no);
 		r = -1;
 	} else if (isrs[regs->int_no].handler) {
 		r = isrs[regs->int_no].handler(regs);
@@ -187,18 +186,18 @@ void isr_handler(struct isr_regs *regs)
 
 int isr_null_handler(struct isr_regs *regs)
 {
-	printf("(ISR number %d)\n", regs->int_no);
+	kprintf("(ISR number %d)\n", regs->int_no);
 	return 0;
 }
 
 int isr_panic_handler(struct isr_regs *regs)
 {
 	if (regs->int_no > 7) { // > 7
-		printf("Problem: %s, code %i\n", isrs[regs->int_no].name, regs->error_code);
+		kprintf("Problem: %s, code %i\n", isrs[regs->int_no].name, regs->error_code);
 	} else {
-		printf("Problem: %s\n", isrs[regs->int_no].name);
+		kprintf("Problem: %s\n", isrs[regs->int_no].name);
 	}
 	dump_isr_regs(regs);
-	printf("Killing thread %i, process %i\n", active_tid, active_pid);
+	kprintf("Killing thread %i, process %i\n", active_tid, active_pid);
 	return -1;
 }

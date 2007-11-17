@@ -9,6 +9,7 @@
 #include <tss.h>
 #include <panic.h>
 #include <string.h>
+#include <kprintf.h>
 
 extern struct kernel_tasks kernel_tasks;
 
@@ -30,14 +31,14 @@ static int user_tries_kernel(void)
 	code2 = temp_virt_page(1, phys_pagedir, cpage + 1);
 
 	if (memcmp(code + coffset, "\x65\xa1\x14\x00\x00\x00", 6) == 0) {
-		printf("Ohjelmassa on Linuxin stack protector!\nAnna gcc:llesi lippu -fno-stack-protector\n");
+		kprintf("Ohjelmassa on Linuxin stack protector!\nAnna gcc:llesi lippu -fno-stack-protector\n");
 		r = -1;
 		goto return_etc;
 	}
 
-	printf("Page Fault!\nThread %i, process %i\n", active_tid, active_pid);
-	printf("Trying to access address %p (page %d).\n", cr2, dpage);
-	printf("Page fault; page-level protection violation (no right)!\n");
+	kprintf("Page Fault!\nThread %i, process %i\n", active_tid, active_pid);
+	kprintf("Trying to access address %p (page %d).\n", cr2, dpage);
+	kprintf("Page fault; page-level protection violation (no right)!\n");
 	r = -1;
 	goto return_etc;
 
@@ -75,7 +76,7 @@ int handle_user_pagefault(void)
 		goto no_pt_page;
 	}
 	if ((dpde >= KMEM_PDE_END) && !pd[dpde].user) {
-		printf("pid = %d, tid = %d\n", active_tid, active_pid);
+		printf("User process = %d, thread = %d\n", active_pid, active_tid);
 		printf("Trying to access address %p (page %d).\n", asm_get_cr2(), ADDR_TO_PAGE(asm_get_cr2()));
 		printf("(!pd[dpde].user)\n");
 		panic("Bug in memory handling!");
@@ -98,7 +99,7 @@ int handle_user_pagefault(void)
 		return user_tries_kernel();
 	}
 	if (dpde < KMEM_PDE_END) {
-		printf("pid = %d, tid = %d\n", active_tid, active_pid);
+		printf("User process = %d, thread = %d\n", active_pid, active_tid);
 		printf("Trying to access address %p (page %d).\n", asm_get_cr2(), ADDR_TO_PAGE(asm_get_cr2()));
 		printf("(dpde < KMEM_PDE_END) && pt[dpte].user)\n");
 		panic("Bug in memory handling!");
@@ -144,8 +145,8 @@ fail:
 void page_fault_handler(void)
 {
 	if (!threading_started || (kernel_tasks.tss_for_active_thread.cs & 3) == 0) {
-		printf("pid = %d, tid = %d\n", active_tid, active_pid);
-		printf("Trying to access address %p (page %d).\n", asm_get_cr2(), ADDR_TO_PAGE(asm_get_cr2()));
+		kprintf("Kernel process = %d, thread = %d\n", active_pid, active_tid);
+		kprintf("Trying to access address %p (page %d).\n", asm_get_cr2(), ADDR_TO_PAGE(asm_get_cr2()));
 		panic("Page fault in kernel!");
 		return;
 	}

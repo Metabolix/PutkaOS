@@ -1,14 +1,15 @@
 #include <utils/texteditor.h>
-#include <memory/kmalloc.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
-#include <screen.h>
 #include <keyboard.h>
 
-#define MALLOC(x) kmalloc(x)
-#define FREE(x) kfree(x)
-#define REALLOC(x, y) krealloc((x),(y))
+#include <screen.h>
+
+#define MALLOC(x) malloc(x)
+#define FREE(x) free(x)
+#define REALLOC(x, y) realloc((x),(y))
 
 unsigned int displayw, displayh;
 unsigned int cx, cy;
@@ -67,7 +68,7 @@ void editor_print_statusline(void)
 {
 	set_colour(0x70);
 	locate(0, 0);
-	kprintf("[%s] [%d] [%d,%d(%d)] [rlen=%d rh=%d] [%s]",
+	printf("[%s] [%d] [%d,%d(%d)] [rlen=%d rh=%d] [%s]",
 			efile.writable?"writable":"read only", efile.scrollpos,
 			efile.currentrow, efile.currentcol, editor_get_real_col(),
 			efile.rows[efile.currentrow].len,
@@ -166,7 +167,7 @@ int editor_main(char *filename)
 
 	//otetaan ruudun koko talteen
 	getdisplaysize(&displayw, &displayh);
-	//kprintf("displayw=%d, displayh=%d\n", displayw, displayh);
+	//printf("displayw=%d, displayh=%d\n", displayw, displayh);
 
 	//tehdään jotain
 
@@ -181,7 +182,7 @@ int editor_main(char *filename)
 	if(efile.stream==NULL){
 		efile.stream = fopen(filename, "r");
 		if(efile.stream==NULL){
-			kprintf("texteditor: can't open file\n");
+			printf("texteditor: can't open file\n");
 			return 1;
 		}
 		efile.writable = 0;
@@ -194,20 +195,20 @@ int editor_main(char *filename)
 	fpos_t size;
 	fgetpos(efile.stream, &size);
 	if(size > 2000000000){
-		kprintf("Can't handle that big file\n");
+		printf("Can't handle that big file\n");
 		goto quiteditor;
 	}
 
 	//luetaan filu
 
 	fseek(efile.stream, 0, SEEK_SET);
-	kprintf("reading...\n");
+	printf("reading...\n");
 	char *buf = (char*)MALLOC(size);
 	size = fread(buf, 1, size, efile.stream);
-	kprintf("size=%d\n", size);
+	printf("size=%d\n", size);
 	efile.rowcount = 1;
 	for(i=0; i<size; i++) if(buf[i]=='\n') efile.rowcount++;
-	kprintf("rowcount=%d\n", efile.rowcount);
+	printf("rowcount=%d\n", efile.rowcount);
 	efile.rows = (struct row_t*)MALLOC(sizeof(struct row_t)*efile.rowcount);
 	memset(efile.rows, 0, sizeof(struct row_t)*efile.rowcount);
 	i=0;
@@ -222,7 +223,7 @@ int editor_main(char *filename)
 		memcpy(efile.rows[r].buf, buf + i, rowlength);
 		efile.rows[r].buf[rowlength-1] = 0;
 		efile.rows[r].len = rowlength;
-		//kprintf("row is \"%s\", len=%d\n", efile.rows[r].buf, efile.rows[r].len);
+		//printf("row is \"%s\", len=%d\n", efile.rows[r].buf, efile.rows[r].len);
 		i+= rowlength;
 	}
 
@@ -249,10 +250,10 @@ int editor_main(char *filename)
 			//kb_get();
 			locate(0, 1);
 			set_colour(0x70);
-			print("[waiting command (q/w)]");
+			printf("[waiting command (q/w)]");
 			set_colour(0x07);
 			while((ch = /*ktoasc(*/kb_get()/*)*/)==0);
-			kprintf("[%c]", ch);
+			printf("[%c]", ch);
 			if(ch == 'q') goto quiteditor;
 			else if(ch == 'w'){
 				editor_write();
@@ -428,17 +429,17 @@ int editor_main(char *filename)
 
 quiteditor:
 	locate(displayw-1, displayh-1);
-	print("\neditor quitting\n");
+	printf("\neditor quitting\n");
 	/*for(;;){
-		print("save? (y/n)");
+		printf("save? (y/n)");
 		char ch = ktoasc(kb_get());
-		print("\n");
+		printf("\n");
 		if(ch=='y'){
 			editor_write();
 			break;
 		}
 		else if(ch=='n'){
-			print("ok. not saved.\n");
+			printf("ok. not saved.\n");
 			break;
 		}
 		kb_get();

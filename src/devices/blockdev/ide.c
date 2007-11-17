@@ -1,5 +1,7 @@
 #include <devices/blockdev/ide.h>
 #include <devices/blockdev/hdd.h>
+#include <multitasking/multitasking.h>
+#include <memory/kmalloc.h>
 #include <io.h>
 #include <timer.h>
 #include <time.h>
@@ -8,7 +10,7 @@
 #include <debug.h>
 #include <misc_asm.h>
 
-#include <screen.h>
+#include <kprintf.h>
 
 // tuetaan ide-kontrolleri 0:aa ja 1:stä
 static ide_controller_t ide_ports[IDE_NUM_CONTROLLERS] = {
@@ -465,7 +467,7 @@ int atapi_unlock(int device)
 	ide_devices[device].media_available = 0;
 	return 0;
 }
-			
+
 
 int atapi_send_packet(int device, uint_t bytecount, uint16_t * packet)
 {

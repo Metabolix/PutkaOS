@@ -6,7 +6,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <panic.h>
-#include <screen.h>
+#include <kprintf.h>
 #include <vt.h>
 #include <misc_asm.h>
 #include <gdt.h>

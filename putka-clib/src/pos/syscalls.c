@@ -4,11 +4,6 @@
 
 extern intptr_t mksyscall(uint_t eax, ...);
 
-int syscall_print(const char *text)
-{
-	return mksyscall(SYSCALL_PRINT, text);
-}
-
 void *syscall_malloc(size_t size)
 {
 	return (void*) mksyscall(SYSCALL_MALLOC, size);

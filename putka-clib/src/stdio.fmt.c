@@ -28,22 +28,6 @@ size_t sprintf_putstr(const char *str, size_t len, struct sprintf_putter *f)
 	return len;
 }
 
-size_t printf_putstrlen(const char *str, size_t len)
-{
-	char buf[len+1];
-	memcpy(buf, str, len);
-	buf[len] = 0;
-	return print(buf);
-}
-
-size_t printf_putstr(const char *str, size_t len, putstr_t putter)
-{
-	if (!str[len]) {
-		return print(str);
-	}
-	return printf_putstrlen(str, len);
-}
-
 int vsprintf(char * restrict buf, const char * restrict fmt, va_list args)
 {
 	struct sprintf_putter putter = {
@@ -91,8 +75,7 @@ int fprintf(FILE * restrict f, const char * restrict fmt, ...)
 
 int vprintf(const char * restrict fmt, va_list args)
 {
-	putstr_t p = (putstr_t) printf_putstr;
-	return _xprintf(&p, fmt, args);
+	return vfprintf(stdout, fmt, args);
 }
 
 int printf(const char * restrict fmt, ...)
@@ -100,7 +83,7 @@ int printf(const char * restrict fmt, ...)
 	int retval;
 	va_list args;
 	va_start(args, fmt);
-	retval = vprintf(fmt, args);
+	retval = vfprintf(stdout, fmt, args);
 	va_end(args);
 	return retval;
 }

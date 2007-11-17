@@ -2,8 +2,9 @@
 #include <memory/memvars.h>
 #include <stdint.h>
 #include <misc_asm.h>
-#include <screen.h>
+#include <kprintf.h>
 #include <panic.h>
+#include <string.h>
 
 uint32_t * const phys_pages_alloced = PAGE_TO_ADDR (PHYSICAL_PAGES_ALLOCATION_BITMAP);
 uint32_t * const phys_pages_noswap = PAGE_TO_ADDR (PHYSICAL_PAGES_NOSWAP_BITMAP);
@@ -131,11 +132,12 @@ void memory_init(uint_t mem_kib)
 	if (!(asm_get_cr0() & 0x80000000)) {
 		panic("Muistin sivutus ei toimi!\n");
 	}
-
+#if 0
 	const uint_t kib1 = memory.ram_pages * (MEMORY_PAGE_SIZE / 1024);
 	const uint_t kib2 = memory.ram_pages_free * (MEMORY_PAGE_SIZE / 1024);
-	kprintf("Memory management is enabled. RAM: %d.%02d MiB (free %d.%02d MiB)\n",
+	kprintf("RAM: %d.%02d MiB (free %d.%02d MiB)\n",
 		kib1/1024, (100 * (kib1 % 1024)) / 1024,
 		kib2/1024, (100 * (kib2 % 1024)) / 1024);
+#endif
 	//kprintf("MEM: Using %u kilobytes of %u available\n", memory, ram_count);
 }

@@ -2,7 +2,7 @@
 #include <filesys/filesystem.h>
 #include <filesys/mount_err.h>
 #include <memory/kmalloc.h>
-#include <screen.h>
+#include <kprintf.h>
 #include <stddef.h>
 #include <string.h>
 #include <bit.h>
@@ -1062,19 +1062,19 @@ DIR *ext2_dopen(struct ext2_fs * this, const char * dirname)
 
 	int inode_n = ext2_search_entry(this, dirname, EXT2_ROOT_INO);
 	if(!inode_n) {
-		print("(!inode_n)\n");
+		kprintf("(!inode_n)\n");
 		return 0;
 	}
 
 	inode = ext2_get_inode(this, inode_n);
 	if((inode.i_mode >> 13) != (EXT2_FT_DIR)) {/* not directory? */
-		print("((inode.i_mode >> 13) != (EXT2_FT_DIR))\n");
+		kprintf("((inode.i_mode >> 13) != (EXT2_FT_DIR))\n");
 		return 0;
 	}
 
 	dir = kcalloc(sizeof(struct ext2_dir) + sizeof(struct ext2_inode) + this->block_size, 1);
 	if (!dir) {
-		print("(!dir)\n");
+		kprintf("(!dir)\n");
 		return 0;
 	}
 

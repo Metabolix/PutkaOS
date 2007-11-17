@@ -1,17 +1,6 @@
 #include <devices/specialdevs.h>
 #include <devices/devmanager.h>
-#include <screen.h>
-
-/*
-struct device {
-	const char *name;
-	dev_class_t dev_class;
-	dev_type_t dev_type;
-	size_t index; // device_insert sets this.
-	devopen_t devopen;
-	devrm_t remove;
-};
-*/
+#include <kprintf.h>
 
 /*
 * Declare functions for devices
@@ -32,12 +21,13 @@ struct device {
 * List devices
 **/
 DEVICE specialdev[] = {
-	#define MKSPECIALDEV(name) \
+	#define MKSPECIALDEV(name_str) \
 		{ \
-			# name , \
-			DEV_CLASS_OTHER, DEV_TYPE_OTHER, 0, \
-			(devopen_t) SPECIAL_OPENFUNC_NAME(name), \
-			(devrm_t) SPECIAL_RMFUNC_NAME(name) \
+			.name = # name_str , \
+			.dev_class = DEV_CLASS_OTHER, \
+			.dev_type = DEV_TYPE_OTHER, \
+			.devopen = (devopen_t) SPECIAL_OPENFUNC_NAME(name_str), \
+			.remove = (devrm_t) SPECIAL_RMFUNC_NAME(name_str) \
 		},
 	#include <devices/specialdevs_list.h>
 	#undef MKSPECIALDEV

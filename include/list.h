@@ -104,12 +104,12 @@ void printtaa_lista()
 {
 	list_iter_of_piste i;
 	i = list_begin(pisteet);
-	kprintf("size: %d\n", list_size(pisteet));
+	printf("size: %d\n", list_size(pisteet));
 	while (i != list_end(pisteet)) {
-		kprintf("%p: (%d, %d)\n", i, list_item(i).x, list_item(i).y);
+		printf("%p: (%d, %d)\n", i, list_item(i).x, list_item(i).y);
 		list_inc(i); // i = list_next(i);
 	}
-	print("\n");
+	printf("\n");
 }
 
 void testattava_koodi()

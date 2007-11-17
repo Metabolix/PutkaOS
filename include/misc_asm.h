@@ -12,6 +12,7 @@ extern void asm_ret();
 extern void asm_ud0();
 extern void asm_hlt_until_true(const char*);
 
+extern uint_t asm_get_eflags(void);
 extern uint_t asm_get_cr0(void);
 extern void * asm_get_cr2(void);
 extern void * asm_get_cr3(void);

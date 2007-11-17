@@ -8,20 +8,18 @@
 #include <vt.h>
 #include <gdt.h>
 #include <idt.h>
+#include <tss.h>
 
 extern void kmain2(void);
 extern void switch_task(void);
 
 int threading_started = 0;
 
-int has_threading(void)
-{
-	return active_thread || 0;
-}
+extern struct kernel_tasks kernel_tasks;
 
 int is_threading(void)
 {
-	return has_threading() && !is_in_irq_handler();
+	return threading_started && (asm_get_eflags() & 0x200);
 }
 
 void threading_init(void)
@@ -36,11 +34,13 @@ void threading_init(void)
 		.uid = 0,
 		.gid = 0,
 		.state = TP_STATE_RUNNING,
-		.vt_num = VT_KERN_LOG,
 		.threads = {
 			.tid0 = 0,
 			.count = 0,
 		},
+		.stdin = stdin,
+		.stdout = stdout,
+		.stderr = stderr,
 	};
 	process_count = 1;
 	processes[0].threads.tid0 = new_thread(0, kmain2, 0, 0, 0);
@@ -54,6 +54,7 @@ void threading_init(void)
 
 void threading_start(void)
 {
+	asm_cli();
 	active_pid = 0;
 	active_tid = processes[active_pid].threads.tid0;
 	active_process = processes + active_pid;

@@ -85,8 +85,8 @@ CO_SRC_SYSCALL_1=init.c
 CO_SRC_SYSCALL=$(addprefix syscall/,$(CO_SRC_SYSCALL_1))
 
 # Core
-C_SRC_CORE=gdt.c isr.c main.c panic.c idt.c irq.c keyboard.c spinlock.c vt.c screen.c doublefault.c
-CO_SRC_CORE=timer.c kprintf.c sh.c sh_komennot.c exec.c
+C_SRC_CORE=gdt.c isr.c main.c panic.c idt.c irq.c keyboard.c spinlock.c vt.c doublefault.c
+CO_SRC_CORE=timer.c sh.c sh_komennot.c exec.c
 
 # Utils
 CO_SRC_UTILS_1=texteditor.c

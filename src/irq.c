@@ -1,4 +1,4 @@
-#include <screen.h>
+#include <kprintf.h>
 #include <irq.h>
 #include <idt.h>
 #include <tss.h>
@@ -30,12 +30,10 @@ int is_in_irq_handler(void)
 
 void irq_unmask(void)
 {
-	print("Going to unmask irqs...\n");
 	outportb(0x21, 0);
 	outportb(0xa1, 0);
 	asm_sti();
 	asm_hlt();
-	print("IRQ unmasking done.\n");
 }
 
 void irq_remap(uint8_t offset1, uint8_t offset2)
@@ -49,7 +47,6 @@ void irq_remap(uint8_t offset1, uint8_t offset2)
 	outportb(0xA1, offset2); io_wait();
 	outportb(0xA1, 2); io_wait();
 	outportb(0xA1, 0x01); io_wait();
-	print("IRQs remapped\n");
 }
 
 #define asm_wait_irq(x) asm_hlt_until_true((char*)&irq_wait[x])

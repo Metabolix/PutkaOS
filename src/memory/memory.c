@@ -1,7 +1,7 @@
 #include <memory/memory.h>
 #include <memory/memvars.h>
 #include <string.h>
-#include <screen.h>
+#include <kprintf.h>
 #include <panic.h>
 #include <bit.h>
 #include <stdint.h>

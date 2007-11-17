@@ -1,11 +1,11 @@
 #include <stdio.h>
+#include <string.h>
 #include <pos/syscalls.h>
 #include <pos/file.h>
 
-int print(const char *str)
-{
-	return syscall_print(str);
-}
+FILE *stdin;
+FILE *stdout;
+FILE *stderr;
 
 FILE *fopen(const char * filename, const char * mode)
 {
@@ -117,4 +117,22 @@ size_t fread(void *buf, size_t size, size_t count, FILE *f)
 		.f = f,
 	};
 	return syscall_fread(&params);
+}
+
+int fputc(int c, FILE *f)
+{
+	return (fwrite(&c, 1, 1, f) == 1) ? c : EOF;
+}
+int putchar(int c)
+{
+	return fputc(c, stdout);
+}
+
+int fputs(const char * restrict str, FILE * restrict f)
+{
+	return (fwrite(str, strlen(str), 1, f) == 1) ? 0 : EOF;
+}
+int puts(const char *str)
+{
+	return fputs(str, stdout);
 }

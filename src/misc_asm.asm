@@ -9,6 +9,7 @@ global asm_ret
 global asm_ud0
 global asm_hlt_until_true
 
+global asm_get_eflags
 global asm_get_cr0
 global asm_get_cr2
 global asm_get_cr3
@@ -86,6 +87,11 @@ asm_set_tr:
 asm_get_tr:
 	xor eax, eax
 	str ax
+	ret
+
+asm_get_eflags:
+	pushfd
+	pop eax
 	ret
 
 asm_get_cr0:

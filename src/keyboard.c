@@ -2,7 +2,7 @@
 #include <io.h>
 #include <irq.h>
 #include <idt.h>
-#include <screen.h>
+#include <kprintf.h>
 #include <panic.h>
 #include <sh.h>
 #include <multitasking/multitasking.h>
@@ -286,7 +286,7 @@ void keyboard_handle(void)
 		code = (code & 0x7f) | oli_escaped;
 
 		vt_keyboard_event(code, up);
-		
+
 		/*switch (code) {
 			case KEYCODE_LSHIFT:
 				kb_mods |= KEYB_MOD_LSHIFT; if (!down) kb_mods ^= KEYB_MOD_LSHIFT;
@@ -362,6 +362,6 @@ void keyboard_install(void)
 	inportb(0x60); /* There might be something in the buffer */
 	*x86_modstatus &= ~(x86_MOD_SCRL | x86_MOD_NUML | x86_MOD_CAPSL);
 	*x86_modstatus |= x86_MOD_INSMODE;
-	print("Keyboard installed\n");
+	kprintf("Keyboard installed\n");
 }
 

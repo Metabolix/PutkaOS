@@ -1,8 +1,10 @@
 #include <idt.h>
-#include <screen.h>
+#include <string.h>
+#include <kprintf.h>
 
 #include <pos/syscalls.list.h>
 #include <panic.h>
+#include <multitasking/multitasking.h>
 
 extern void asm_syscall();
 

@@ -1,8 +1,6 @@
 #ifndef _STDIO_H
 #define _STDIO_H 1
 
-extern int print(const char *str);
-
 #include <stddef.h>
 #include <stdint.h>
 #include <stdarg.h>
@@ -31,6 +29,9 @@ typedef struct _FILE FILE;
 //#define stdin  stdin
 //#define stdout stdout
 //#define stderr stderr
+extern FILE *stdin;
+extern FILE *stdout;
+extern FILE *stderr;
 
 extern FILE *fopen(const char * restrict filename, const char * restrict mode);
 extern int fclose(FILE *stream);
@@ -54,6 +55,12 @@ extern int vprintf(const char * restrict fmt, va_list args);
 
 extern int _xprintf(const putstr_t * const putstr, const char * restrict fmt, va_list args);
 
+extern int fputc(int c, FILE *f);
+#define putc(c, f) fputc(c, f)
+extern int putchar(int c);
+
+extern int fputs(const char * restrict str, FILE * restrict f);
+extern int puts(const char *str);
 /*
 extern int remove(const char *filename);
 extern int rename(const char *old, const char *new);

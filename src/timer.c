@@ -1,5 +1,6 @@
+#include <multitasking/multitasking.h>
 #include <irq.h>
-#include <screen.h>
+#include <kprintf.h>
 #include <idt.h>
 #include <timer.h>
 #include <io.h>
@@ -211,8 +212,8 @@ void kwait(time_t sec, time_t usec)
 	jatkoaika.sec += (jatkoaika.usec / 1000000);
 	jatkoaika.usec %= 1000000;
 
-	while (jatkoaika.sec > uptime.sec) asm_hlt();
-	while ((jatkoaika.sec == uptime.sec) && (jatkoaika.usec > uptime.usec)) asm_hlt();
+	while (jatkoaika.sec > uptime.sec) switch_thread();
+	while ((jatkoaika.sec == uptime.sec) && (jatkoaika.usec > uptime.usec)) switch_thread();
 }
 
 int kwait_until_0(time_t sec, time_t usec, waitfunc_t until_0, waitparam_t param)
@@ -224,9 +225,11 @@ int kwait_until_0(time_t sec, time_t usec, waitfunc_t until_0, waitparam_t param
 	j.usec %= 1000000;
 	while (j.sec > uptime.sec) {
 		if (until_0(param) == 0) return 0;
+		switch_thread();
 	}
 	while ((j.sec == uptime.sec) && (j.usec > uptime.usec)) {
 		if (until_0(param) == 0) return 0;
+		switch_thread();
 	}
 	return -1;
 }

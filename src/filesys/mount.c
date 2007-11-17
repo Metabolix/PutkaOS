@@ -4,7 +4,7 @@
 #include <filesys/file.h>
 #include <filesys/dir.h>
 #include <memory/kmalloc.h>
-#include <screen.h>
+#include <kprintf.h>
 #include <panic.h>
 #include <string.h>
 

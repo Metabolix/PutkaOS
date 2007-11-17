@@ -1,5 +1,4 @@
 #include <sh.h>
-#include <screen.h>
 #include <panic.h>
 #include <pos/time.h>
 #include <timer.h>
@@ -9,13 +8,13 @@
 #include <filesys/mount.h>
 #include <string.h>
 #include <keyboard.h>
-#include <vt.h>
 #include <stdint.h>
-#include <memory/malloc.h>
 #include <memory/kmalloc.h>
 #include <utils/texteditor.h>
 #include <multitasking/process.h>
 #include <exec.h>
+
+#include <screen.h>
 
 /***********************
 ** JULKISET ESITTELYT **
@@ -170,7 +169,7 @@ hoida:
 		} else if (!piste) {
 			piste = osa;
 		} else {
-			kprintf("Virhe: liikaa polkuja parametrina!\n");
+			printf("Virhe: liikaa polkuja parametrina!\n");
 			goto kaytto;
 		}
 	} else if (strcmp(osa, "-ro") == 0) {
@@ -182,19 +181,19 @@ hoida:
 	} else if (strcmp(osa, "-u") == 0 || strcmp(osa, "-un") == 0 || strcmp(osa, "-umount") == 0 || strcmp(osa, "-unmount") == 0) {
 		umount = 1;
 	} else {
-		kprintf("Virhe: viallinen parametri (%s)!\n", osa);
+		printf("Virhe: viallinen parametri (%s)!\n", osa);
 		goto kaytto;
 	}
 	if (!loppu) {
 		goto silmukka_jatkuu;
 	}
 	if (!laite || (!umount && !piste)) {
-		kprintf("Virhe: liian vahan polkuja parametrina!\n");
+		printf("Virhe: liian vahan polkuja parametrina!\n");
 		goto kaytto;
 	}
 	if (umount) {
 		if (remount) {
-			kprintf("Siis -umount vai -remount?\n");
+			printf("Siis -umount vai -remount?\n");
 			goto kaytto;
 		}
 		sh_umount(laite); // tai piste
@@ -204,7 +203,7 @@ hoida:
 	sh_mount_real(laite, piste, liput, remount);
 	return;
 kaytto:
-	kprintf("\nKaytto: mount [laite liitospiste] [-ro|-rw] [-remount]\n");
+	printf("\nKaytto: mount [laite liitospiste] [-ro|-rw] [-remount]\n");
 	return;
 }
 
@@ -212,13 +211,13 @@ void sh_umount(char *dev_point)
 {
 	switch (umount_something(dev_point)) {
 		case MOUNT_ERR_TOTAL_FAILURE:
-			kprintf("sh: mount: Jokin virhe.\n");
+			printf("sh: mount: Jokin virhe.\n");
 			break;
 		case MOUNT_ERR_MOUNTED_SUBPOINTS:
-			kprintf("sh: mount: Alempia liitospisteita on yha olemassa.\n");
+			printf("sh: mount: Alempia liitospisteita on yha olemassa.\n");
 			break;
 		case MOUNT_ERR_BUSY:
-			kprintf("sh: mount: Piste on kiireinen.\n");
+			printf("sh: mount: Piste on kiireinen.\n");
 			break;
 	}
 }
@@ -228,11 +227,11 @@ void sh_ls(char *name)
 	DIR *d;
 	d = dopen(name);
 	if (!d) {
-		kprintf("sh: ls: Hakemistoa '%s' ei ole tai ei saada auki.\n", name);
+		printf("sh: ls: Hakemistoa '%s' ei ole tai ei saada auki.\n", name);
 		return;
 	}
 	while (dread(d) == 0) {
-		kprintf("%12s size='%d' created='%d' modified='%d'\n",
+		printf("%12s size='%d' created='%d' modified='%d'\n",
 		d->entry.name, d->entry.size, d->entry.created, d->entry.modified);
 	}
 	dclose(d);
@@ -241,33 +240,21 @@ void sh_ls(char *name)
 void sh_cat(char *name)
 {
 	FILE *f;
-	char buf[257];
-	fpos_t pos;
-	kprintf("cat '%s'\n", name);
+	char buf[256];
+	printf("cat '%s'\n", name);
 	f = fopen(name, "r");
 	if (!f) {
-		kprintf("sh: ls: Tiedostoa '%s' ei ole tai ei saada auki.\n", name);
+		printf("sh: ls: Tiedostoa '%s' ei ole tai ei saada auki.\n", name);
 		return;
 	}
-	buf[256] = 0;
 	while (1) {
-		if (fgetpos(f, &pos)) {
-			kprintf("sh: ls: fgetpos!\n");
-			break;
-		}
-		if (fread(buf, 256, 1, f)) {
-			print(buf);
-		} else {
-			if (fsetpos(f, &pos)) {
-				kprintf("sh: ls: fsetpos!\n");
-				break;
-			}
-			buf[fread(buf, 1, 256, f)] = 0;
-			print(buf);
+		size_t r, w;
+		r = fread(buf, 1, 256, f);
+		w = fwrite(buf, 1, r, stdout);
+		if (w < r || r < 256) {
 			break;
 		}
 	}
-	putch('\n');
 	fclose(f);
 }
 
@@ -275,45 +262,29 @@ void sh_hexcat(char *name)
 {
 	int i, j, l;
 	FILE *f;
-	char buf[257];
-	fpos_t pos;
-	kprintf("hexcat '%s'\n", name);
+	char buf[256];
+	printf("hexcat '%s'\n", name);
 	f = fopen(name, "r");
 	if (!f) {
-		kprintf("sh: ls: Tiedostoa '%s' ei ole tai ei saada auki.\n", name);
+		printf("sh: ls: Tiedostoa '%s' ei ole tai ei saada auki.\n", name);
 		return;
 	}
 	l = 256;
 	while (1) {
-		if (fgetpos(f, &pos)) {
-			kprintf("sh: ls: fgetpos!\n");
-			break;
+		putchar('\n');
+		l = fread(buf, 1, 256, f);
+		for (j = 0; j < l; j += i) {
+			for (i = 0; i < 16 && j+i < l; ++i) {
+				printf("%02x ", (int)(unsigned char)buf[j+i]);
+			}
+			putchar('\n');
 		}
-		print("\n");
-		if (fread(buf, 256, 1, f)) {
-			for (j = 0; j < 256; j += i) {
-				for (i = 0; i < 16; ++i) {
-					kprintf("%02x ", (int)(unsigned char)buf[j+i]);
-				}
-				print("\n");
-			}
-		} else {
-			if (fsetpos(f, &pos)) {
-				kprintf("sh: ls: fsetpos!\n");
-				break;
-			}
-			l = fread(buf, 1, 256, f);
-			for (j = 0; j < l; j += i) {
-				for (i = 0; i < 16 && j+i < l; ++i) {
-					kprintf("%02x ", (int)(unsigned char)buf[j+i]);
-				}
-				print("\n");
-			}
+		if (l < 256) {
 			break;
 		}
 		kwait(0, 500000);
 	}
-	putch('\n');
+	putchar('\n');
 	fclose(f);
 }
 
@@ -324,7 +295,7 @@ void sh_history(char *buf)
 		if (history[i][0] == 0) {
 			return;
 		}
-		kprintf("%s\n", history[i]);
+		printf("%s\n", history[i]);
 	}
 }
 
@@ -333,7 +304,7 @@ void sh_key_names(char *buf)
 	int ch;
 	//while ((ch = kb_get())) {
 	while ((ch = wait_and_get_next_key_event())) {
-		kprintf("(mods: %#06x), %#04x - '%s' (%s)\n", get_kbmods(), ch & 255, nappien_nimet_qwerty[ch & 255], (ch & 256) ? "up" : "down");
+		printf("(mods: %#06x), %#04x - '%s' (%s)\n", get_kbmods(), ch & 255, nappien_nimet_qwerty[ch & 255], (ch & 256) ? "up" : "down");
 		if (ch == KEY_ESC) {
 			break;
 		}
@@ -344,11 +315,11 @@ void sh_help(char *buf)
 {
 	komennot = komentotaulu;
 	while (komennot->komento) {
-		kprintf("%10s -- %s\n", komennot->komento, komennot->kuvaus);
+		printf("%10s -- %s\n", komennot->komento, komennot->kuvaus);
 		++komennot;
 	}
 	komennot = komentotaulu;
-	kprintf("keys: shift + pgup/down to scroll, F<n> to change vt\n");
+	printf("keys: shift + pgup/down to scroll, F<n> to change vt\n");
 }
 
 void sh_reset(char *buf)
@@ -371,19 +342,19 @@ void sh_list_colours(char *buf)
 {
 	int i, j;
 	set_colour(7);
-	print("    ");
+	printf("    ");
 	for (j = 0; j < 16; ++j) {
-		kprintf("x%02x ", j);
+		printf("x%02x ", j);
 	}
-	putch('\n');
+	putchar('\n');
 	for (i = 0; i < 256; i += 16) {
-		kprintf("x%02x ", i);
+		printf("x%02x ", i);
 		for (j = 0; j < 16; ++j) {
 			set_colour(i+j);
-			kprintf("x%02x ", i+j);
+			printf("x%02x ", i+j);
 		}
 		set_colour(7);
-		putch('\n');
+		putchar('\n');
 	}
 }
 
@@ -420,22 +391,22 @@ void sh_exit(char *buf)
 	"                                  .                                       ",
 	0};
 	const char **rivi, *merkki;
-	putch('\n');
+	putchar('\n');
 	set_colour(7);
 	for (rivi = dont_panic_xpm; *rivi; ++rivi) {
-		print("  ");
+		printf("  ");
 		for (merkki = *rivi; *merkki; ++merkki) {
 			set_colour(vari[(unsigned char)*merkki]);
-			putch(' ');
+			putchar(' ');
 			while (merkki[0] == merkki[1]) {
-				putch(' ');
+				putchar(' ');
 				++merkki;
 			}
 		}
-		print("\n");
+		putchar('\n');
 		set_colour(7);
 	}
-	putch('\n');
+	putchar('\n');
 	panic("exit kutsuttu!");
 }
 
@@ -445,7 +416,7 @@ void sh_uptime(char *buf)
 	struct timeval uptime;
 	get_system_time(&sys_time);
 	get_uptime(&uptime);
-	kprintf("On %u.%u. vuonna %u ja kello on %02u.%02u.%02u; uptime %u,%06u sekuntia.\n",
+	printf("On %u.%u. vuonna %u ja kello on %02u.%02u.%02u; uptime %u,%06u sekuntia.\n",
 		sys_time.tm_mday, sys_time.tm_mon + 1, sys_time.tm_year + 1900,
 		sys_time.tm_hour, sys_time.tm_min, sys_time.tm_sec,
 		uptime.sec, uptime.usec);
@@ -459,7 +430,7 @@ void sh_outportb(char *buf)
 	while (*buf && !(*buf <= '9' && *buf >= '0')) ++buf;
 	byte = sh_read_int(&buf);
 
-	kprintf("Port %d (%#x), sending %d (%#04x)\n", port, port, byte, byte);
+	printf("Port %d (%#x), sending %d (%#04x)\n", port, port, byte, byte);
 	outportb(port, byte);
 }
 
@@ -469,7 +440,7 @@ void sh_inportb(char *buf)
 	while (*buf && !(*buf <= '9' && *buf >= '0')) ++buf;
 	port = sh_read_int(&buf);
 	byte = inportb(port);
-	kprintf("Port %d (%#x): got %d (%#04x)\n", port, port, byte, byte);
+	printf("Port %d (%#x): got %d (%#04x)\n", port, port, byte, byte);
 }
 
 void sh_reboot(char *buf)
@@ -484,13 +455,13 @@ void sh_reboot(char *buf)
 
 void sh_ei_tunnistettu(char *buf)
 {
-	kprintf("Tunnistamaton komento (%s) Mutta 'help' auttaa!\n", buf);
+	printf("Tunnistamaton komento (%s) Mutta 'help' auttaa!\n", buf);
 }
 
 void sh_fopen(char*a)
 {
 	if (sh_f) {
-		print("Sulje ensin entinen tiedosto!\n");
+		printf("Sulje ensin entinen tiedosto!\n");
 		return;
 	}
 	char *filename = a;
@@ -510,22 +481,22 @@ void sh_fopen(char*a)
 	if (*mode) {
 		sh_f = fopen(filename, mode);
 		if (!sh_f) {
-			print("Avaaminen ei onnistunut.\n");
+			printf("Avaaminen ei onnistunut.\n");
 		}
 	} else {
-		print("Vialliset parametrit!\n");
+		printf("Vialliset parametrit!\n");
 	}
 }
 
 void sh_fread(char*a)
 {
 	if (!sh_f) {
-		print("Avaa ensin tiedosto!\n");
+		printf("Avaa ensin tiedosto!\n");
 		return;
 	}
 	while (*a && !isdigit(*a)) ++a;
 	if (!*a) {
-		print("Parametri unohtui.\n");
+		printf("Parametri unohtui.\n");
 	}
 	int maara = sh_read_int(&a), lue, luettu;
 	unsigned char b[64];
@@ -537,31 +508,31 @@ void sh_fread(char*a)
 		lue = (maara > sizeof(b) ? sizeof(b) : maara);
 		luettu = fread(b, 1, lue, sh_f);
 		if (luettu != lue) {
-			print("Virhe lukemisessa.\n");
+			printf("Virhe lukemisessa.\n");
 			maara = luettu;
 		}
 		maara -= luettu;
 		for (lue = 0; lue < luettu; ++lue) {
 			c[0] = merkit[b[lue] >> 4];
 			c[1] = merkit[b[lue] & 0x0f];
-			kprintf("%s ", c);
+			printf("%s ", c);
 
 			++kohta;
 			if (kohta == per_rivi) {
 				kohta = 0;
-				putch('\n');
+				putchar('\n');
 			}
 		}
 	}
 	if (kohta) {
-		putch('\n');
+		putchar('\n');
 	}
 }
 
 void sh_fwrite(char*a)
 {
 	if (!sh_f) {
-		print("Avaa ensin tiedosto!\n");
+		printf("Avaa ensin tiedosto!\n");
 		return;
 	}
 	char buf[64], * const c = buf, *b = c, * const d = c + sizeof(buf);
@@ -588,21 +559,21 @@ void sh_fwrite(char*a)
 		++b;
 		if (b == d) {
 			if (fwrite(c, 1, b-c, sh_f) != (b-c)) {
-				print("Ongelmia kirjoituksessa!\n");
+				printf("Ongelmia kirjoituksessa!\n");
 				return;
 			}
 			b = c;
 		}
 	}
 	if (fwrite(c, 1, b-c, sh_f) != (b-c)) {
-		print("Ongelmia kirjoituksessa!\n");
+		printf("Ongelmia kirjoituksessa!\n");
 	}
 }
 
 void sh_fprint(char*a)
 {
 	if (!sh_f) {
-		print("Avaa ensin tiedosto!\n");
+		printf("Avaa ensin tiedosto!\n");
 		return;
 	}
 	while (*a && isspace(*a)) ++a;
@@ -648,49 +619,49 @@ void sh_fprint(char*a)
 	}
 	*p2 = 0;
 	if (fprintf(sh_f, "%s", a) != 1) {
-		print("Virhe tulostuksessa!\n");
+		printf("Virhe tulostuksessa!\n");
 	}
 }
 
 void sh_fgetpos(char*a)
 {
 	if (!sh_f) {
-		print("Avaa ensin tiedosto!\n");
+		printf("Avaa ensin tiedosto!\n");
 		return;
 	}
 	fpos_t pos;
 	if (fgetpos(sh_f, &pos)) {
-		print("Virhe sijainnin hakemisessa!\n");
+		printf("Virhe sijainnin hakemisessa!\n");
 		return;
 	}
-	kprintf("Sijainti: %d\n", (int)pos);
+	printf("Sijainti: %d\n", (int)pos);
 }
 
 void sh_fsetpos(char*a)
 {
 	if (!sh_f) {
-		print("Avaa ensin tiedosto!\n");
+		printf("Avaa ensin tiedosto!\n");
 		return;
 	}
 	while (*a && isspace(*a)) ++a;
 	if (a) {
 		fpos_t pos = sh_read_int(&a);
 		if (fsetpos(sh_f, &pos)) {
-			print("Virhe sijainnin asettamisessa!\n");
+			printf("Virhe sijainnin asettamisessa!\n");
 		}
 	} else {
-		print("Viallinen parametri!\n");
+		printf("Viallinen parametri!\n");
 	}
 }
 
 void sh_fclose(char*a)
 {
 	if (!sh_f) {
-		print("Avaa ensin tiedosto!\n");
+		printf("Avaa ensin tiedosto!\n");
 		return;
 	}
 	if (fclose(sh_f)) {
-		print("Varoitus: sulkeminen epäonnistui.");
+		printf("Varoitus: sulkeminen epäonnistui.");
 	}
 	sh_f = 0;
 }
@@ -700,23 +671,23 @@ void sh_mkdir(char*a)
 	while (*a && isspace(*a)) ++a;
 	switch (dmake(a)) {
 	case DIR_ERR_TOTAL_FAILURE:
-		print("mkdir: tuntematon virhe!\n");
+		printf("mkdir: tuntematon virhe!\n");
 		break;
 	case DIR_ERR_NO_FUNCTIONS:
-		print("mkdir: tiedostojarjestelma ei anna funktiota!\n");
+		printf("mkdir: tiedostojarjestelma ei anna funktiota!\n");
 		break;
 	case DIR_ERR_EXISTS:
-		print("mkdir: hakemisto on jo!\n");
+		printf("mkdir: hakemisto on jo!\n");
 		break;
 	case DIR_ERR_CANT_MAKE:
-		print("mkdir: luominen ei onnistunut!\n");
+		printf("mkdir: luominen ei onnistunut!\n");
 		break;
 	}
 }
 
 void sh_editor(char *buf)
 {
-	kprintf("launching editor with filename \"%s\"\n", buf);
+	printf("launching editor with filename \"%s\"\n", buf);
 	editor_main(buf);
 }
 
@@ -759,7 +730,7 @@ static int sh_read_int(char **bufptr)
 
 static void sh_printmount(const char *fs_name, const char *dev_name, const char *absolute_path, const char *relative_path, int level)
 {
-	kprintf("%s @ %s (%s)\n", dev_name, absolute_path, fs_name);
+	printf("%s @ %s (%s)\n", dev_name, absolute_path, fs_name);
 }
 
 static void sh_mount_real(char *dev, char *point, uint_t mode, int remount)
@@ -771,19 +742,19 @@ static void sh_mount_real(char *dev, char *point, uint_t mode, int remount)
 		case 0:
 			break;
 		case MOUNT_ERR_TOTAL_FAILURE:
-			kprintf("sh: mount: Jokin virhe.\n");
+			printf("sh: mount: Jokin virhe.\n");
 			break;
 		case MOUNT_ERR_ALREADY_MOUNTED:
-			kprintf("sh: mount: Piste on jo liitetty.\n");
+			printf("sh: mount: Piste on jo liitetty.\n");
 			break;
 		case MOUNT_ERR_DEVICE_ERROR:
-			kprintf("sh: mount: Laitetta ei saada auki.\n");
+			printf("sh: mount: Laitetta ei saada auki.\n");
 			break;
 		case MOUNT_ERR_FILESYS_ERROR:
-			kprintf("sh: mount: Tunnistamaton tiedostojarjestelma.\n");
+			printf("sh: mount: Tunnistamaton tiedostojarjestelma.\n");
 			break;
 		default:
-			kprintf("sh: mount: Muu virhe.\n");
+			printf("sh: mount: Muu virhe.\n");
 			break;
 	}
 }
@@ -847,18 +818,18 @@ void sh_cp(char *buffer)
 		FILE * dest_f = 0;
 		src_f = fopen(src, "r");
 		if (!src_f) {
-			print("Lahdetiedoston avaaminen ei onnistunut!\n");
+			printf("Lahdetiedoston avaaminen ei onnistunut!\n");
 		} else {
 			dest_f = fopen(dest, "w");
 			if (!dest_f) {
-				print("Kohdetiedoston avaaminen ei onnistunut!\n");
+				printf("Kohdetiedoston avaaminen ei onnistunut!\n");
 				fclose(src_f);
 			} else {
 				char * block = kmalloc(1024);
 				int read;
 				while((read = fread(block, 1, 1024, src_f)) > 0) {
 					if(fwrite(block, read, 1, dest_f) < 1) {
-						print("Kirjoitusongelma!\n");
+						printf("Kirjoitusongelma!\n");
 						break;
 					}
 				}
@@ -867,7 +838,7 @@ void sh_cp(char *buffer)
 			}
 		}
 	} else {
-		print("Vialliset parametrit!\n");
+		printf("Vialliset parametrit!\n");
 	}
 }
 
@@ -879,10 +850,10 @@ void sh_ln(char *buffer)
 
 	if (*dest) {
 		if (link(src, dest)) {
-			print("Virhe!\n");
+			printf("Virhe!\n");
 		}
 	} else {
-		print("Vialliset parametrit!\n");
+		printf("Vialliset parametrit!\n");
 	}
 }
 
@@ -894,10 +865,10 @@ void sh_symln(char *buffer)
 
 	if (*dest) {
 		if (symlink(src, dest)) {
-			print("Virhe!\n");
+			printf("Virhe!\n");
 		}
 	} else {
-		print("Vialliset parametrit!\n");
+		printf("Vialliset parametrit!\n");
 	}
 }
 
@@ -909,10 +880,10 @@ void sh_rm(char *buffer)
 
 	if (*src) {
 		if (unlink(src)) {
-			print("Virhe!\n");
+			printf("Virhe!\n");
 		}
 	} else {
-		print("Vialliset parametrit!\n");
+		printf("Vialliset parametrit!\n");
 	}
 }
 
@@ -920,10 +891,10 @@ void sh_exec(char *buffer)
 {
 	switch(exec(buffer)) {
 		case -1:
-			print("Ohjelmaa ei saada kayntiin!\n");
+			printf("Ohjelmaa ei saada kayntiin!\n");
 			break;
 		case -2:
-			print("Tiedostoa ei saatu auki!\n");
+			printf("Tiedostoa ei saatu auki!\n");
 			break;
 	}
 }
@@ -935,24 +906,24 @@ void sh_kill(char *buf)
 	if (!*buf) return;
 	pid = sh_read_int(&buf);
 	if (pid >= MAX_PROCESSES) {
-		kprintf("Invalid pid (%u)\n", pid);
+		printf("Invalid pid (%u)\n", pid);
 		return;
 	}
 	if (processes[pid].state == TP_STATE_FREE || processes[pid].state == TP_STATE_ENDED) {
-		kprintf("Process %d is not running\n", pid);
+		printf("Process %d is not running\n", pid);
 		return;
 	}
 	kill_process(pid);
-	kprintf("Process %d killed\n", pid);
+	printf("Process %d killed\n", pid);
 }
 
 void sh_ps(char *buf)
 {
-	kprintf("PID\tNAME\n");
+	printf("PID\tNAME\n");
 	for (int i = 0; i < MAX_PROCESSES; i++) {
 		if (processes[i].state == TP_STATE_RUNNING) {
-			kprintf("%d\t%s\n", i, /*processes[i].name*/ "N/A");
+			printf("%d\t%s\n", i, /*processes[i].name*/ "N/A");
 		}
 	}
-	kprintf("%d processes running.\n", process_count);
+	printf("%d processes running.\n", process_count);
 }

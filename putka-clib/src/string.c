@@ -131,7 +131,7 @@ int strcmp(const char *s1, const char *s2)
 /*
 int strcoll(const char *s1, const char *s2)
 {
-	print("strcoll -> strcmp\n");
+	printf("strcoll -> strcmp\n");
 	return strcmp(s1, s2);
 }
 */

@@ -3,7 +3,6 @@
 #include <irq.h>
 #include <keyboard.h>
 #include <memory/memory.h>
-#include <memory/malloc.h>
 #include <idt.h>
 #include <gdt.h>
 #include <isr.h>
@@ -24,9 +23,10 @@
 #include <devices/display/text/pc_display.h>
 #include <devices/display/text/lcdscreen.h>
 #include <vt.h>
-#include <screen.h>
+#include <kprintf.h>
 
-void testattava_koodi();
+void testattava_koodi(void);
+void testattava_koodi_thread(void);
 
 const char systeemi[] = "PutkaOS";
 const char versio[] = "v. 0.006";
@@ -110,8 +110,8 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 	mbt = &mbt_real;
 	mbt_real = *param_mbt;
 	parse_multiboot(mbt);
+
 	vt_init(); //vt:t jäävät vielä fallback-tilaan
-	cls();
 
 	gdt_install();
 	idt_install();
@@ -125,15 +125,24 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 	memory_init(mbt->mem_upper + mbt->mem_lower);
 	malloc_init();
 
+	devmanager_init();
+	fs_init();
+
+	irq_unmask();
+	floppy_init();
+	floppy_reset();
+	mount_init(mbt->boot_device, mbt->cmdline);
+
+	//avataan oikea näyttöajuri ja asetetaan se vt-jutun käyttöön
+	display_init();
+	vt_dev_init();
+	vt_setdriver("/dev/display");
+
 	threading_init();
 
 	keyboard_install();
 	//mouse_install();
 
-	fs_init();
-	devmanager_init();
-
-	vt_dev_init();
 	serial_init();
 
 	ide_init();
@@ -143,28 +152,17 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 }
 void kmain2(void)
 {
-	irq_unmask();
-
-	floppy_init();
-	floppy_reset();
-	mount_init(mbt->boot_device, mbt->cmdline);
-
-	//avataan oikea näyttöajuri ja asetetaan se vt-jutun käyttöön
-	display_init();
-	vt_setdriver("/dev/display");
-
 	testattava_koodi();
 
-	kprintf("%s %s is up and running _o/\n", systeemi, versio);
 	sh_tid = new_thread(0, run_sh, 0, 0, 0);
 
-	// Idle thread. ;)
+	kprintf("%s %s is up and running _o/\n", systeemi, versio);
 	for (;;) switch_thread();
 }
 
 void testattava_koodi()
 {
-	print("<testattava_koodi>\n");
+	printf("<testattava_koodi>\n");
 #if 0
 	FILE *f;
 	f = fopen("/dev/vt0", "r+");
@@ -273,6 +271,11 @@ void testattava_koodi()
 		kprintf("(%d, %d)\n", x, y);
 	}
 #endif
-	print("</testattava_koodi>\n");
+	printf("</testattava_koodi>\n");
 }
 
+void testattava_koodi_thread()
+{
+	testattava_koodi();
+	kill_thread(active_tid);
+}

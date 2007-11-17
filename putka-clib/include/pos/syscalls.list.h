@@ -48,7 +48,7 @@ typedef struct {
 
 #endif
 
-#define SYSCALL_PRINT (0x01)
+//#define SYSCALL_PRINT (0x01)
 #define SYSCALL_MALLOC (0x02)
 #define SYSCALL_FREE (0x03)
 #define SYSCALL_REALLOC (0x04)
@@ -67,7 +67,7 @@ typedef struct {
 #define SYSCALL_IOCTL (0x18)
 
 #ifdef SYSCALL_MACRO
-
+/*
 SYSCALL_MACRO_111110(
 	SYSCALL_PRINT,
 	syscall_print,
@@ -75,6 +75,7 @@ SYSCALL_MACRO_111110(
 	int syscall_print(const char *text),
 	"Tulostaa tekstin. Voimassa toistaiseksi."
 )
+*/
 
 /**
 * Memory

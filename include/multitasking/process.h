@@ -2,6 +2,7 @@
 #define _PROCESS_H 1
 
 #include <multitasking/multitasking.h>
+#include <stdio.h>
 
 /**
  * struct process - for process information
@@ -24,7 +25,7 @@ struct process {
 		size_t freenum;
 	} threads;
 
-	int vt_num; /* < 0 if no vt */
+	FILE *stdin, *stdout, *stderr;
 };
 
 extern struct process processes[MAX_PROCESSES];

@@ -1,6 +1,7 @@
 #include <io.h>
-#include <memory/malloc.h>
-#include <screen.h>
+#include <memory/kmalloc.h>
+#include <kprintf.h>
+#include <string.h>
 #include <devices/ports/pci.h>
 #include <devices/ports/pci_list.h>
 

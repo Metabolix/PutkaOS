@@ -1,9 +1,10 @@
+#include <stdlib.h>
 #include <memory/memory.h>
-#include <memory/malloc.h>
 #include <memory/kmalloc.h>
 #include <string.h>
 #include <panic.h>
-#include <screen.h>
+#include <kprintf.h>
+#include <multitasking/multitasking.h>
 
 #define MAX_ALLOCATIONS 512
 
@@ -50,14 +51,14 @@ static void * sysmalloc(size_t size, int user)
 	while (memory_allocations[i].size != 0) {
 		++i;
 		if (i == MAX_ALLOCATIONS) {
-			print("i == MAX_ALLOCATIONS\n");
+			kprintf("i == MAX_ALLOCATIONS\n");
 			return 0; /* Woops... allocation table is full :/ */
 		}
 	}
 
 	// Varataan tila
 	if (!(virt_page = alloc_virtual_pages(0, pages, user))) {
-		print("virt_page = 0\n");
+		kprintf("virt_page = 0\n");
 		return 0; /* Out of linear memory */
 	}
 
@@ -67,7 +68,7 @@ static void * sysmalloc(size_t size, int user)
 	memory_allocations[i].user = user;
 
 	if (pid != active_pid) {
-		printf("Varattiin vaarallista muistia, active_pid == NO_PROCESS!\n");
+		//kprintf("Varattiin vaarallista muistia, active_pid == NO_PROCESS!\n");
 	}
 
 	return memory_allocations[i].virt_addr;
@@ -93,7 +94,7 @@ static int sysfree(void * ptr, int user)
 		}
 	}
 	if (i == MAX_ALLOCATIONS) {
-		print("Ei vapautettu muistia. :(\n");
+		kprintf("Ei vapautettu muistia. :(\n");
 		if (!user) {
 			panic("kfree: viallinen vapautettava!\n");
 		}

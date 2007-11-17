@@ -10,7 +10,7 @@
 #include <devices/devmanager.h>
 #include <stdio.h>
 #include <string.h>
-#include <screen.h>
+#include <kprintf.h>
 #include <vt.h>
 
 struct display_str {

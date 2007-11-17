@@ -44,7 +44,7 @@ enum {
 	IOCTL_VT_BLOCKMODE, //VT_NOBLOCK/VT_BLOCK
 };
 
-struct vt_t {
+struct vt {
 	DEVICE std;
 
 	char name[5];
@@ -63,38 +63,41 @@ struct vt_t {
 	unsigned char color;
 	struct spinlock printlock; /* we are going to get problems with these spinlocks, we should replace them with something better later */
 	struct spinlock writelock;
-	unsigned char in_kprintf;
 
 	unsigned int num_open;
 
 	unsigned char mode, block;
 };
 
-extern unsigned char vt_get_color(struct vt_t *vtptr);
-extern void vt_set_color(struct vt_t *vtptr, unsigned char c);
-extern void vt_getdisplaysize(struct vt_t *vtptr, unsigned int *w, unsigned int *h);
-extern int vt_locate(struct vt_t *vtptr, unsigned int x, unsigned int y);
-extern int vt_getpos(struct vt_t *vtptr, unsigned int *x, unsigned int *y);
-extern void vt_cls(struct vt_t *vtptr);
-//extern int vt_fastprint(struct vt_t *vtptr, const char *buf, unsigned int len);
-extern int vt_print(struct vt_t *vtptr, const char *string);
-extern int vt_putch(struct vt_t *vtptr, int c);
+struct vt_file {
+	FILE std;
+	struct vt *vtptr;
+};
+
+extern unsigned char vt_get_color(struct vt_file *f);
+extern void vt_set_color(struct vt_file *f, unsigned char c);
+extern void vt_getdisplaysize(struct vt_file *f, unsigned int *w, unsigned int *h);
+extern int vt_locate(struct vt_file *f, unsigned int x, unsigned int y);
+extern int vt_getpos(struct vt_file *f, unsigned int *x, unsigned int *y);
+extern void vt_cls(struct vt_file *f);
+extern size_t vt_print(struct vt_file *f, const char *string);
+extern int vt_putch(struct vt_file *f, int c);
+
 extern void vt_change(unsigned int vt_num);
 extern void vt_scroll(int lines);
 extern unsigned int vt_get_display_height(void);
 
-extern struct vt_t * vt_out_get(void);
 extern void vt_keyboard_event(int code, int up);
-extern int vt_get_kbmods(struct vt_t *vtptr); //tämän antamat kbmodsit
-                                //päivittyvät sitä mukaa kun vt:ltä luetaan
-								//näppäimiä
-extern int vt_get_next_key_event(struct vt_t *vtptr);
-extern int vt_wait_and_get_next_key_event(struct vt_t *vtptr);
-extern int vt_kb_get(struct vt_t *vtptr);
-extern int vt_kb_peek(struct vt_t *vtptr);
 
-/*extern void vt_kprintflock(struct vt_t *vtptr);
-extern void vt_kprintfunlock(struct vt_t *vtptr);*/
+/**
+* Tämän antamat kbmodsit päivittyvät sitä mukaa, kun vt:ltä luetaan näppäimiä
+**/
+extern int vt_get_kbmods(struct vt_file *f);
+extern int vt_get_next_key_event(struct vt_file *f);
+extern int vt_wait_and_get_next_key_event(struct vt_file *f);
+extern int vt_kb_get(struct vt_file *f);
+extern int vt_kb_peek(struct vt_file *f);
+
 extern void vt_unlockspinlocks(void);
 
 extern void vt_init(void);

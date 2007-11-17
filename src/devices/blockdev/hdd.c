@@ -6,6 +6,7 @@
 #include <panic.h>
 #include <string.h>
 #include <stdint.h>
+#include <kprintf.h>
 
 void hdd_free_partition(hdd_partdev_t *part)
 {

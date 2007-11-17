@@ -1,6 +1,6 @@
 #include <devices/ports/serial.h>
 #include <stdint.h>
-#include <screen.h>
+#include <kprintf.h>
 #include <stdint.h>
 #include <io.h>
 #include <list.h>

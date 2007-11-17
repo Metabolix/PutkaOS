@@ -3,7 +3,7 @@
 #include <string.h>
 #include <int64.h>
 
-#include <screen.h>
+#include <kprintf.h>
 
 static int blockdev_fill_buffer(BD_FILE *f);
 static size_t blockdev_freadwrite(void *buffer, size_t size, size_t count, BD_FILE *f, int write);

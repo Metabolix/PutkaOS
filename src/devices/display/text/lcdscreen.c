@@ -1,10 +1,10 @@
 #include <devices/display/text/lcdscreen.h>
 #include <io.h>
 #include <timer.h>
-#include <screen.h>
+#include <kprintf.h>
 #include <keyboard.h>
 
-/* 0123 data ylemm� bitit
+/* 0123 data ylemmät bitit
    4    _Instruction/Register Select
    5    E Clock */
 

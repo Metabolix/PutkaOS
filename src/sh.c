@@ -1,6 +1,9 @@
 #include <keyboard.h>
-#include <screen.h>
+#include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
+
+#include <screen.h>
 
 #define QEMU_CURSES_AND_SSH 0
 
@@ -29,10 +32,10 @@ void run_sh(void)
 		loc = 0;
 		buffer[0] = 0;
 		set_colour(sh_colour);
-		print("PutkaOS $ ");
+		printf("%s", "PutkaOS $ ");
 		while (1) {
 			ch = kb_get();
-			//kprintf("[%x]", ch);
+			//printf("[%x]", ch);
 
 			//if (ch & 256) { /* Key up */
 			//	continue;
@@ -48,14 +51,14 @@ void run_sh(void)
 				/* Clear */
 				while(buffer[loc]){
 					loc++;
-					putch(' ');
+					putchar(' ');
 				}
 				while (loc > 0) {
-					print("\b \b");
+					printf("%s", "\b \b");
 					buffer[--loc] = 0;
 				}
 				strcpy(buffer, history[history_index]);
-				kprintf("%s", buffer);
+				printf("%s", buffer);
 				loc = strlen(buffer);
 				continue;
 			}
@@ -66,16 +69,16 @@ void run_sh(void)
 					/* Clear */
 					while(buffer[loc]){
 						loc++;
-						putch(' ');
+						putchar(' ');
 					}
 					while (loc > 0) {
-						print("\b \b");
+						printf("%s", "\b \b");
 						buffer[--loc] = 0;
 					}
 					if (history_index) {
 						history_index--;
 						strcpy(buffer, history[history_index]);
-						kprintf("%s", buffer);
+						printf("%s", buffer);
 						loc = strlen(buffer);
 					} else {
 						history_index--;
@@ -83,10 +86,10 @@ void run_sh(void)
 				} else { /* Clear */
 					while(buffer[loc]){
 						loc++;
-						putch(' ');
+						putchar(' ');
 					}
 					while (loc > 0) {
-						print("\b \b");
+						printf("%s", "\b \b");
 						buffer[--loc] = 0;
 					}
 				}
@@ -94,28 +97,28 @@ void run_sh(void)
 			}
 			if(ch == KEY_LEFT){
 				if(loc > 0){
-					putch('\b');
+					putchar('\b');
 					loc--;
 				}
 				continue;
 			}
 			if(ch == KEY_RIGHT){
 				if(buffer[loc] != 0){
-					putch(buffer[loc]);
+					putchar(buffer[loc]);
 					loc++;
 				}
 				continue;
 			}
 			if(ch == KEY_HOME){
 				while(loc>0){
-					print("\b");
+					printf("%s", "\b");
 					loc--;
 				}
 				continue;
 			}
 			if(ch == KEY_END){
 				while(buffer[loc]){
-					putch(buffer[loc]);
+					putchar(buffer[loc]);
 					loc++;
 				}
 				continue;
@@ -125,10 +128,10 @@ void run_sh(void)
 					for(i=loc; i < buffer_size-1; i++){
 						buffer[i] = buffer[i+1];
 						if(buffer[i] == 0) break;
-						else putch(buffer[i]);
+						else putchar(buffer[i]);
 					}
-					print(" \b");
-					for(i-=loc; i > 0; i--) putch('\b');
+					printf("%s", " \b");
+					for(i-=loc; i > 0; i--) putchar('\b');
 				}
 				continue;
 			}
@@ -142,23 +145,23 @@ void run_sh(void)
 			}
 			if (ch == '\b') {
 				if (loc > 0) {
-					putch('\b');
+					putchar('\b');
 					loc--;
 					for(i=loc; i < buffer_size-1; i++){
 						buffer[i] = buffer[i+1];
 						if(buffer[i] == 0) break;
-						else putch(buffer[i]);
+						else putchar(buffer[i]);
 					}
-					print(" \b");
-					for(i-=loc; i > 0; i--) putch('\b');
+					printf("%s", " \b");
+					for(i-=loc; i > 0; i--) putchar('\b');
 				}
 				continue;
 			}
-			
+
 			if(ch > 0xff) continue; //joku tuntematon hassunäppäin
 
 			if (loc < buffer_size - 1) {
-				putch(ch);
+				putchar(ch);
 				//jos locin kohdalla on nolla, kirjoitetaan siihen merkki ja
 				//nolla seuraavaan ja liikutaan
 				if(buffer[loc]==0){
@@ -169,19 +172,19 @@ void run_sh(void)
 				//haetaan bufferin pää ja samalla tulostellaan bufferin loppu
 				for(i=loc; i < buffer_size; i++){
 					if(buffer[i] == 0) break;
-					putch(buffer[i]);
+					putchar(buffer[i]);
 				}
 				//siirretään juttuja locin jälkeen eteen päin
 				buffer[i+1] = 0;
 				for(; i > loc; i--){
 					buffer[i] = buffer[i-1];
-					putch('\b');
+					putchar('\b');
 				}
 				buffer[loc] = ch;
 				loc++;
 			}
 		}
-		putch('\n');
+		putchar('\n');
 
 #if QEMU_CURSES_AND_SSH
 		for (i = 0; buffer[i]; ++i) {
@@ -200,7 +203,7 @@ void run_sh(void)
 		// Check len
 		if (loc == -1) continue;
 
-		char *buf2 = kmalloc(strlen(buffer)*sizeof(char));
+		char *buf2 = malloc(strlen(buffer)*sizeof(char));
 		strcpy(buf2, buffer);
 
 		komento = komennot;
@@ -229,7 +232,6 @@ void run_sh(void)
 		/* And then save new command and do some other usefull stuff */
 		history_index = -1;
 		strcpy(history[0], buf2);
-		kfree(buf2);
-
+		free(buf2);
 	}
 }

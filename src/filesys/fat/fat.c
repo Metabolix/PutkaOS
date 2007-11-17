@@ -2,7 +2,7 @@
 #include <filesys/fat/fat16.h>
 #include <memory/kmalloc.h>
 #include <string.h>
-#include <screen.h>
+#include <kprintf.h>
 
 struct fs *fat_mount(FILE *device, uint_t mode)
 {

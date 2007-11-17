@@ -3,7 +3,7 @@
 #include <string.h>
 #include <io.h>
 #include <irq.h>
-#include <screen.h>
+#include <kprintf.h>
 #include <bit.h>
 #include <timer.h>
 #include <panic.h>
@@ -119,7 +119,7 @@ void floppy_init(void)
 	uint8_t detect_floppy;
 
 	if (floppy_params.bytes_per_sector > 2) {
-		print("FDD: ERROR: Sector size bigger than 512 bytes (disabled floppies)\n");
+		kprintf("FDD: ERROR: Sector size bigger than 512 bytes (disabled floppies)\n");
 		floppy_drives[0].type = 0;
 		floppy_drives[1].type = 0;
 		return;
@@ -160,9 +160,9 @@ void floppy_reset(void)
 	kwait(0, 1000 * 50);
 	outportb((FLOPPY_FIRST + DIGITAL_OUTPUT_REGISTER), 0x0c); /*enable controller*/
 
-	print("FDD: Reseted controller\n");
+	kprintf("FDD: Reseted controller\n");
 	wait_irq(FLOPPY_IRQ);
-	print("FDD: Waited for it\n");
+	kprintf("FDD: Waited for it\n");
 
 	for(a = 0; a < 4; a++) {
 		floppy_sense_interrupt();
@@ -178,7 +178,7 @@ void floppy_reset(void)
 	if (floppy_drives[1].type) {
 		floppy_calibrate(1);
 	}
-	print("FDD: Calibrated drives\n");
+	kprintf("FDD: Calibrated drives\n");
 }
 
 void floppy_wait_data(void)
@@ -193,7 +193,7 @@ void floppy_configure(void)
 	floppy_command(SPECIFY);
 	floppy_command(floppy_params.steprate_headunload);
 	floppy_command(floppy_params.headload_ndma & 254);
-	print("FDD: Drive configured\n");
+	kprintf("FDD: Drive configured\n");
 }
 
 void floppy_command(uint8_t command)
@@ -337,7 +337,7 @@ alku:
 			kprintf("FDD: No floppy in fd%u\n", drive);
 			return -2;
 		} else {
-			print("FDD: Floppy changed, trying again...\n");
+			kprintf("FDD: Floppy changed, trying again...\n");
 			goto alku;
 		}
 	}
