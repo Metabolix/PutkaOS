@@ -71,6 +71,7 @@ int ata_write_next_sector (uint_t device, uint16_t * buf);
 int ata_identify (uint_t device, void * buf);
 int atapi_identify (uint_t device, void * buf);
 int setup_lba_28 (uint_t device, uint64_t sector, uint8_t sector_count);
+void ide_polling(void);
 
 size_t ata_rw_some (uint_t device, uint64_t sector, uint8_t count, char * buf, ata_rw_next_sector_t rw_next_sector);
 size_t ata_rw (uint_t device, uint64_t sector, size_t count, char * buf, ata_rw_next_sector_t rw_next_sector);
@@ -84,6 +85,8 @@ int ata_write_one_sector (ide_device_t *device, uint64_t sector, void * buf);
 
 int ata_safely_remove(ide_device_t *device);
 
+int atapi_lock(int device);
+int atapi_unlock(int device);
 int atapi_refresh(ide_device_t *dev);
 int atapi_send_packet(int device, uint_t bytecount, uint16_t * packet);
 int atapi_reset(int device);
@@ -93,6 +96,14 @@ size_t atapi_read(ide_device_t *device, uint64_t sector, size_t count, void * bu
 int atapi_read_one_sector (ide_device_t *device, uint64_t sector, void * buf);
 
 extern int ide_init(void);
+
+//poistaa lukituksen
+#define ATAPI_PACKET_UNLOCK \
+ ((unsigned char[]) { 0x1E, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } )
+
+//lukitsee levyn
+#define ATAPI_PACKET_LOCK \
+ ((unsigned char[]) { 0x1E, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0 } )
 
 //pysäyttää levyn
 #define ATAPI_PACKET_STOP \

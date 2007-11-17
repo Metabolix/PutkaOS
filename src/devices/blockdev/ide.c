@@ -92,6 +92,7 @@ int ide_init(void)
 	}
 
 	ide_probe();
+	new_thread(0, ide_polling, 0, 0, 0);
 	return 0;
 }
 
@@ -264,6 +265,21 @@ void ide_identify_device(uint_t controller, uint_t device)
 	}
 }
 
+void ide_polling(void)
+{
+	for(;;) {
+		for (int i = 0; i < IDE_NUM_DEVICES; i++) {
+			if (ide_devices[i].removable) {
+				if (ide_devices[i].blockdev.refs == 0 && ide_devices[i].media_available == 1) {
+					atapi_unlock(ide_devices[i].devnum);
+				}
+			}
+		}
+		//odotellaan
+		kwait(1,0);
+	}
+}
+
 int ata_read_next_sector (uint_t device, uint16_t * buf)
 {
 	int i;
@@ -413,9 +429,11 @@ int atapi_refresh(ide_device_t *dev)
 		ide_devices[device].media_available = 0;
 		return -1;
 	}
-	ide_devices[device].media_available = 1;
+	//ide_devices[device].media_available = 1;
 	ide_devices[device].blockdev.block_size = ATAPI_BYTES_PER_SECTOR;
 	ide_devices[device].blockdev.block_count = num_sectors;
+
+	atapi_lock(device);
 	return 0;
 }
 
@@ -433,6 +451,21 @@ int atapi_reset(int device)
 
 	return 0;
 }
+
+int atapi_lock(int device)
+{
+	atapi_send_packet(device, 0, (uint16_t*)ATAPI_PACKET_LOCK);
+	ide_devices[device].media_available = 1;
+	return 0;
+}
+
+int atapi_unlock(int device)
+{
+	atapi_send_packet(device, 0, (uint16_t*)ATAPI_PACKET_UNLOCK);
+	ide_devices[device].media_available = 0;
+	return 0;
+}
+			
 
 int atapi_send_packet(int device, uint_t bytecount, uint16_t * packet)
 {
