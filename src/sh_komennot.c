@@ -15,6 +15,7 @@
 #include <memory/kmalloc.h>
 #include <utils/texteditor.h>
 #include <multitasking/process.h>
+#include <exec.h>
 
 /***********************
 ** JULKISET ESITTELYT **
@@ -917,26 +918,14 @@ void sh_rm(char *buffer)
 
 void sh_exec(char *buffer)
 {
-	FILE *file = fopen(buffer, "r");
-	if (!file) {
-		print("Tiedostoa ei saatu auki!\n");
-		return;
+	switch(exec(buffer)) {
+		case -1:
+			print("Ohjelmaa ei saada kayntiin!\n");
+			break;
+		case -2:
+			print("Tiedostoa ei saatu auki!\n");
+			break;
 	}
-	fseek(file, 0, SEEK_END);
-	int size = ftell(file);
-	char * code = kmalloc(size);
-	if (!code) {
-		fclose(file);
-		print("Virhe muistin varaamisessa!\n");
-		return;
-	}
-	fseek(file, 0, SEEK_SET);
-	fread(code, size, 1, file);
-	fclose(file);
-	print("new_process...\n");
-	kwait(0, 100000);
-	new_process(code, size, 0, 0, 0, 1);
-	kwait(0, 100000);
 }
 
 void sh_kill(char *buf)
