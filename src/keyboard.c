@@ -227,23 +227,25 @@ const char altgred_keys_to_ascii[256] = {
 
 int key_to_ascii(int key, int kb_mods)
 {
-	unsigned char ret = keys_to_ascii[key];
+	int ret = keys_to_ascii[key&0xff];
 	if (ret >= 'a' && ret <= 'z') {
-		if (kb_mods & KEYB_MOD_UPCASE) {
+		//if (kb_mods & KEYB_MOD_UPCASE) {
+		if (((kb_mods & KEYB_MOD_SHIFT) && !(kb_mods & KEYB_MOD_CAPS))
+				|| (!(kb_mods & KEYB_MOD_SHIFT) && (kb_mods & KEYB_MOD_CAPS))) {
 			return ret + 'A' - 'a';
 		}
 		return ret;
 	}
 	if (kb_mods & KEYB_MOD_SHIFT) {
-		ret = shifted_keys_to_ascii[key];
+		ret = shifted_keys_to_ascii[key&0xff];
 	} else if (kb_mods & KEYB_MOD_ALTGR || kb_mods & KEYB_MOD_LALT) { /* TODO: Alt pois. :P */
-		ret = altgred_keys_to_ascii[key];
+		ret = altgred_keys_to_ascii[key&0xff];
+	}
+	if(ret==0){
+		ret = key<<8;
 	}
 	return ret;
 }
-
-unsigned int kb_mods = 0;
-unsigned char kb_buf_full = 0;
 
 unsigned char *x86_modstatus = (unsigned char *)0x0417;
 enum x86_MOD_MASK {
@@ -257,23 +259,15 @@ enum x86_MOD_MASK {
 	x86_MOD_INSMODE  = 0x80,
 };
 
-int ktoasc(int key) {
-	return key_to_ascii(key & 255, kb_mods);
-}
+/*int ktoasc(int key) {
+	return key_to_ascii(key, kb_mods);
+}*/
 
 void keyboard_handle(void)
 {
-	static unsigned char escaped, oli_escaped, down;
-	static unsigned char capsl_key, numl_key, scroll_key;
+	static unsigned char escaped, oli_escaped, up;
+	//static unsigned char capsl_key, numl_key, scroll_key;
 	static unsigned int code;
-
-	/*if (vt[vt_out_get()].kb_buf_count == KB_BUFFER_SIZE) {
-		print("Keyboard buffer is full!\n");
-		++kb_buf_full;
-		return;
-	} else if (kb_buf_full) {
-		--kb_buf_full;
-	}*/
 
 	if (escaped) {
 		--escaped;
@@ -288,36 +282,38 @@ void keyboard_handle(void)
 		escaped = 2;
 		oli_escaped = 0x80;
 	} else if (!escaped) {
-		down = (code & 0x80) ? 0 : 1;
+		up = (code & 0x80) ? 1 : 0;
 		code = (code & 0x7f) | oli_escaped;
 
-		switch (code) {
-			case KEY_LSHIFT:
+		vt_keyboard_event(code, up);
+		
+		/*switch (code) {
+			case KEYCODE_LSHIFT:
 				kb_mods |= KEYB_MOD_LSHIFT; if (!down) kb_mods ^= KEYB_MOD_LSHIFT;
 				break;
-			case KEY_RSHIFT:
+			case KEYCODE_RSHIFT:
 				kb_mods |= KEYB_MOD_RSHIFT; if (!down) kb_mods ^= KEYB_MOD_RSHIFT;
 				break;
-			case KEY_LCTRL:
+			case KEYCODE_LCTRL:
 				kb_mods |= KEYB_MOD_LCTRL; if (!down) kb_mods ^= KEYB_MOD_LCTRL;
 				break;
-			case KEY_RCTRL:
+			case KEYCODE_RCTRL:
 				kb_mods |= KEYB_MOD_RCTRL; if (!down) kb_mods ^= KEYB_MOD_RCTRL;
 				break;
-			case KEY_LALT:
+			case KEYCODE_LALT:
 				kb_mods |= KEYB_MOD_LALT; if (!down) kb_mods ^= KEYB_MOD_LALT;
 				break;
-			case KEY_ALTGR:
+			case KEYCODE_ALTGR:
 				kb_mods |= KEYB_MOD_ALTGR; if (!down) kb_mods ^= KEYB_MOD_ALTGR;
 				break;
-			case KEY_SCROLL_LOCK:
+			case KEYCODE_SCROLL_LOCK:
 				// Vaihdetaan tila
 				if (down && !scroll_key) {
 					kb_mods ^= KEYB_MOD_SCRL;
 				}
 				scroll_key = down;
 				break;
-			case KEY_CAPSLOCK:
+			case KEYCODE_CAPSLOCK:
 				if (down) return;
 				if (capsl_key) {
 					capsl_key = 0;
@@ -326,7 +322,7 @@ void keyboard_handle(void)
 					kb_mods ^= KEYB_MOD_CAPS;
 				}
 				break;
-			case KEY_NUMLOCK:
+			case KEYCODE_NUMLOCK:
 				if (down) return;
 				if (numl_key) {
 					numl_key = 0;
@@ -335,19 +331,19 @@ void keyboard_handle(void)
 					kb_mods ^= KEYB_MOD_NUML;
 				}
 				break;
-			case KEY_PGUP:
+			case KEYCODE_PGUP:
 				if ((kb_mods & KEYB_MOD_SHIFT) && down)
 					vt_scroll(vt_get_display_height()/2);
 				break;
-			case KEY_PGDOWN:
+			case KEYCODE_PGDOWN:
 				if ((kb_mods & KEYB_MOD_SHIFT) && down)
 					//vt_scroll(-1);
 					vt_scroll(-(int)vt_get_display_height()/2);
 				break;
 			default:
-				if (KEY_F1 <= code && code <= KEY_F6) { /* f1-f6 */
-					vt_change(code - KEY_F1);
-				} else if ((code == KEY_C) && (kb_mods & KEYB_MOD_CTRL) && down) {
+				if (KEYCODE_F1 <= code && code <= KEYCODE_F6) { // f1-f6
+					vt_change(code - KEYCODE_F1);
+				} else if ((code == KEYCODE_C) && (kb_mods & KEYB_MOD_CTRL) && down) {
 #if 0
 					extern tid_t sh_tid;
 					kill_thread(sh_tid);
@@ -356,9 +352,7 @@ void keyboard_handle(void)
 #endif
 					break;
 				}
-		}
-
-		vt_keyboard(code, down);
+		}*/
 	}
 }
 

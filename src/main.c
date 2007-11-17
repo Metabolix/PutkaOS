@@ -128,6 +128,7 @@ void kmain2(void)
 
 	fs_init();
 	devmanager_init();
+	vt_dev_init();
 	floppy_init();
 	serial_init();
 

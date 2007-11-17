@@ -9,8 +9,7 @@
 #include <multitasking/multitasking.h>
 #include <memory/kmalloc.h>
 
-#define VT_BUF_H 60 //pitää olla >= SCREEN_H
-//#define VT_BUFFER_SIZE (VT_BUF_H*SCREEN_MEM_W)
+#define VT_BUF_H 60
 #define VT_COUNT 6
 #define VT_KERN_LOG 0 /* we put our log messages from kernel on that vt */
 
@@ -29,9 +28,24 @@ enum {
 	IOCTL_DISPLAY_ROLL_UP
 };
 
+enum { VT_MODE_NORMAL, VT_MODE_RAWEVENTS };
+enum { VT_BLOCK, VT_NOBLOCK };
+
+enum {
+	IOCTL_VT_MODE, //VT_MODE_NORMAL/VT_MODE_EVENTS
+	IOCTL_VT_BLOCKMODE, //VT_BLOCK/VT_NOBLOCK
+};
+
+/*struct lockkeystates_str{
+	unsigned char scroll, caps, num;
+};*/
+
 struct vt_t {
 	volatile int kb_buf[KB_BUFFER_SIZE];
 	volatile int kb_buf_start, kb_buf_end, kb_buf_count;
+	unsigned int realtime_kb_mods, kb_mods;
+	//struct lockkeystates_str realtime_kb_locks, kb_locks;
+	//struct spinlock kb_buf_lock;
 
 	char * buffer;
 	unsigned int bufw, bufh; //buffer w, h (actual width is w*2)
@@ -42,6 +56,10 @@ struct vt_t {
 	struct spinlock printlock; /* we are going to get problems with these spinlocks, we should replace them with something better later */
 	struct spinlock writelock;
 	unsigned char in_kprintf;
+
+	unsigned int num_open;
+
+	unsigned char mode, block;
 };
 
 extern unsigned char vt_get_color(unsigned int vt_num);
@@ -58,15 +76,21 @@ extern void vt_scroll(int lines);
 extern unsigned int vt_get_display_height(void);
 
 extern unsigned int vt_out_get(void);
+extern void vt_keyboard_event(int code, int up);
+extern int vt_get_kbmods(unsigned int vt_num); //tämän antamat kbmodsit
+                                //päivittyvät sitä mukaa kun vt:ltä luetaan
+								//näppäimiä
+extern int vt_get_next_key_event(unsigned int vt_num);
+extern int vt_wait_and_get_next_key_event(unsigned int vt_num);
 extern int vt_kb_get(unsigned int vt_num);
 extern int vt_kb_peek(unsigned int vt_num);
-extern void vt_keyboard(int code, int down);
 
 extern void vt_kprintflock(unsigned int vt_num);
 extern void vt_kprintfunlock(unsigned int vt_num);
 extern void vt_unlockspinlocks(void);
 
 extern void vt_init(void);
+extern void vt_dev_init(void);
 extern int vt_setdriver(char *filename);
 
 //extern struct vt_t vt[VT_COUNT];

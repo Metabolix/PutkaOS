@@ -330,11 +330,12 @@ void sh_history(char *buf)
 void sh_key_names(char *buf)
 {
 	int ch;
-	while ((ch = kb_get())) {
+	//while ((ch = kb_get())) {
+	while ((ch = wait_and_get_next_key_event())) {
+		kprintf("(mods: %#06x), %#04x - '%s' (%s)\n", get_kbmods(), ch & 255, nappien_nimet_qwerty[ch & 255], (ch & 256) ? "up" : "down");
 		if (ch == KEY_ESC) {
 			break;
 		}
-		kprintf("(mods: %#06x), %#04x - '%s' (%s)\n", kb_mods, ch & 255, nappien_nimet_qwerty[ch & 255], (ch & 256) ? "up" : "down");
 	}
 }
 

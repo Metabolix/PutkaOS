@@ -32,9 +32,11 @@ void run_sh(void)
 		print("PutkaOS $ ");
 		while (1) {
 			ch = kb_get();
-			if (ch & 256) { /* Key up */
-				continue;
-			}
+			//kprintf("[%x]", ch);
+
+			//if (ch & 256) { /* Key up */
+			//	continue;
+			//}
 
 			/* Up arrow */
 			if (ch == KEY_UP) {
@@ -130,9 +132,9 @@ void run_sh(void)
 				}
 				continue;
 			}
-			int hex = ch;
-			ch = ktoasc(ch);
-			if (ch == '\n' || hex == KEY_NUM_ENTER) {
+			//int hex = ch;
+			//ch = ktoasc(ch);
+			if (ch == '\n') {
 				break;
 			}
 			if (!ch || ch == '\t') {
@@ -152,6 +154,9 @@ void run_sh(void)
 				}
 				continue;
 			}
+			
+			if(ch > 0xff) continue; //joku tuntematon hassunäppäin
+
 			if (loc < buffer_size - 1) {
 				putch(ch);
 				//jos locin kohdalla on nolla, kirjoitetaan siihen merkki ja

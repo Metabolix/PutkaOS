@@ -240,18 +240,18 @@ int editor_main(char *filename)
 	//looppi
 
 	for(;;){
-		int hex = kb_get();
-		if(hex == 0) continue;
-		if(hex & 0x100) continue; //joku näppäin menee ylös
-		int ch = ktoasc(hex);
+		int ch = kb_get();
+		//if(hex == 0) continue;
+		//if(hex & 0x100) continue; //joku näppäin menee ylös
+		//int ch = hex;//ktoasc(hex);
 
-		if(hex == KEY_ESC){
-			kb_get();
+		if(ch == KEY_ESC){
+			//kb_get();
 			locate(0, 1);
 			set_colour(0x70);
 			print("[waiting command (q/w)]");
 			set_colour(0x07);
-			while((ch = ktoasc(kb_get()))==0);
+			while((ch = /*ktoasc(*/kb_get()/*)*/)==0);
 			kprintf("[%c]", ch);
 			if(ch == 'q') goto quiteditor;
 			else if(ch == 'w'){
@@ -259,7 +259,7 @@ int editor_main(char *filename)
 			}
 			editor_print_fileview();
 		}
-		else if(hex == KEY_UP){
+		else if(ch == KEY_UP){
 			key_up:
 			if(efile.currentrow > 0){
 				efile.currentrow--;
@@ -271,7 +271,7 @@ int editor_main(char *filename)
 				}
 			}
 		}
-		else if(hex == KEY_DOWN){
+		else if(ch == KEY_DOWN){
 			key_down:
 			if(efile.currentrow < efile.rowcount - 1){
 				efile.currentrow++;
@@ -285,14 +285,14 @@ int editor_main(char *filename)
 				}
 			}
 		}
-		else if(hex == KEY_PGUP){
+		else if(ch == KEY_PGUP){
 			efile.currentrow -= displayh-1;
 			if(efile.currentrow < 0) efile.currentrow = 0;
 			efile.scrollpos -= displayh-1;
 			if(efile.scrollpos < 0) efile.scrollpos = 0;
 			editor_print_fileview();
 		}
-		else if(hex == KEY_PGDOWN){
+		else if(ch == KEY_PGDOWN){
 			efile.currentrow += displayh-1;
 			if(efile.currentrow > efile.rowcount - 1)
 				efile.currentrow = efile.rowcount - 1;
@@ -302,14 +302,14 @@ int editor_main(char *filename)
 			if(efile.scrollpos < 0) efile.scrollpos = 0;
 			editor_print_fileview();
 		}
-		else if(hex == KEY_LEFT){
+		else if(ch == KEY_LEFT){
 			if(efile.currentcol > 0) efile.currentcol--;
 			else if(efile.currentrow > 0){
 				efile.currentcol = INT32_MAX;
 				goto key_up;
 			}
 		}
-		else if(hex == KEY_RIGHT){
+		else if(ch == KEY_RIGHT){
 			if(efile.currentcol < efile.rows[efile.currentrow].len-1)
 				efile.currentcol++;
 			else if(efile.currentrow < efile.rowcount - 1) {
@@ -317,14 +317,14 @@ int editor_main(char *filename)
 				goto key_down;
 			}
 		}
-		else if(hex == KEY_HOME){
+		else if(ch == KEY_HOME){
 			efile.currentcol = 0;
 		}
-		else if(hex == KEY_END){
+		else if(ch == KEY_END){
 			efile.currentcol = efile.rows[efile.currentrow].len-1;
 		}
-		else if(ch == '\b' || hex == KEY_DEL){
-			if(hex == KEY_DEL){
+		else if(ch == '\b' || ch == KEY_DEL){
+			if(ch == KEY_DEL){
 				efile.currentcol++;
 				if(efile.currentcol >= efile.rows[efile.currentrow].len){
 					if(efile.currentrow == efile.rowcount - 1) continue;

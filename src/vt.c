@@ -1,8 +1,19 @@
+/*
+ * virtuaalitermisjuttu
+ * celeron55
+ */
+
 #include <multitasking/process.h>
+#include <multitasking/multitasking.h>
 #include <vt.h>
+#include <keyboard.h>
 #include <screen.h>
 #include <stdio.h>
 #include <misc_asm.h>
+#include <panic.h>
+#include <devices/devmanager.h>
+
+/////////////////////////////////////////////
 
 int initialized = 0;
 
@@ -12,6 +23,20 @@ int change_to_vt;
 
 FILE *driverstream = NULL;
 struct displayinfo driverinfo;
+
+int devices_not_removed_count = 0;
+
+struct vt_device_str {
+	DEVICE std;
+	unsigned int vt_num;
+} **vt_devs;
+
+struct vt_file_str {
+	FILE std;
+	unsigned int vt_num;
+};
+
+/////////////////////////////////////////////
 
 void vt_fallback_update_cursor(void)
 {
@@ -331,8 +356,84 @@ int vt_fastprint(unsigned int vt_num, const char *buf, unsigned int len)
 }
 */
 
+//jos zero_ends != 0, tulostetaan niin pitkästi että tulee 0, muuten
+//tulostetaan lengthin verran
+int vt_print_length(unsigned int vt_num, const char *string,
+		unsigned int length, unsigned char zero_ends)
+{
+	if (!initialized) return -1;
+	if (vt_num >= VT_COUNT) return -1;
+	if (!vt[vt_num].in_kprintf) {
+		if (is_threading()) {
+			spinl_lock(&vt[vt_num].printlock);
+		}
+	}
+
+	char tempbuf[160];
+	int i = 0, maxl;
+	unsigned int a = 0;
+	const char *s = (const char *)string;
+	char *s2, *s3;
+	while((zero_ends) ? (*s) : (a<length)){
+		//kirjoitetaan nopeammin ohjausmerkittömiä pätkiä jos käytetään ajuria
+		if(driverstream && *s >= ' '){
+			vt_scroll_if_needed(vt_num);
+			//vt_putch(vt_num, '|');
+			maxl = sizeof(tempbuf);
+			if(maxl > vt[vt_num].bufw*2 - vt[vt_num].cx*2)
+				maxl = vt[vt_num].bufw*2 - vt[vt_num].cx*2;
+			i=0;
+			while(*s >= ' ' && ((zero_ends) ? (*s) : (a<length)) && i + 1 < maxl){
+				tempbuf[i++] = *s;
+				tempbuf[i++] = vt[vt_num].color;
+				s++;
+				a++;
+			}
+
+			if (is_threading()) {
+				spinl_lock(&vt[vt_num].writelock);
+			}
+
+			//ja bufferiin sama sössö
+			s2 = vt[vt_num].buffer + vt[vt_num].bufsize - (driverinfo.h*driverinfo.w*2)
+					+ vt[vt_num].cy * (driverinfo.w*2) + vt[vt_num].cx * 2;
+			s3 = tempbuf;
+			memcpy(s2, s3, i);
+
+			fwrite(tempbuf, 1, i, driverstream);
+
+			vt[vt_num].cx += i/2;
+			if(vt[vt_num].cx >= vt[vt_num].bufw){
+				vt[vt_num].cx = 0;
+				vt[vt_num].cy++;
+			}
+
+			if (is_threading()) {
+				spinl_unlock(&vt[vt_num].writelock);
+			}
+		}
+		//muuten jumitellaan putchilla
+		else{
+			vt_putch(vt_num, *s);
+			s++;
+			a++;
+		}
+	}
+
+	if (!vt[vt_num].in_kprintf) {
+		if (is_threading()) {
+			spinl_unlock(&vt[vt_num].printlock);
+		}
+	}
+
+	return s - string;
+}
+
 int vt_print(unsigned int vt_num, const char *string)
 {
+	return vt_print_length(vt_num, string, 0, 1);
+	
+	/*
 	if (!initialized) return 1;
 	if (vt_num >= VT_COUNT) return 1;
 	if (!vt[vt_num].in_kprintf) {
@@ -346,7 +447,7 @@ int vt_print(unsigned int vt_num, const char *string)
 	const char *s = (const char *)string;
 	char *s2, *s3;
 	while (*s) {
-		//kirjoitetaan nopeammin erikoismerkittömiä pätkiä jos käytetään ajuria
+		//kirjoitetaan nopeammin ohjausmerkittömiä pätkiä jos käytetään ajuria
 		if(driverstream && *s >= ' '){
 			vt_scroll_if_needed(vt_num);
 			//vt_putch(vt_num, '|');
@@ -395,7 +496,7 @@ int vt_print(unsigned int vt_num, const char *string)
 		}
 	}
 
-	return s - string;
+	return s - string;*/
 }
 
 int vt_putch(unsigned int vt_num, int c)
@@ -475,30 +576,222 @@ int vt_putch(unsigned int vt_num, int c)
 	return 0;
 }
 
-void vt_keyboard(int code, int down)
+
+//####### näppisjuttuja ######
+
+
+void do_kb_mods(int code, int up, /*struct lockkeystates_str *locks, */uint_t *kb_mods)
+{
+	switch (code) {
+		case KEYCODE_LSHIFT:
+			(*kb_mods) |= KEYB_MOD_LSHIFT; if (up) (*kb_mods) ^= KEYB_MOD_LSHIFT;
+			break;
+		case KEYCODE_RSHIFT:
+			(*kb_mods) |= KEYB_MOD_RSHIFT; if (up) (*kb_mods) ^= KEYB_MOD_RSHIFT;
+			break;
+		case KEYCODE_LCTRL:
+			(*kb_mods) |= KEYB_MOD_LCTRL; if (up) (*kb_mods) ^= KEYB_MOD_LCTRL;
+			break;
+		case KEYCODE_RCTRL:
+			(*kb_mods) |= KEYB_MOD_RCTRL; if (up) (*kb_mods) ^= KEYB_MOD_RCTRL;
+			break;
+		case KEYCODE_LALT:
+			(*kb_mods) |= KEYB_MOD_LALT; if (up) (*kb_mods) ^= KEYB_MOD_LALT;
+			break;
+		case KEYCODE_ALTGR:
+			(*kb_mods) |= KEYB_MOD_ALTGR; if (up) (*kb_mods) ^= KEYB_MOD_ALTGR;
+			break;
+		case KEYCODE_SCROLL_LOCK:
+			if(!up) (*kb_mods) ^= KEYB_MOD_SCRL;
+			break;
+		case KEYCODE_CAPSLOCK:
+			if(!up) (*kb_mods) ^= KEYB_MOD_CAPS;
+			break;
+		case KEYCODE_NUMLOCK:
+			if(!up) (*kb_mods) ^= KEYB_MOD_NUML;
+			break;
+		//default:
+	}
+}
+
+/*
+ * näppisajuri syöttää vt_keyboard_eventille näppäinkoodin ja tiedon
+ * näppäimen suunnasta.
+ * 
+ * vt:n säilömä keyeventti koostuu keycodesta ja 0x100:n kohdalla olevasta
+ * bitistä joka ilmaisee onko nappula mennyt ylös vai alas (1=ylös).
+ */
+void vt_keyboard_event(int code, int up)
 {
 	if(!initialized) return;
-	if(!vt[cur_vt].kb_buf) return;
-	if(code == 0) return;
-	vt[cur_vt].kb_buf[vt[cur_vt].kb_buf_end] = code | (down ? 0 : 0x100);
+	if(!vt[cur_vt].kb_buf) return; //(näin ei taida kyllä edes voida käydä)
+
+	code &= 0xff;
+
+	//kprintf("\n[event,c=%i,u=%i]", code, up);
+	
+	//spinl_lock(&vt[cur_vt].kb_buf_lock);
+	
+	switch(code){
+		case KEYCODE_PGUP:
+			if ((vt[cur_vt].kb_mods & KEYB_MOD_SHIFT)){
+				if(!up) vt_scroll(vt_get_display_height()/2);
+				return;
+			}
+		case KEYCODE_PGDOWN:
+			if ((vt[cur_vt].kb_mods & KEYB_MOD_SHIFT)){
+				//vt_scroll(-1);
+				if(!up) vt_scroll(-(int)vt_get_display_height()/2);
+				return;
+			}
+		default:
+			if (KEYCODE_F1 <= code && code <= KEYCODE_F6) { // f1-f6
+				if(!up) vt_change(code - KEYCODE_F1);
+				return;
+			}
+			else if ((code == KEYCODE_C) && (vt[cur_vt].realtime_kb_mods & KEYB_MOD_CTRL)) {
+#if 0
+				if(!up){
+					extern tid_t sh_tid;
+					kill_thread(sh_tid);
+					vt_unlockspinlocks();
+					sh_tid = new_thread(run_sh, 0, 0, 0);
+				}
+				return;
+#endif
+			}
+	}
+
+	do_kb_mods(code, up, /*&vt[cur_vt].realtime_kb_locks,*/ &vt[cur_vt].realtime_kb_mods);
+
+	//kprintf(" [[[%s]]] ",(vt[cur_vt].kb_mods&(KEYB_MOD_LSHIFT|KEYB_MOD_RSHIFT))?"s":"n");
+
+	vt[cur_vt].kb_buf[vt[cur_vt].kb_buf_end] = code | (up ? 0x100 : 0);
 	++vt[cur_vt].kb_buf_count;
 	++vt[cur_vt].kb_buf_end;
 	vt[cur_vt].kb_buf_end %= KB_BUFFER_SIZE;
+	//spinl_unlock(&vt[cur_vt].kb_buf_lock);
 }
 
-int vt_kb_peek(unsigned int vt_num)
+int vt_get_and_parse_next_key_event(unsigned int vt_num)
 {
-	if(!initialized) return -1;
+	//static unsigned char capsl_key, numl_key, scroll_key;
+
+	if(!initialized) return -3;
+	if (vt_num >= VT_COUNT) return -3;
 	if (!vt[vt_num].kb_buf_count) {
 		return -1;
 	}
-	return vt[vt_num].kb_buf[vt[vt_num].kb_buf_start++];
+
+	//spinl_lock(&vt[vt_num].kb_buf_lock);
+	
+	unsigned int keyevent = vt[vt_num].kb_buf[vt[vt_num].kb_buf_start];
+	--vt[vt_num].kb_buf_count;
+	++vt[vt_num].kb_buf_start;
+	vt[vt_num].kb_buf_start %= KB_BUFFER_SIZE;
+	unsigned char code = keyevent & 0xff;
+	unsigned char up = (keyevent & 0x100)?1:0;
+
+	do_kb_mods(code, up, /*&vt[cur_vt].kb_locks,*/ &vt[cur_vt].kb_mods);
+
+	//kprintf(" [[%s]] ",(vt[vt_num].kb_mods&(KEYB_MOD_LSHIFT|KEYB_MOD_RSHIFT))?"s":"n");
+
+	//spinl_unlock(&vt[vt_num].kb_buf_lock);
+
+	return keyevent;
+}
+
+//-1 jos ei ole
+int vt_get_next_key_event(unsigned int vt_num)
+{
+	return vt_get_and_parse_next_key_event(vt_num);
+}
+
+int vt_wait_and_get_next_key_event(unsigned int vt_num)
+{
+	while (!vt[vt_num].kb_buf_count) {
+		switch_thread();
+	}
+	return vt_get_and_parse_next_key_event(vt_num);
+}
+
+int vt_get_kbmods(unsigned int vt_num)
+{
+	return vt[vt_num].kb_mods;
+}
+
+//palauttaa -1 jos ei löydetty bufferista merkkejä ja muita <0-lukuja muina
+//virheinä
+int vt_get_next_char(unsigned int vt_num)
+{
+	if(!initialized) return -5;
+	if (vt_num >= VT_COUNT) return -5;
+	for(;;){
+		int keyevent = vt_get_and_parse_next_key_event(vt_num);
+		if(keyevent<0){
+			//print("[<0]");
+			return keyevent;
+		}
+		//kprintf("[%x]", keyevent);
+		unsigned char code = keyevent & 0xff;
+		unsigned char up = (keyevent & 0x100)?1:0;
+		if(code == KEYCODE_LSHIFT || code == KEYCODE_RSHIFT
+				|| code == KEYCODE_LCTRL || code == KEYCODE_RCTRL
+				|| code == KEYCODE_LALT || code == KEYCODE_ALTGR
+				|| code == KEYCODE_SCROLL_LOCK
+				|| code == KEYCODE_CAPSLOCK
+				|| code == KEYCODE_NUMLOCK) continue;
+		//kprintf("[c=%i|u=%i]", code, up);
+		if(!up){
+			//kprintf(" [%s] ",(vt[vt_num].kb_mods&(KEYB_MOD_LSHIFT|KEYB_MOD_RSHIFT))?"s":"n");
+			//kprintf(" [[%s]] ",(vt[vt_num].kb_mods&(KEYB_MOD_CAPS))?"c":"n");
+			int c = key_to_ascii(code, vt[vt_num].kb_mods);
+			/*kprintf("[%x]", c);
+			while(1);*/
+			return c;
+		}
+	}
+	return -6;
+}
+
+//palauttaa -2 jos ei ole initialisoitu ja -1 jos bufferi on tyhjä
+int vt_kb_peek(unsigned int vt_num)
+{
+	return vt_get_next_char(vt_num);
+	/*if(!initialized) return -1;
+	if (!vt[vt_num].kb_buf_count) {
+		return -1;
+	}
+	return vt[vt_num].kb_buf[vt[vt_num].kb_buf_start++];*/
 }
 
 int vt_kb_get(unsigned int vt_num)
 {
 	if(!initialized) return -1;
-	int ret;
+	int c;
+	for(;;){
+		while (!vt[vt_num].kb_buf_count) {
+			switch_thread();
+		}
+		//print(" count>0 ");
+		c = vt_get_next_char(vt_num);
+		if(c==-1){
+			//print("(-1)\n");
+			//continue; //oli joku turha event
+		}
+		else if(c<-1){
+			//panic("vt_get_next_char returned < -1");
+		}
+		else{
+			//print("\n");
+			return c;
+		}
+	}
+	//kprintf("%i", c);
+	
+	//return c;
+	
+	/*int ret;
 
 	while (!vt[vt_num].kb_buf_count) {
 		asm_hlt(&vt[vt_num].kb_buf_count);
@@ -507,7 +800,7 @@ int vt_kb_get(unsigned int vt_num)
 	ret = vt[vt_num].kb_buf[vt[vt_num].kb_buf_start];
 	--vt[vt_num].kb_buf_count;
 	++vt[vt_num].kb_buf_start;
-	vt[vt_num].kb_buf_start %= KB_BUFFER_SIZE;
+	vt[vt_num].kb_buf_start %= KB_BUFFER_SIZE;*/
 
 	/*if (kb_buf_full) {
 		asm_cli();
@@ -518,7 +811,7 @@ int vt_kb_get(unsigned int vt_num)
 		//asm_hlt();
 	}*/
 
-	return ret;
+	//return ret;
 }
 
 void vt_kprintflock(unsigned int vt_num)
@@ -558,6 +851,7 @@ int vt_setdriver(char *fname)
 			vt[i].color = 0x7;
 			spinl_init(&vt[i].writelock);
 			spinl_init(&vt[i].printlock);
+			//spinl_init(&vt[i].kb_buf_lock);
 		}
 
 		cur_vt = 0;
@@ -612,3 +906,194 @@ void vt_init(void)
 }
 
 
+/////////////////////////7
+
+
+size_t vt_fwrite(const void *buf, size_t size, size_t count,
+		struct vt_file_str *vt_file)
+{
+	int i;
+	if((i = vt_print_length(vt_file->vt_num, buf, size*count, 0)) == -1)
+		return 0;
+	return i/size;
+}
+
+size_t vt_fread(void *buf, size_t size, size_t count,
+		struct vt_file_str *vt_file)
+{
+	switch(vt[vt_file->vt_num].mode){
+	case VT_MODE_NORMAL:
+		for(unsigned int i=0;i<size*count;){
+			int ch;
+			if(vt[vt_file->vt_num].block)
+				ch = vt_kb_get(vt_file->vt_num);
+			else
+				ch = vt_kb_peek(vt_file->vt_num);
+			if(ch < 0) return i/size;
+			if(ch<0xff && ch>=0){
+				((char*)buf)[i] = (char)ch;
+				i++;
+			}
+			else{
+				//jännämerkkejä, TODO: jotain ansisössöä ehkä pitäisi antaa
+			}
+		}
+		break;
+	case VT_MODE_RAWEVENTS:
+		for(unsigned int i=0;i<size*count/4;){
+			int event = vt_get_and_parse_next_key_event(vt_file->vt_num);
+			if(event < -1){
+				print("vt_fread(): error in vt_get_and_parse_next_key_event\n");
+				return i*sizeof(uint_t)/size;
+			}
+			else if(event == -1){
+				if(vt[vt_file->vt_num].block){
+					while(!vt[vt_file->vt_num].kb_buf_count) switch_thread();
+					continue;
+				}
+				else return i*sizeof(uint_t)/size;
+			}
+			((uint_t*)buf)[i] = event;
+			i++;
+		}
+		break;
+	default:
+		panic("vt_fread(): ei näin");
+	}
+	return count;
+}
+
+int vt_ioctl(struct vt_file_str *vt_file, int request, uintptr_t param)
+{
+	if(request == IOCTL_VT_MODE){
+		if(param>1) return 1;
+		vt[vt_file->vt_num].mode = param;
+		return 0;
+	}
+	if(request == IOCTL_VT_BLOCKMODE){
+		if(param>1) return 1;
+		vt[vt_file->vt_num].block = param;
+		return 0;
+	}
+	return 1;
+}
+
+int vt_fclose(struct vt_file_str *vt_file)
+{
+	if(vt[vt_file->vt_num].num_open==0) return 1;
+	if(vt_file){
+		if(vt_file->std.func) kfree((void*)vt_file->std.func);
+		kfree(vt_file);
+	}
+	vt[vt_file->vt_num].num_open--;
+	kprintf("vt_fclose(): closed (vt_num=%d, num_open=%d\n",
+			vt_file->vt_num, vt[vt_file->vt_num].num_open);
+	return 0;
+}
+
+FILE *vt_open(struct vt_device_str *device, uint_t mode)
+{
+	if( !( (mode & FILE_MODE_WRITE) || (mode & FILE_MODE_READ) ) ){
+		kprintf("vt_open(): only read and/or write supported\n");
+		return NULL;
+	}
+	struct vt_file_str *vt_file =
+			(struct vt_file_str*)kmalloc(sizeof(struct vt_file_str));
+	if(vt_file == NULL){
+		kprintf("vt_open(): kmalloc failed (1)\n");
+		return NULL;
+	}
+	memset(vt_file, 0, sizeof(struct filefunc));
+	vt_file->std.mode = mode;
+	struct filefunc *func;
+	func = (struct filefunc*)kmalloc(sizeof(struct filefunc));
+	if(func == NULL){
+		kfree(vt_file);
+		kprintf("vt_open(): kmalloc failed (2)\n");
+		return NULL;
+	}
+	memset(func, 0, sizeof(struct filefunc));
+
+	func->fwrite = (fwrite_t)&vt_fwrite;
+	func->fread = (fread_t)&vt_fread;
+	func->ioctl = (ioctl_t)&vt_ioctl;
+	func->fclose = (fclose_t)&vt_fclose;
+
+	vt_file->std.func = func;
+	
+	vt_file->vt_num = device->vt_num;
+
+	vt[device->vt_num].num_open++;
+
+	kprintf("vt_open(): opened\n");
+
+	return (FILE*)vt_file;
+}
+
+int vt_remove(struct vt_device_str *device)
+{
+	if(devices_not_removed_count==0) return 0;
+	devices_not_removed_count--;
+	if(devices_not_removed_count==0){
+		for(unsigned int i=0; i<VT_COUNT; i++){
+			kfree(vt_devs[i]);
+		}
+		kfree(vt_devs);
+	}
+	return 0;
+}
+
+void vt_dev_init(void)
+{
+	if(!initialized) vt_init();
+	
+	if(VT_COUNT > 99){
+		kprintf("vt_init(): error: too many vts requested!\n");
+		return;
+	}
+	//vt_device_str **
+	vt_devs = (struct vt_device_str**)
+			kcalloc(sizeof(struct vt_device_str*) * VT_COUNT, 1);
+	if(vt_devs==NULL){
+		kprintf("vt_init(): error: could not kcalloc (1)\n");
+		return;
+	}
+	for(unsigned int i=0; i<VT_COUNT; i++){
+		vt_devs[i] = kcalloc(sizeof(struct vt_device_str), 1);
+		if(vt_devs[i]==NULL){
+			kprintf("vt_init(): warning: could not kcalloc (2)\n");
+			continue;
+		}
+		char *name = (char*)kmalloc(sizeof(char)*5);
+		if(name == NULL){
+			kprintf("vt_init(): warning: could not kmalloc (3)\n");
+			kfree(vt_devs[i]);
+			continue;
+		}
+		sprintf(name, "vt%i", i);
+		vt_devs[i]->std.name = name;
+		vt_devs[i]->std.dev_class = DEV_CLASS_OTHER;
+		vt_devs[i]->std.dev_type = DEV_TYPE_VT;
+		vt_devs[i]->std.devopen = (devopen_t) vt_open;
+		vt_devs[i]->std.remove = (devrm_t) vt_remove;
+		vt_devs[i]->vt_num = i;
+		kprintf("vt_init(): adding %s\n", name);
+		switch (device_insert(&vt_devs[i]->std)) {
+			case 0:
+				devices_not_removed_count++;
+				break;
+			case DEV_ERR_TOTAL_FAILURE:
+				kprintf("vt_init(): unknown error inserting device %d\n", i);
+				break;
+			case DEV_ERR_BAD_NAME:
+				kprintf("vt_init(): error inserting device %d: bad name\n", i);
+				break;
+			case DEV_ERR_EXISTS:
+				kprintf("vt_init(): error inserting device %d: device exists\n", i);
+				break;
+			case DEV_ERR_BAD_STRUCT:
+				kprintf("vt_init(): error inserting device %d: bad info struct\n", i);
+				break;
+			}
+	}
+}

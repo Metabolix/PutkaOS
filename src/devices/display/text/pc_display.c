@@ -1,3 +1,8 @@
+/*
+ * tekstinäyttörajapinnan mukainen pc:n tekstitilaa käyttävä ajuri
+ * celeron55
+ */
+
 #include <devices/display/text/pc_display.h>
 #include <io.h>
 #include <irq.h>
