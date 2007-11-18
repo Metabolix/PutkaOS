@@ -31,8 +31,7 @@ void run_sh(void)
 	for(;;) {
 		loc = 0;
 		buffer[0] = 0;
-		set_colour(sh_colour);
-		printf("%s", "PutkaOS $ ");
+		printf("%s", "\x001b[mPutkaOS $ ");
 		while (1) {
 			fread(&ch, 1, 1, stdin);
 

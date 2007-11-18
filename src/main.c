@@ -170,6 +170,15 @@ void testattava_koodi()
 	FILE *f;
 	f = fopen("/dev/vt0", "r+");
 	if(f==NULL) panic("apuva!");
+	fwrite("\x001b", 1, 1, f);
+	char *c = "[0;11;4;2;11;571m";
+	fwrite(c, 1, strlen(c), f);
+	fclose(f);
+#endif
+#if 0
+	FILE *f;
+	f = fopen("/dev/vt0", "r+");
+	if(f==NULL) panic("apuva!");
 	ioctl(f, IOCTL_VT_SET_COLOR, 0x0e);
 	fclose(f);
 #endif

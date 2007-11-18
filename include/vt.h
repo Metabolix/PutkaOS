@@ -14,8 +14,9 @@
 #define VT_COUNT 6
 #define VT_KERN_LOG 0 //kernelin jutut menee tänne (tai ainakin pitäisi)
 
-#define KB_BUFFER_SIZE 128
-#define KB_QUEUE_SIZE 11
+#define VT_KB_BUFFER_SIZE 128
+#define VT_KB_QUEUE_SIZE 11
+#define VT_ANSIBUF_SIZE 10+1
 
 //referenssi-implementaatio display-ajurille löytyy display.c/h:sta
 
@@ -59,11 +60,11 @@ struct vt {
 	char name[5];
 	unsigned int index;
 
-	volatile int kb_buf[KB_BUFFER_SIZE];
+	volatile int kb_buf[VT_KB_BUFFER_SIZE];
 	struct spinlock kb_buf_lock;
 	volatile int kb_buf_start, kb_buf_end, kb_buf_count;
 	unsigned int realtime_kb_mods, kb_mods;
-	char kb_queue[KB_QUEUE_SIZE];
+	char kb_queue[VT_KB_QUEUE_SIZE];
 	struct spinlock queuelock;
 	unsigned int kb_queue_start, kb_queue_count, kb_queue_end;
 
@@ -84,6 +85,10 @@ struct vt_file {
 	FILE std;
 	struct vt *vtptr;
 	unsigned char color;
+	char ansibuf[VT_ANSIBUF_SIZE];
+	unsigned int ansibuf_count;
+	unsigned int ansi_coming, ansi_param_index, ansi_params_sgr[256];
+	int ansi_params[2];
 };
 
 //extern unsigned char vt_get_color(struct vt_file *f);

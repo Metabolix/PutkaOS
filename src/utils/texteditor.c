@@ -6,6 +6,7 @@
 #include <keyboard.h>
 
 #include <screen.h>
+#include <vt.h>
 
 #define MALLOC(x) malloc(x)
 #define FREE(x) free(x)
@@ -249,12 +250,11 @@ int editor_main(char *filename)
 		//int ch = hex;//ktoasc(hex);
 
 		if(ch == 0x1b){
-			//kb_get();
 			locate(0, 1);
 			set_colour(0x70);
 			printf("[waiting command (q/w)]");
 			set_colour(0x07);
-			fread(&ch, 4, 1, stdin);
+			fread(&ch, 1, 1, stdin);
 			printf("[%c]", ch);
 			if(ch == 'q') goto quiteditor;
 			else if(ch == 'w'){

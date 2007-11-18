@@ -12,6 +12,8 @@
 #include <misc_asm.h>
 #include <panic.h>
 #include <string.h>
+#include <ctype.h>
+#include <stdlib.h>
 
 /////////////////////////////////////////////
 
@@ -579,7 +581,7 @@ void vt_keyboard_event(int code, int up)
 	vt[cur_vt].kb_buf[vt[cur_vt].kb_buf_end] = code | (up ? 0x100 : 0);
 	++vt[cur_vt].kb_buf_count;
 	++vt[cur_vt].kb_buf_end;
-	vt[cur_vt].kb_buf_end %= KB_BUFFER_SIZE;
+	vt[cur_vt].kb_buf_end %= VT_KB_BUFFER_SIZE;
 
 	//spinl_unlock(&vt[cur_vt].kb_buf_lock);
 }
@@ -600,7 +602,7 @@ int vt_get_and_parse_next_key_event(struct vt_file *f)
 	unsigned int keyevent = vtptr->kb_buf[vtptr->kb_buf_start];
 	--vtptr->kb_buf_count;
 	++vtptr->kb_buf_start;
-	vtptr->kb_buf_start %= KB_BUFFER_SIZE;
+	vtptr->kb_buf_start %= VT_KB_BUFFER_SIZE;
 	unsigned char code = keyevent & 0xff;
 	unsigned char up = (keyevent & 0x100)?1:0;
 
@@ -824,9 +826,159 @@ void vt_init(void)
 
 //################# devicejuttuja #################
 
+void printnum(struct vt_file *vt_file, int i)
+{
+	char temp[10];
+	sprintf(temp, "(%d)", i);
+	vt_print_length(vt_file, temp, 0, 1);
+}
+
+unsigned char ansi_colors_to_vga[] = {
+	0, 4, 2, 6, 1, 5, 3, 7,
+	8,12,10,14, 9,13,11,15
+};
+
+int parse_ansi_code(struct vt_file *vt_file, char ansi_cmd)
+{
+	//vt_print_length(vt_file, "(parsing)", 0, 1);
+	unsigned int j, i;
+	int p1 = vt_file->ansi_params[0];
+	int p2 = vt_file->ansi_params[1];
+	int x, y, w, h;
+	switch(ansi_cmd){
+	case 'A': case 'B': case 'C': case 'D': case 'E': case 'F': case 'G':
+		vt_getpos(vt_file, (unsigned int*)&x, (unsigned int*)&y);
+		vt_getdisplaysize(vt_file, (unsigned int*)&w, (unsigned int*)&h);
+		if(p1==-1) p1 = 1;
+		if     (ansi_cmd=='A'){ y -= p1; if(y < 0)   y = 0;   }
+		else if(ansi_cmd=='B'){ y += p1; if(y > h-1) y = h-1; }
+		else if(ansi_cmd=='C'){ x += p1; if(x > w-1) x = w-1; }
+		else if(ansi_cmd=='D'){ x -= p1; if(x < 0)   x = 0;   }
+		else if(ansi_cmd=='E'){ y += p1; x = 0; if(y > h-1) y = h-1; }
+		else if(ansi_cmd=='F'){ y -= p1; x = 0; if(y < 0)   y = 0;   }
+		else if(ansi_cmd=='G'){ y =  p1; if(y < 0) y = 0; if(y > h-1) y = h-1; }
+		vt_locate(vt_file, x, y);
+		break;
+	case 'H': case 'f':
+		vt_getdisplaysize(vt_file, (unsigned int*)&w, (unsigned int*)&h);
+		if(p1==-1) p1 = 1;
+		if(p2==-1) p2 = 1;
+		y = p1-1;
+		x = p2-1;
+		if(y < 0) y = 0;
+		if(y > h-1) y = h-1;
+		if(x < 0) x = 0;
+		if(x > w-1) x = w-1;
+		vt_locate(vt_file, x, y);
+		break;
+	case 'm':
+		//vt_print_length(vt_file, "(command m)", 0, 1);
+		for(j=1; j<vt_file->ansi_param_index+1; j++){
+			for(i=0; i<256; i++){
+				if(vt_file->ansi_params_sgr[i] == j){
+					if(i==0){
+						vt_set_color(vt_file, 0x07);
+					}
+					else if((i>=30 && i<=49) || (i>=90 && i<=109)){
+						unsigned char ansicolor;
+						if     ((i>=30 && i<=49))  ansicolor = i-30;
+						else if((i>=90 && i<=109)) ansicolor = i-90;
+						if((i>=30 && i<=39) || (i>=90 && i<=99)){ //foreground
+							vt_set_color(vt_file, (vt_get_color(vt_file) & 0xf0)
+									+ ansi_colors_to_vga[ansicolor]);
+						}
+						else if((i>=40 && i<=49) || (i>=100 && i<=109)){ //background
+							vt_set_color(vt_file, (vt_get_color(vt_file) & 0x0f)
+									+ (ansi_colors_to_vga[ansicolor]<<4));
+						}
+					}
+					else{
+						vt_print_length(vt_file, "(invalid sgr param)", 0, 1);
+						return 1;
+					}
+				}
+			}
+		}
+		break;
+	default:
+		vt_print_length(vt_file, "(unknown ansi code)", 0, 1);
+		return 1;
+	}
+	
+	return 0;
+}
+
 size_t vt_fwrite(const void *buf, size_t size, size_t count, struct vt_file *vt_file)
 {
-	return vt_print_length(vt_file, buf, size*count, 0) / size;
+	//struct vt *vtptr = vt_file->vtptr;
+	unsigned int i=0, j, k;
+	char *b = (char*)buf;
+	if(vt_file->ansi_coming == 1) goto ansi_coming_1;
+	if(vt_file->ansi_coming == 2) goto ansi_coming_2;
+	for(;;){
+		j = i;
+		for(; i<size*count && b[i] != 0x1b; i++);
+		vt_print_length(vt_file, b+j, i-j, 0);
+		if(i == size*count) break;
+
+		i++;
+		vt_file->ansi_coming = 1;
+ansi_coming_1:
+		
+		//vt_print_length(vt_file, "(escape)", 0, 1);
+		if(i>=size*count) return i;
+		
+		if(b[i] != '['){
+			//vt_print_length(vt_file, "(no bracket)", 0, 1);
+			vt_putch(vt_file, 0x1b);
+			vt_file->ansi_coming = 0;
+			continue;
+		}
+		//vt_print_length(vt_file, "(bracket)", 0, 1);
+
+		i++;
+		vt_file->ansi_coming = 2;
+		memset(vt_file->ansi_params_sgr, 0, 256*sizeof(unsigned int));
+		vt_file->ansi_params[0] = -1;
+		vt_file->ansi_params[1] = -1;
+ansi_coming_2:
+
+		if(i>=size*count) return i;
+		for(; i<size*count;){
+			if(!isdigit(b[i])){
+				vt_file->ansibuf[vt_file->ansibuf_count++] = 0;
+				k = atoi(vt_file->ansibuf);
+				if(vt_file->ansi_param_index < 2){
+					/*vt_print_length(vt_file, "param", 0, 1);
+					printnum(vt_file, vt_file->ansi_param_index);
+					printnum(vt_file, k);*/
+					vt_file->ansi_params[vt_file->ansi_param_index] = k;
+				}
+				if(k < 256){
+					vt_file->ansi_params_sgr[k] = vt_file->ansi_param_index+1;
+				}
+				vt_file->ansi_param_index++;
+				vt_file->ansibuf_count = 0;
+				if(b[i] != ';'){
+					//vt_print_length(vt_file, "(got ansi code)", 0, 1);
+					parse_ansi_code(vt_file, b[i]);
+					vt_file->ansi_coming = 0;
+					vt_file->ansi_param_index = 0;
+					i++;
+					break;
+				}
+				i++;
+				if(i>=size*count) return i;
+			}
+			if(vt_file->ansibuf_count >= VT_ANSIBUF_SIZE-1){
+				//liian pitkä numero
+			}
+			vt_file->ansibuf[vt_file->ansibuf_count++] = b[i];
+			i++;
+		}
+	}
+
+	return i;
 }
 
 size_t vt_fread(void *buf, size_t size, size_t count, struct vt_file *vt_file)
@@ -858,7 +1010,7 @@ size_t vt_fread(void *buf, size_t size, size_t count, struct vt_file *vt_file)
 				i++;
 				vtptr->kb_queue_count--;
 				vtptr->kb_queue_start++;
-				vtptr->kb_queue_start %= KB_QUEUE_SIZE;
+				vtptr->kb_queue_start %= VT_KB_QUEUE_SIZE;
 			}
 			spinl_unlock(&vtptr->queuelock);
 		}
@@ -921,13 +1073,13 @@ size_t vt_fread(void *buf, size_t size, size_t count, struct vt_file *vt_file)
 						for(;a<len;a++){
 							spinl_lock(&vtptr->queuelock);
 							//kprintf("(%c->q)", code[a]);
-							if(vtptr->kb_queue_count >= KB_QUEUE_SIZE){
+							if(vtptr->kb_queue_count >= VT_KB_QUEUE_SIZE){
 								kprintf("vt_fread(): warning: code doesn't fit in queue!");
 							}
 							vtptr->kb_queue[vtptr->kb_queue_end] = code[a];
 							vtptr->kb_queue_count++;
 							vtptr->kb_queue_end++;
-							vtptr->kb_queue_end %= KB_QUEUE_SIZE;
+							vtptr->kb_queue_end %= VT_KB_QUEUE_SIZE;
 							spinl_unlock(&vtptr->queuelock);
 						}
 					}
@@ -1046,7 +1198,7 @@ int vt_fclose_nofree(struct vt_file *vt_file)
 	}
 	struct vt *vtptr = vt_file->vtptr;
 	vtptr->num_open--;
-	kprintf("vt_fclose(): closed (vtptr->index=%d, vtptr->num_open=%d)\n", vtptr->index, vtptr->num_open);
+	//kprintf("vt_fclose(): closed (vtptr->index=%d, vtptr->num_open=%d)\n", vtptr->index, vtptr->num_open);
 	return 0;
 }
 
@@ -1076,7 +1228,7 @@ struct vt_file *vt_open_ptr(struct vt *device, uint_t mode, struct vt_file *vt_f
 
 	device->num_open++;
 
-	kprintf("vt_open(): opened\n");
+	//kprintf("vt_open(): opened\n");
 
 	return vt_file;
 }
