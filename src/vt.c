@@ -338,20 +338,25 @@ size_t vt_print_length(struct vt_file *f, const char *string, size_t length, int
 	unsigned int a = 0;
 	const char *s = (const char *)string;
 	char *s2, *s3;
+
+	//jos ei käytetä ajuria, kirjoitellaan merkit kerrallaan putchilla
 	if (!driverstream) {
 		while ((zero_ends) ? (*s) : (a<length)) {
 			vt_putch(f, *s);
 			s++;
 			a++;
 		}
+	// kirjoitetaan nopeammin ohjausmerkittömiä pätkiä jos käytetään ajuria
 	} else while ((zero_ends) ? (*s) : (a<length)) {
-		// kirjoitetaan nopeammin ohjausmerkittömiä pätkiä jos käytetään ajuria
+		//jotain tyhmiä ohjausmerkkejä, putchaillaan
 		if (*s < ' ') {
 			vt_putch(f, *s);
 			s++;
 			a++;
 			continue;
 		}
+		
+		//ei ohjausmerkkiä, otetaan pidempi pätkä ja kirjoitetaan se kerralla
 
 		vt_scroll_if_needed(f);
 		//vt_putch(vtptr->index, '|');
@@ -383,7 +388,7 @@ size_t vt_print_length(struct vt_file *f, const char *string, size_t length, int
 			vtptr->cx = 0;
 			vtptr->cy++;
 		}
-
+		
 		if (is_threading()) {
 			spinl_unlock(&vtptr->writelock);
 		}
@@ -699,31 +704,6 @@ int vt_kb_get(struct vt_file *f)
 			return c;
 		}
 	}
-	//kprintf("%i", c);
-
-	//return c;
-
-	/*int ret;
-
-	while (!vtptr->kb_buf_count) {
-		asm_hlt(&vtptr->kb_buf_count);
-	}
-
-	ret = vtptr->kb_buf[vtptr->kb_buf_start];
-	--vtptr->kb_buf_count;
-	++vtptr->kb_buf_start;
-	vtptr->kb_buf_start %= KB_BUFFER_SIZE;*/
-
-	/*if (kb_buf_full) {
-		asm_cli();
-		while (kb_buf_full) {
-			keyboard_handle();
-		}
-		asm_sti();
-		//asm_hlt();
-	}*/
-
-	//return ret;
 }
 
 void vt_unlockspinlocks(void)
@@ -891,14 +871,18 @@ size_t vt_fread(void *buf, size_t size, size_t count, struct vt_file *vt_file)
 	return count;
 }
 
+/*
+ * TODO: värit, sekä ioctl:inä että ioctl:llä enabloitavilla
+ * ansisössöillä
+ */
 int vt_ioctl(struct vt_file *vt_file, int request, uintptr_t param)
 {
-	if(request == IOCTL_VT_MODE){
+	if(request == IOCTL_VT_READMODE){
 		if(param>1){
 			kprintf("vt_ioctl(): invalid mode\n");
 			return 1;
 		}
-		(*vt_file->vtptr).mode = param;
+		vt_file->vtptr->mode = param;
 		kprintf("vt_ioctl(): set mode to %d\n", param);
 		return 0;
 	}
@@ -907,8 +891,46 @@ int vt_ioctl(struct vt_file *vt_file, int request, uintptr_t param)
 			kprintf("vt_ioctl(): invalid blockmode\n");
 			return 1;
 		}
-		(*vt_file->vtptr).block = param;
+		vt_file->vtptr->block = param;
 		kprintf("vt_ioctl(): set blockmode to %d\n", param);
+		return 0;
+	}
+	if(request == IOCTL_VT_SET_COLOR){
+		vt_set_color(vt_file, (unsigned char)param);
+		return 0;
+	}
+	if(request == IOCTL_VT_GET_COLOR){
+		*(unsigned char *)param = vt_get_color(vt_file);
+		return 0;
+	}
+	if(request == IOCTL_VT_ANSICODES_ENABLE){
+		if(param==0){
+			vt_file->vtptr->ansicodes_enable = 0;
+		}
+		else if(param==1){
+			vt_file->vtptr->ansicodes_enable = 1;
+		}
+		else return 1;
+		return 0;
+	}
+	if(request == IOCTL_VT_GET_SIZE){
+		vt_getdisplaysize(vt_file, (unsigned int *)param, (unsigned int *)param+1);
+		return 0;
+	}
+	if(request == IOCTL_VT_SET_CURSOR_POS){
+		vt_locate(vt_file, ((unsigned int *)param)[0], ((unsigned int *)param)[1]);
+		return 0;
+	}
+	if(request == IOCTL_VT_GET_CURSOR_POS){
+		vt_getpos(vt_file, (unsigned int *)param, (unsigned int *)param+1);
+		return 0;
+	}
+	if(request == IOCTL_VT_CLS){
+		vt_cls(vt_file);
+		return 0;
+	}
+	if(request == IOCTL_VT_GET_KBMODS){
+		*(unsigned char *)param = vt_get_kbmods(vt_file);
 		return 0;
 	}
 	kprintf("vt_ioctl(): invalid request\n");

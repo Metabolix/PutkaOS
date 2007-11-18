@@ -167,11 +167,18 @@ void testattava_koodi()
 	FILE *f;
 	f = fopen("/dev/vt0", "r+");
 	if(f==NULL) panic("apuva!");
+	ioctl(f, IOCTL_VT_SET_COLOR, 0x0e);
+	fclose(f);
+#endif
+#if 0
+	FILE *f;
+	f = fopen("/dev/vt0", "r+");
+	if(f==NULL) panic("apuva!");
 	print("opened\n");
 	fwrite("moi vt\n", 1, 7, f);
 	print("printed\n");
 	//ioctl(f, IOCTL_VT_BLOCKMODE, VT_BLOCKMODE_BLOCK);
-	//ioctl(f, IOCTL_VT_MODE, VT_MODE_RAWEVENTS);
+	//ioctl(f, IOCTL_VT_READMODE, VT_MODE_RAWEVENTS);
 	print("ioctl'd\n");
 	/*uint_t jee[10];
 	fread(jee, 4, 10, f);

@@ -12,7 +12,7 @@
 
 #define VT_BUF_H 60
 #define VT_COUNT 6
-#define VT_KERN_LOG 0 /* we put our log messages from kernel on that vt */
+#define VT_KERN_LOG 0 //kernelin jutut menee tänne (tai ainakin pitäisi)
 
 #define KB_BUFFER_SIZE 128
 
@@ -40,8 +40,16 @@ enum { VT_MODE_NORMAL=0, VT_MODE_RAWEVENTS=1 };
 enum { VT_BLOCKMODE_NOBLOCK=0, VT_BLOCKMODE_BLOCK=1 };
 
 enum {
-	IOCTL_VT_MODE, //VT_MODE_NORMAL/VT_MODE_EVENTS
+	IOCTL_VT_READMODE, //VT_MODE_NORMAL/VT_MODE_EVENTS
 	IOCTL_VT_BLOCKMODE, //VT_NOBLOCK/VT_BLOCK
+	IOCTL_VT_SET_COLOR,
+	IOCTL_VT_GET_COLOR,
+	IOCTL_VT_ANSICODES_ENABLE, //param 0 = disable, 1 = enable
+	IOCTL_VT_GET_SIZE, //param. unsigned int [2] -taulukko. [0] = w, [1] = h
+	IOCTL_VT_SET_CURSOR_POS, //parametrina unsigned int [2] -taulukko (x,y)
+	IOCTL_VT_GET_CURSOR_POS, //parametrina unsigned int [2] -taulukko
+	IOCTL_VT_CLS,
+	IOCTL_VT_GET_KBMODS, //ks. keyboard.c/h
 };
 
 struct vt {
@@ -66,7 +74,7 @@ struct vt {
 
 	unsigned int num_open;
 
-	unsigned char mode, block;
+	unsigned char mode, block, ansicodes_enable;
 };
 
 struct vt_file {
@@ -74,13 +82,13 @@ struct vt_file {
 	struct vt *vtptr;
 };
 
-extern unsigned char vt_get_color(struct vt_file *f);
-extern void vt_set_color(struct vt_file *f, unsigned char c);
-extern void vt_getdisplaysize(struct vt_file *f, unsigned int *w, unsigned int *h);
-extern int vt_locate(struct vt_file *f, unsigned int x, unsigned int y);
-extern int vt_getpos(struct vt_file *f, unsigned int *x, unsigned int *y);
-extern void vt_cls(struct vt_file *f);
-extern size_t vt_print(struct vt_file *f, const char *string);
+//extern unsigned char vt_get_color(struct vt_file *f);
+//extern void vt_set_color(struct vt_file *f, unsigned char c);
+//extern void vt_getdisplaysize(struct vt_file *f, unsigned int *w, unsigned int *h);
+//extern int vt_locate(struct vt_file *f, unsigned int x, unsigned int y);
+//extern int vt_getpos(struct vt_file *f, unsigned int *x, unsigned int *y);
+//extern void vt_cls(struct vt_file *f);
+//extern size_t vt_print(struct vt_file *f, const char *string);
 extern int vt_putch(struct vt_file *f, int c);
 
 extern void vt_change(unsigned int vt_num);
@@ -92,11 +100,11 @@ extern void vt_keyboard_event(int code, int up);
 /**
 * Tämän antamat kbmodsit päivittyvät sitä mukaa, kun vt:ltä luetaan näppäimiä
 **/
-extern int vt_get_kbmods(struct vt_file *f);
-extern int vt_get_next_key_event(struct vt_file *f);
-extern int vt_wait_and_get_next_key_event(struct vt_file *f);
-extern int vt_kb_get(struct vt_file *f);
-extern int vt_kb_peek(struct vt_file *f);
+//extern int vt_get_kbmods(struct vt_file *f);
+//extern int vt_get_next_key_event(struct vt_file *f);
+//extern int vt_wait_and_get_next_key_event(struct vt_file *f);
+//extern int vt_kb_get(struct vt_file *f);
+//extern int vt_kb_peek(struct vt_file *f);
 
 extern void vt_unlockspinlocks(void);
 
