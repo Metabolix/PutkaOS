@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <misc_asm.h>
 #include <panic.h>
+#include <string.h>
 
 /////////////////////////////////////////////
 
@@ -215,14 +216,14 @@ void vt_scroll_if_needed(struct vt_file *f)
 
 unsigned char vt_get_color(struct vt_file *f)
 {
-	if (!initialized || !f || !f->vtptr) return 0;
-	return f->vtptr->color;
+	if (!initialized || !f) return 0;
+	return f->color;
 }
 
 void vt_set_color(struct vt_file *f, unsigned char c)
 {
-	if (!initialized || !f || !f->vtptr) return;
-	f->vtptr->color = c;
+	if (!initialized || !f) return;
+	f->color = c;
 }
 
 void vt_getdisplaysize(struct vt_file *f, unsigned int *w, unsigned int *h)
@@ -367,7 +368,7 @@ size_t vt_print_length(struct vt_file *f, const char *string, size_t length, int
 		i = 0;
 		while (*s >= ' ' && ((zero_ends) ? (*s) : (a<length)) && i + 1 < maxl) {
 			tempbuf[i++] = *s;
-			tempbuf[i++] = vtptr->color;
+			tempbuf[i++] = f->color;
 			s++;
 			a++;
 		}
@@ -427,7 +428,7 @@ int vt_putch(struct vt_file *f, int c)
 			if(driverstream){
 				char cc[2];
 				cc[0] = c;
-				cc[1] = vtptr->color;
+				cc[1] = f->color;
 				fwrite(cc, 1, 2, driverstream);
 			}
 			else{
@@ -437,7 +438,7 @@ int vt_putch(struct vt_file *f, int c)
 		}
 		if(vtptr->buffer && initialized) {
 			*(vtptr->buffer + vtptr->bufsize - (driverinfo.h*driverinfo.w*2) + vtptr->cy * (driverinfo.w*2) + vtptr->cx * 2) = c;
-			*(vtptr->buffer + vtptr->bufsize - (driverinfo.h*driverinfo.w*2) + vtptr->cy * (driverinfo.w*2) + vtptr->cx * 2 + 1) = vtptr->color;
+			*(vtptr->buffer + vtptr->bufsize - (driverinfo.h*driverinfo.w*2) + vtptr->cy * (driverinfo.w*2) + vtptr->cx * 2 + 1) = f->color;
 		}
 		vtptr->cx++;
 	}
@@ -571,7 +572,7 @@ void vt_keyboard_event(int code, int up)
 			}
 	}
 
-	do_kb_mods(code, up, /*&vt[cur_vt].realtime_kb_locks,*/ &vt[cur_vt].realtime_kb_mods);
+	do_kb_mods(code, up, &vt[cur_vt].realtime_kb_mods);
 
 	//kprintf(" [[[%s]]] ",(vt[cur_vt].kb_mods&(KEYB_MOD_LSHIFT|KEYB_MOD_RSHIFT))?"s":"n");
 
@@ -579,6 +580,7 @@ void vt_keyboard_event(int code, int up)
 	++vt[cur_vt].kb_buf_count;
 	++vt[cur_vt].kb_buf_end;
 	vt[cur_vt].kb_buf_end %= KB_BUFFER_SIZE;
+
 	//spinl_unlock(&vt[cur_vt].kb_buf_lock);
 }
 
@@ -602,7 +604,7 @@ int vt_get_and_parse_next_key_event(struct vt_file *f)
 	unsigned char code = keyevent & 0xff;
 	unsigned char up = (keyevent & 0x100)?1:0;
 
-	do_kb_mods(code, up, /*&vt[cur_vt].kb_locks,*/ &vt[cur_vt].kb_mods);
+	do_kb_mods(code, up, &vtptr->kb_mods);
 
 	//kprintf(" [[%s]] ",(vtptr->kb_mods&(KEYB_MOD_LSHIFT|KEYB_MOD_RSHIFT))?"s":"n");
 
@@ -722,40 +724,6 @@ int vt_setdriver(char *fname)
 		return 1;
 	}
 	int i;
-	if(fname==NULL){ //NULL = fallback
-		for(i = 0; i < VT_COUNT; i++) {
-			if(vt[i].buffer) kfree(vt[i].buffer);
-			memset(&vt[i], 0, sizeof(struct vt));
-			vt[i].color = 0x7;
-			vt[i].block = 1;
-			sprintf(vt[i].name, "vt%d", i);
-			vt[i].index = i;
-			spinl_init(&vt[i].writelock);
-			spinl_init(&vt[i].printlock);
-			//spinl_init(&vt[i].kb_buf_lock);
-		}
-
-		cur_vt = 0;
-		memset(&driverinfo, 0, sizeof(driverinfo));
-		driverstream = NULL;
-		
-		//haetaan viimeinen rivi ja jatketaan siitä kirjoittelua
-		unsigned int currentrow = 0;
-		for(unsigned int y=24; currentrow == 0; y--){
-			for(unsigned int x=0; x<80; x++){
-				char ch = *((char *)0xB8000 + y*160 + x*2);
-				if(ch != 0 && ch != ' '){
-					currentrow = y+1;
-					break;
-				}
-			}
-			if(y==0) break;
-		}
-		vt[0].cy = currentrow;
-		vt[0].cx = 0;
-
-		return 0;
-	}
 
 	if(!initialized) return 1;
 
@@ -808,7 +776,48 @@ void vt_init(void)
 		// TODO: paniikki jollain muulla konstilla!
 	}
 
-	vt_setdriver(NULL);
+	//initalizing to fallback mode
+
+	for(unsigned int i = 0; i < VT_COUNT; i++) {
+		if(vt[i].buffer) kfree(vt[i].buffer);
+		memset(&vt[i], 0, sizeof(struct vt));
+		//vt[i].color = 0x7;
+		vt[i].block = 1;
+		sprintf(vt[i].name, "vt%d", i);
+		vt[i].index = i;
+		vt[i].mode = VT_MODE_NORMAL;
+		vt[i].mode = VT_BLOCKMODE_BLOCK;
+		spinl_init(&vt[i].queuelock);
+		spinl_init(&vt[i].writelock);
+		spinl_init(&vt[i].printlock);
+		spinl_init(&vt[i].kb_buf_lock);
+	}
+
+	cur_vt = 0;
+	memset(&driverinfo, 0, sizeof(driverinfo));
+	driverstream = NULL;
+	
+	//haetaan viimeinen rivi ja jatketaan siitä kirjoittelua
+	unsigned int currentrow = 0;
+	for(unsigned int y=24; currentrow == 0; y--){
+		for(unsigned int x=0; x<80; x++){
+			char ch = *((char *)0xB8000 + y*160 + x*2);
+			if(ch != 0 && ch != ' '){
+				currentrow = y+1;
+				break;
+			}
+		}
+		if(y==0) break;
+	}
+	if(currentrow == 25){
+		memmove((char *)0xB8000, (char *)0xB8000 + 1 * 160,
+				(25 - 1) * 160);
+		vt_fill_with_blank((char *)0xB8000 + (25 - 1) * 160, 80 * 1);
+		currentrow = 24;
+	}
+	vt[0].cy = currentrow;
+	vt[0].cx = 0;
+
 	initialized = 1;
 }
 
@@ -822,11 +831,15 @@ size_t vt_fwrite(const void *buf, size_t size, size_t count, struct vt_file *vt_
 
 size_t vt_fread(void *buf, size_t size, size_t count, struct vt_file *vt_file)
 {
-	switch((*vt_file->vtptr).mode){
+	struct vt *vtptr = vt_file->vtptr;
+	unsigned int i = 0;
+	char *b = ((char*)buf);
+
+	switch(vtptr->mode){
 	case VT_MODE_OLD:
-		for(unsigned int i=0;i<size*count/4;){
+		for(; i<size*count/4;){
 			int ch;
-			if((*vt_file->vtptr).block)
+			if(vtptr->block)
 				ch = vt_kb_get(vt_file);
 			else
 				ch = vt_kb_peek(vt_file);
@@ -837,26 +850,98 @@ size_t vt_fread(void *buf, size_t size, size_t count, struct vt_file *vt_file)
 		}
 		break;
 	case VT_MODE_NORMAL:
-		for(unsigned int i=0;i<size*count;){
+		if(vtptr->kb_queue_count){
+			//kprintf("(%d in queue)", vtptr->kb_queue_count);
+			spinl_lock(&vtptr->queuelock);
+			for(; i<size*count && vtptr->kb_queue_count;){
+				b[i] = vtptr->kb_queue[vtptr->kb_queue_start];
+				i++;
+				vtptr->kb_queue_count--;
+				vtptr->kb_queue_start++;
+				vtptr->kb_queue_start %= KB_QUEUE_SIZE;
+			}
+			spinl_unlock(&vtptr->queuelock);
+		}
+		for(; i<size*count;){
 			int ch;
-			if((*vt_file->vtptr).block)
+			if(vtptr->block)
 				ch = vt_kb_get(vt_file);
 			else
 				ch = vt_kb_peek(vt_file);
 			if(ch < 0) return i/size;
 			if(ch<=0xff && ch>=0){
-				((char*)buf)[i] = (char)ch;
+				b[i] = (char)ch;
 				i++;
 			}
 			else{
-				//jännämerkkejä, TODO: jotain ansisössöä ehkä pitäisi antaa
-				kprintf("JANNAMERKKI");
+				char *code = NULL;
+				//char temp[10];
+				switch(ch){
+				case KEY_UP:
+					code = "\x001b[A";
+					break;
+				case KEY_DOWN:
+					code = "\x001b[B";
+					break;
+				case KEY_RIGHT:
+					code = "\x001b[C";
+					break;
+				case KEY_LEFT:
+					code = "\x001b[D";
+					break;
+				case KEY_PGUP:
+					code = "\x001b[5~";
+					break;
+				case KEY_PGDOWN:
+					code = "\x001b[6~";
+					break;
+				case KEY_HOME:
+					code = "\x001b[H";
+					break;
+				case KEY_END:
+					code = "\x001b[F";
+					break;
+				/*case KEY_INSERT:
+					code = "\x001b[2~";
+					break;*/
+				case KEY_DEL:
+					code = "\x001b[3~";
+					break;
+				}
+				if(code){
+					//kprintf("CODE(%s)", code);
+					unsigned int len = strlen(code);
+					unsigned int a;
+					for(a=0; a<len && a<size*count-i; a++){
+						//kprintf("(%c->b)", code[a]);
+						b[i] = code[a];
+						i++;
+					}
+					if(a!=len){
+						for(;a<len;a++){
+							spinl_lock(&vtptr->queuelock);
+							//kprintf("(%c->q)", code[a]);
+							if(vtptr->kb_queue_count >= KB_QUEUE_SIZE){
+								kprintf("vt_fread(): warning: code doesn't fit in queue!");
+							}
+							vtptr->kb_queue[vtptr->kb_queue_end] = code[a];
+							vtptr->kb_queue_count++;
+							vtptr->kb_queue_end++;
+							vtptr->kb_queue_end %= KB_QUEUE_SIZE;
+							spinl_unlock(&vtptr->queuelock);
+						}
+					}
+				}
+				else{
+					/*b[i] = 'E';
+					i++;*/
+				}
 			}
 		}
 		break;
 	case VT_MODE_RAWEVENTS:
 		//kprintf("vt_fread(): rawevents\n");
-		for(unsigned int i=0;i+3 < size*count/4;){
+		for(; i < size*count/4;){
 			if((*vt_file->vtptr).block){
 				while(!(*vt_file->vtptr).kb_buf_count) switch_thread();
 			}
@@ -987,6 +1072,7 @@ struct vt_file *vt_open_ptr(struct vt *device, uint_t mode, struct vt_file *vt_f
 
 	//vt_file->vtptr->index = device->index;
 	vt_file->vtptr = device;
+	vt_file->color = 0x7;
 
 	device->num_open++;
 

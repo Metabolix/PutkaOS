@@ -241,14 +241,14 @@ int editor_main(char *filename)
 	//looppi
 	
 	for(;;){
-		int ch;
-		fread(&ch, 4, 1, stdin);
+		unsigned char ch;
+		fread(&ch, 1, 1, stdin);
 		//int ch = kb_get();
 		//if(hex == 0) continue;
 		//if(hex & 0x100) continue; //joku näppäin menee ylös
 		//int ch = hex;//ktoasc(hex);
 
-		if(ch == KEY_ESC){
+		if(ch == 0x1b){
 			//kb_get();
 			locate(0, 1);
 			set_colour(0x70);

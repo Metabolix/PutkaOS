@@ -155,7 +155,7 @@ void kmain2(void)
 	testattava_koodi();
 	
 	//muutetaan vanhaksi moodiksi koska ei osata vielä ansisössöjä (nuolet ym)
-	ioctl(stdin, IOCTL_VT_READMODE, VT_MODE_OLD);
+	//ioctl(stdin, IOCTL_VT_READMODE, VT_MODE_OLD);
 
 	sh_tid = new_thread(0, run_sh, 0, 0, 0);
 

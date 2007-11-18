@@ -34,7 +34,7 @@ void run_sh(void)
 		set_colour(sh_colour);
 		printf("%s", "PutkaOS $ ");
 		while (1) {
-			fread(&ch, 4, 1, stdin);
+			fread(&ch, 1, 1, stdin);
 
 			//ch = kb_get();
 			//printf("[%x]", ch);

@@ -15,6 +15,7 @@
 #define VT_KERN_LOG 0 //kernelin jutut menee tänne (tai ainakin pitäisi)
 
 #define KB_BUFFER_SIZE 128
+#define KB_QUEUE_SIZE 11
 
 //referenssi-implementaatio display-ajurille löytyy display.c/h:sta
 
@@ -44,7 +45,7 @@ enum {
 	IOCTL_VT_BLOCKMODE, //VT_NOBLOCK/VT_BLOCK
 	IOCTL_VT_SET_COLOR,
 	IOCTL_VT_GET_COLOR,
-	IOCTL_VT_ANSICODES_ENABLE, //param 0 = disable, 1 = enable
+	IOCTL_VT_ANSICODES_ENABLE, //param 0 = disable, 1 = enable (tulostuksessa)
 	IOCTL_VT_GET_SIZE, //param. unsigned int [2] -taulukko. [0] = w, [1] = h
 	IOCTL_VT_SET_CURSOR_POS, //parametrina unsigned int [2] -taulukko (x,y)
 	IOCTL_VT_GET_CURSOR_POS, //parametrina unsigned int [2] -taulukko
@@ -59,16 +60,18 @@ struct vt {
 	unsigned int index;
 
 	volatile int kb_buf[KB_BUFFER_SIZE];
+	struct spinlock kb_buf_lock;
 	volatile int kb_buf_start, kb_buf_end, kb_buf_count;
 	unsigned int realtime_kb_mods, kb_mods;
-	//struct spinlock kb_buf_lock;
+	char kb_queue[KB_QUEUE_SIZE];
+	struct spinlock queuelock;
+	unsigned int kb_queue_start, kb_queue_count, kb_queue_end;
 
 	char * buffer;
 	unsigned int bufw, bufh; //buffer w, h (actual width is w*2)
 	int bufsize;
 	int scroll; /* how many lines have we scrolled up */
 	unsigned int cx, cy; /* cursor x, y */
-	unsigned char color;
 	struct spinlock printlock; /* we are going to get problems with these spinlocks, we should replace them with something better later */
 	struct spinlock writelock;
 
@@ -80,6 +83,7 @@ struct vt {
 struct vt_file {
 	FILE std;
 	struct vt *vtptr;
+	unsigned char color;
 };
 
 //extern unsigned char vt_get_color(struct vt_file *f);

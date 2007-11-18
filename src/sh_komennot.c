@@ -307,10 +307,11 @@ void sh_key_names(char *buf)
 		fread(&ch, 1, 1, stdin);
 		ioctl(stdin, IOCTL_VT_GET_KBMODS, (uintptr_t)&kbmods);
 		printf("(mods: %#06x), %#04x - '%s' (%s)\n", kbmods, ch & 255, nappien_nimet_qwerty[ch & 255], (ch & 256) ? "up" : "down");
-		if (ch == KEY_ESC) {
+		if (ch == 0x1b) {
 			break;
 		}
 	}
+	ioctl(stdin, IOCTL_VT_READMODE, VT_MODE_NORMAL);
 }
 
 void sh_help(char *buf)
