@@ -239,9 +239,11 @@ int editor_main(char *filename)
 	editor_set_cursor_pos_on_screen();
 
 	//looppi
-
+	
 	for(;;){
-		int ch = kb_get();
+		int ch;
+		fread(&ch, 4, 1, stdin);
+		//int ch = kb_get();
 		//if(hex == 0) continue;
 		//if(hex & 0x100) continue; //joku näppäin menee ylös
 		//int ch = hex;//ktoasc(hex);
@@ -252,7 +254,7 @@ int editor_main(char *filename)
 			set_colour(0x70);
 			printf("[waiting command (q/w)]");
 			set_colour(0x07);
-			while((ch = /*ktoasc(*/kb_get()/*)*/)==0);
+			fread(&ch, 4, 1, stdin);
 			printf("[%c]", ch);
 			if(ch == 'q') goto quiteditor;
 			else if(ch == 'w'){

@@ -29,7 +29,7 @@ enum {
 	IOCTL_DISPLAY_ROLL_UP
 };
 
-enum { VT_MODE_NORMAL=0, VT_MODE_RAWEVENTS=1 };
+enum { VT_MODE_OLD=0, VT_MODE_NORMAL, VT_MODE_RAWEVENTS };
 /*
  * näppiseventit:
  * unsigned inttejä, 8. bitti (0x100) on ylhäällä jos nappi nousee ylös,
@@ -37,7 +37,7 @@ enum { VT_MODE_NORMAL=0, VT_MODE_RAWEVENTS=1 };
  * asciiksi (tai joksikin sen tapaiseksi) keyboard.c/h:n key_to_asciilla.
  */
 
-enum { VT_BLOCKMODE_NOBLOCK=0, VT_BLOCKMODE_BLOCK=1 };
+enum { VT_BLOCKMODE_NOBLOCK=0, VT_BLOCKMODE_BLOCK };
 
 enum {
 	IOCTL_VT_READMODE, //VT_MODE_NORMAL/VT_MODE_EVENTS

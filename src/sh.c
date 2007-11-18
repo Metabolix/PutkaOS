@@ -34,7 +34,9 @@ void run_sh(void)
 		set_colour(sh_colour);
 		printf("%s", "PutkaOS $ ");
 		while (1) {
-			ch = kb_get();
+			fread(&ch, 4, 1, stdin);
+
+			//ch = kb_get();
 			//printf("[%x]", ch);
 
 			//if (ch & 256) { /* Key up */

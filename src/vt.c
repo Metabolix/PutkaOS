@@ -823,6 +823,19 @@ size_t vt_fwrite(const void *buf, size_t size, size_t count, struct vt_file *vt_
 size_t vt_fread(void *buf, size_t size, size_t count, struct vt_file *vt_file)
 {
 	switch((*vt_file->vtptr).mode){
+	case VT_MODE_OLD:
+		for(unsigned int i=0;i<size*count/4;){
+			int ch;
+			if((*vt_file->vtptr).block)
+				ch = vt_kb_get(vt_file);
+			else
+				ch = vt_kb_peek(vt_file);
+			if(ch < 0) return i/size;
+
+			((int*)buf)[i] = ch;
+			i++;
+		}
+		break;
 	case VT_MODE_NORMAL:
 		for(unsigned int i=0;i<size*count;){
 			int ch;
@@ -831,12 +844,13 @@ size_t vt_fread(void *buf, size_t size, size_t count, struct vt_file *vt_file)
 			else
 				ch = vt_kb_peek(vt_file);
 			if(ch < 0) return i/size;
-			if(ch<0xff && ch>=0){
+			if(ch<=0xff && ch>=0){
 				((char*)buf)[i] = (char)ch;
 				i++;
 			}
 			else{
 				//jännämerkkejä, TODO: jotain ansisössöä ehkä pitäisi antaa
+				kprintf("JANNAMERKKI");
 			}
 		}
 		break;
@@ -878,7 +892,7 @@ size_t vt_fread(void *buf, size_t size, size_t count, struct vt_file *vt_file)
 int vt_ioctl(struct vt_file *vt_file, int request, uintptr_t param)
 {
 	if(request == IOCTL_VT_READMODE){
-		if(param>1){
+		if(param>2){
 			kprintf("vt_ioctl(): invalid mode\n");
 			return 1;
 		}
