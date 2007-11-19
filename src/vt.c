@@ -873,10 +873,14 @@ void printnum(struct vt_file *vt_file, int i)
 	vt_print_length(vt_file, temp, 0, 1);
 }
 
-unsigned char ansi_colors_to_vga[] = {
+unsigned char ansi_colors_to_vga/*_fg*/[] = {
+	0, 4, 2, 6, 1, 5, 3, 7, 0, 0,
+	8,12,10,14, 9,13,11,15, 0, 0
+};
+/*unsigned char ansi_colors_to_vga_bg[] = {
 	0, 4, 2, 6, 1, 5, 3, 7,
 	8,12,10,14, 9,13,11,15
-};
+};*/
 
 int parse_ansi_code(struct vt_file *vt_file, char ansi_cmd)
 {
@@ -913,19 +917,19 @@ int parse_ansi_code(struct vt_file *vt_file, char ansi_cmd)
 	case 'J':
 		if(p1==0 || p1==-1){
 			//c->end of screen
-			for(unsigned int y1 = 0; y1 < h; y1++){
-				vt_locate(vt_file, x, y1);
-				for(i=0; i<w-x; i++) vt_putch(vt_file, ' ');
+			for(i=0; i<w-x; i++) vt_putch(vt_file, ' ');
+			for(unsigned int i = 0; i < (h-y-1)*w; i++){
+				vt_putch(vt_file, ' ');
 			}
 			vt_locate(vt_file, x, y);
 		}
 		else if(p1==1){
 			//c->start of screen
-			for(unsigned int y1 = 0; y1 < h; y1++){
-				vt_locate(vt_file, 0, y1);
-				for(i=0; i<x; i++) vt_putch(vt_file, ' ');
+			vt_locate(vt_file, 0, 0);
+			for(unsigned int i = 0; i < y*w; i++){
+				vt_putch(vt_file, ' ');
 			}
-			vt_locate(vt_file, x, y);
+			for(i=0; i<x; i++) vt_putch(vt_file, ' ');
 		}
 		else if(p1==2){
 			//all
@@ -997,15 +1001,17 @@ int parse_ansi_code(struct vt_file *vt_file, char ansi_cmd)
 					}
 					else if((i>=30 && i<=49) || (i>=90 && i<=109)){
 						unsigned char ansicolor;
-						if     ((i>=30 && i<=49))  ansicolor = i-30;
-						else if((i>=90 && i<=109)) ansicolor = i-90;
+						if     (i>=30 && i<= 39) ansicolor = i-30;
+						else if(i>=40 && i<= 49) ansicolor = i-40;
+						else if(i>=90 && i<= 99) ansicolor = i-80;
+						else if(i>=100&& i<=109) ansicolor = i-90;
 						if((i>=30 && i<=39) || (i>=90 && i<=99)){ //foreground
 							vt_set_color(vt_file, (vt_get_color(vt_file) & 0xf0)
-									+ ansi_colors_to_vga[ansicolor]);
+									+ ansi_colors_to_vga/*_fg*/[ansicolor]);
 						}
 						else if((i>=40 && i<=49) || (i>=100 && i<=109)){ //background
 							vt_set_color(vt_file, (vt_get_color(vt_file) & 0x0f)
-									+ (ansi_colors_to_vga[ansicolor]<<4));
+									+ (ansi_colors_to_vga/*_bg*/[ansicolor]<<4));
 						}
 					}
 					else{
