@@ -155,6 +155,12 @@ int display_ioctl(FILE *stream, int request, uintptr_t param)
 				DISPLAY_W * param);
 		return 0;
 	}
+	if(request == IOCTL_DISPLAY_ROLL_DOWN){
+		memmove((char *)0xB8000 + param * DISPLAY_MEM_W, (char *)0xB8000,
+				(DISPLAY_H - param) * DISPLAY_MEM_W);
+		fill_with_blank((char *)0xB8000, DISPLAY_W * param);
+		return 0;
+	}
 	return 1;
 }
 

@@ -28,7 +28,8 @@ enum {
 	IOCTL_DISPLAY_GET_INFO,
 	IOCTL_DISPLAY_LOCATE,
 	IOCTL_DISPLAY_CLS,
-	IOCTL_DISPLAY_ROLL_UP
+	IOCTL_DISPLAY_ROLL_UP,
+	IOCTL_DISPLAY_ROLL_DOWN
 };
 
 enum { VT_MODE_OLD=0, VT_MODE_NORMAL, VT_MODE_RAWEVENTS };
@@ -46,7 +47,7 @@ enum {
 	IOCTL_VT_BLOCKMODE, //VT_NOBLOCK/VT_BLOCK
 	IOCTL_VT_SET_COLOR,
 	IOCTL_VT_GET_COLOR,
-	IOCTL_VT_ANSICODES_ENABLE, //param 0 = disable, 1 = enable (tulostuksessa)
+	//IOCTL_VT_ANSICODES_ENABLE, //param 0 = disable, 1 = enable (tulostuksessa)
 	IOCTL_VT_GET_SIZE, //param. unsigned int [2] -taulukko. [0] = w, [1] = h
 	IOCTL_VT_SET_CURSOR_POS, //parametrina unsigned int [2] -taulukko (x,y)
 	IOCTL_VT_GET_CURSOR_POS, //parametrina unsigned int [2] -taulukko
@@ -78,7 +79,8 @@ struct vt {
 
 	unsigned int num_open;
 
-	unsigned char mode, block, ansicodes_enable;
+	unsigned int mode, block;
+	unsigned int ansicodes_enable;
 };
 
 struct vt_file {
@@ -86,7 +88,7 @@ struct vt_file {
 	struct vt *vtptr;
 	unsigned char color;
 	char ansibuf[VT_ANSIBUF_SIZE];
-	unsigned int ansibuf_count;
+	unsigned int ansibuf_count, saved_cursor_pos[2];
 	unsigned int ansi_coming, ansi_param_index, ansi_params_sgr[256];
 	int ansi_params[2];
 };

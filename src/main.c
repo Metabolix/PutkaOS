@@ -170,8 +170,7 @@ void testattava_koodi()
 	FILE *f;
 	f = fopen("/dev/vt0", "r+");
 	if(f==NULL) panic("apuva!");
-	fwrite("\x001b", 1, 1, f);
-	char *c = "[0;11;4;2;11;571m";
+	char *c = "\x001b[10Ahei\x001b[s             \x001b[umoi\x001b[10B";
 	fwrite(c, 1, strlen(c), f);
 	fclose(f);
 #endif

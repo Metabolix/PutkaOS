@@ -37,14 +37,15 @@ void vt_update_cursor(void);
 void vt_fill_with_blank(char *buf, unsigned int length);
 void do_eop(void);
 void update_from_current_buf(void);
-void buffer_add_lines(struct vt_file *f, unsigned int lines);
+void buffer_scroll_up(struct vt_file *f, unsigned int lines, unsigned int only_screen_area);
+void buffer_scroll_down(struct vt_file *f, unsigned int lines, unsigned int only_screen_area);
 void vt_scroll_if_needed(struct vt_file *f);
 unsigned char vt_get_color(struct vt_file *f);
 void vt_set_color(struct vt_file *f, unsigned char c);
 void vt_getdisplaysize(struct vt_file *f, unsigned int *w, unsigned int *h);
 int vt_locate(struct vt_file *f, unsigned int x, unsigned int y);
 int vt_getpos(struct vt_file *f, unsigned int *x, unsigned int *y);
-void vt_cls(struct vt_file *f);
+void vt_cls(struct vt_file *f, unsigned int keep_cursor);
 unsigned int vt_get_display_height(void);
 void vt_change(unsigned int vt_num);
 void vt_scroll(int lines);
@@ -175,17 +176,54 @@ void update_from_current_buf(void)
 	}
 }
 
-void buffer_add_lines(struct vt_file *f, unsigned int lines)
+void buffer_scroll_up(struct vt_file *f, unsigned int lines, unsigned int only_screen_area)
 {
 	struct vt *vtptr;
 	if (!f || !(vtptr = f->vtptr)) return;
 	if(!initialized) return;
 	if(!driverstream) return; //ei bufferia fallbackina
-	if(vt[cur_vt].buffer){
+	if(!vt[cur_vt].buffer) return;
+	if(!only_screen_area){
+		if(lines > vt[cur_vt].bufh) lines = vt[cur_vt].bufh;
 		memmove(vt[cur_vt].buffer, vt[cur_vt].buffer + (lines * vt[cur_vt].bufw * 2),
 				vtptr->bufsize - (lines * vtptr->bufw * 2));
 		vt_fill_with_blank(vtptr->buffer + vtptr->bufsize
 				- (lines * vtptr->bufw * 2), (lines * vtptr->bufw));
+	}
+	else{
+		if(lines > driverinfo.h) lines = driverinfo.h;
+		memmove(vt[cur_vt].buffer + (vt[cur_vt].bufh - driverinfo.h) * (vt[cur_vt].bufw * 2),
+				vt[cur_vt].buffer
+				+ (vt[cur_vt].bufh - driverinfo.h) * (vt[cur_vt].bufw * 2)
+				+ (lines * vt[cur_vt].bufw * 2),
+				(driverinfo.h * vtptr->bufw * 2) - (lines * vtptr->bufw * 2));
+		vt_fill_with_blank(vtptr->buffer + (vt[cur_vt].bufh - lines)
+				* (vt[cur_vt].bufw * 2), (lines * vtptr->bufw));
+	}
+}
+
+void buffer_scroll_down(struct vt_file *f, unsigned int lines, unsigned int only_screen_area)
+{
+	struct vt *vtptr;
+	if (!f || !(vtptr = f->vtptr)) return;
+	if(!initialized) return;
+	if(!driverstream) return; //ei bufferia fallbackina
+	if(!vt[cur_vt].buffer) return;
+	if(!only_screen_area){
+		if(lines > vt[cur_vt].bufh) lines = vt[cur_vt].bufh;
+		memmove(vt[cur_vt].buffer + (lines * vt[cur_vt].bufw * 2), vt[cur_vt].buffer,
+				vtptr->bufsize - (lines * vtptr->bufw * 2));
+		vt_fill_with_blank(vtptr->buffer, (lines * vtptr->bufw));
+	}
+	else{
+		if(lines > driverinfo.h) lines = driverinfo.h;
+		memmove(vt[cur_vt].buffer + (vt[cur_vt].bufh - driverinfo.h) * (vt[cur_vt].bufw * 2)
+				+ (lines * vt[cur_vt].bufw * 2), vt[cur_vt].buffer
+				+ (vt[cur_vt].bufh - driverinfo.h) * (vt[cur_vt].bufw * 2)
+				+ (lines * vt[cur_vt].bufw * 2),
+				(driverinfo.h * vtptr->bufw * 2) - (lines * vtptr->bufw * 2));
+		vt_fill_with_blank(vtptr->buffer + (vt[cur_vt].bufh - driverinfo.h)
+				* (vt[cur_vt].bufw * 2), (lines * vtptr->bufw));
 	}
 }
 
@@ -197,7 +235,7 @@ void vt_scroll_if_needed(struct vt_file *f)
 		if (vtptr->cy >= driverinfo.h) { /* scroll screen */
 			unsigned int amount = vtptr->cy - (driverinfo.h - 1);
 			if(amount > driverinfo.h) amount = driverinfo.h;
-			buffer_add_lines(f, amount);
+			buffer_scroll_up(f, amount, 0);
 			ioctl(driverstream, IOCTL_DISPLAY_ROLL_UP, amount);
 			vtptr->cy = driverinfo.h - 1;
 			vt_update_cursor();
@@ -267,12 +305,14 @@ int vt_getpos(struct vt_file *f, unsigned int *x, unsigned int *y)
 	return 0;
 }
 
-void vt_cls(struct vt_file *f)
+void vt_cls(struct vt_file *f, unsigned int keep_cursor)
 {
 	struct vt *vtptr;
 	if (!initialized || !f || !(vtptr = f->vtptr)) return;
-	vtptr->cx = 0;
-	vtptr->cy = 0;
+	if(!keep_cursor){
+		vtptr->cx = 0;
+		vtptr->cy = 0;
+	}
 	if(vtptr->index == cur_vt){
 		if(driverstream){
 			ioctl(driverstream, IOCTL_DISPLAY_CLS, NULL);
@@ -845,10 +885,10 @@ int parse_ansi_code(struct vt_file *vt_file, char ansi_cmd)
 	int p1 = vt_file->ansi_params[0];
 	int p2 = vt_file->ansi_params[1];
 	int x, y, w, h;
+	vt_getpos(vt_file, (unsigned int*)&x, (unsigned int*)&y);
+	vt_getdisplaysize(vt_file, (unsigned int*)&w, (unsigned int*)&h);
 	switch(ansi_cmd){
 	case 'A': case 'B': case 'C': case 'D': case 'E': case 'F': case 'G':
-		vt_getpos(vt_file, (unsigned int*)&x, (unsigned int*)&y);
-		vt_getdisplaysize(vt_file, (unsigned int*)&w, (unsigned int*)&h);
 		if(p1==-1) p1 = 1;
 		if     (ansi_cmd=='A'){ y -= p1; if(y < 0)   y = 0;   }
 		else if(ansi_cmd=='B'){ y += p1; if(y > h-1) y = h-1; }
@@ -860,7 +900,6 @@ int parse_ansi_code(struct vt_file *vt_file, char ansi_cmd)
 		vt_locate(vt_file, x, y);
 		break;
 	case 'H': case 'f':
-		vt_getdisplaysize(vt_file, (unsigned int*)&w, (unsigned int*)&h);
 		if(p1==-1) p1 = 1;
 		if(p2==-1) p2 = 1;
 		y = p1-1;
@@ -869,6 +908,83 @@ int parse_ansi_code(struct vt_file *vt_file, char ansi_cmd)
 		if(y > h-1) y = h-1;
 		if(x < 0) x = 0;
 		if(x > w-1) x = w-1;
+		vt_locate(vt_file, x, y);
+		break;
+	case 'J':
+		if(p1==0 || p1==-1){
+			//c->end of screen
+			for(unsigned int y1 = 0; y1 < h; y1++){
+				vt_locate(vt_file, x, y1);
+				for(i=0; i<w-x; i++) vt_putch(vt_file, ' ');
+			}
+			vt_locate(vt_file, x, y);
+		}
+		else if(p1==1){
+			//c->start of screen
+			for(unsigned int y1 = 0; y1 < h; y1++){
+				vt_locate(vt_file, 0, y1);
+				for(i=0; i<x; i++) vt_putch(vt_file, ' ');
+			}
+			vt_locate(vt_file, x, y);
+		}
+		else if(p1==2){
+			//all
+			vt_cls(vt_file, 1);
+		}
+		else return 1;
+		break;
+	case 'K':
+		if(p1==0 || p1==-1){
+			//c->end of line
+			for(i=0; i<w-x; i++) vt_putch(vt_file, ' ');
+			vt_locate(vt_file, x, y);
+		}
+		else if(p1==1){
+			//c->beginning of line
+			vt_locate(vt_file, 0, y);
+			for(i=0; i<x; i++) vt_putch(vt_file, ' ');
+		}
+		else if(p1==2){
+			//line
+			vt_locate(vt_file, 0, y);
+			for(i=0; i<w; i++) vt_putch(vt_file, ' ');
+			vt_locate(vt_file, x, y);
+		}
+		else return 1;
+		break;
+	case 'S':
+		//scroll everything up by p1 (default 1)
+		if(p1==-1) p1 = 1;
+		buffer_scroll_up(vt_file, p1, 1);
+		ioctl(driverstream, IOCTL_DISPLAY_ROLL_UP, p1);
+		y -= p1;
+		if(y < 0) y = 0;
+		vt_locate(vt_file, x, y);
+		break;
+	case 'T':
+		//scroll everything down by p1 (default 1)
+		if(p1==-1) p1 = 1;
+		buffer_scroll_down(vt_file, p1, 1);
+		ioctl(driverstream, IOCTL_DISPLAY_ROLL_DOWN, p1);
+		y += p1;
+		if(y > w-1) y = w-1;
+		vt_locate(vt_file, x, y);
+		break;
+	case 'n':
+		if(p1==6){
+			char temp[23];
+			sprintf(temp, "\x001b[%d;%dR", y+1, x+1);
+			vt_print_length(vt_file, temp, 0, 1);
+		}
+		else return 1;
+		break;
+	case 's':
+		vt_file->saved_cursor_pos[0] = x;
+		vt_file->saved_cursor_pos[1] = y;
+		break;
+	case 'u':
+		x = vt_file->saved_cursor_pos[0];
+		y = vt_file->saved_cursor_pos[1];
 		vt_locate(vt_file, x, y);
 		break;
 	case 'm':
@@ -901,7 +1017,9 @@ int parse_ansi_code(struct vt_file *vt_file, char ansi_cmd)
 		}
 		break;
 	default:
-		vt_print_length(vt_file, "(unknown ansi code)", 0, 1);
+		vt_print_length(vt_file, "(unknown ansi code", 0, 1);
+		vt_putch(vt_file, ansi_cmd);
+		vt_print_length(vt_file, ")", 0, 1);
 		return 1;
 	}
 	
@@ -911,7 +1029,8 @@ int parse_ansi_code(struct vt_file *vt_file, char ansi_cmd)
 size_t vt_fwrite(const void *buf, size_t size, size_t count, struct vt_file *vt_file)
 {
 	//struct vt *vtptr = vt_file->vtptr;
-	unsigned int i=0, j, k;
+	unsigned int i=0, j;
+	int k;
 	char *b = (char*)buf;
 	if(vt_file->ansi_coming == 1) goto ansi_coming_1;
 	if(vt_file->ansi_coming == 2) goto ansi_coming_2;
@@ -947,7 +1066,8 @@ ansi_coming_2:
 		for(; i<size*count;){
 			if(!isdigit(b[i])){
 				vt_file->ansibuf[vt_file->ansibuf_count++] = 0;
-				k = atoi(vt_file->ansibuf);
+				if(vt_file->ansibuf[0]) k = atoi(vt_file->ansibuf);
+				else k = -1;
 				if(vt_file->ansi_param_index < 2){
 					/*vt_print_length(vt_file, "param", 0, 1);
 					printnum(vt_file, vt_file->ansi_param_index);
@@ -955,7 +1075,7 @@ ansi_coming_2:
 					vt_file->ansi_params[vt_file->ansi_param_index] = k;
 				}
 				if(k < 256){
-					vt_file->ansi_params_sgr[k] = vt_file->ansi_param_index+1;
+					vt_file->ansi_params_sgr[k>=0?k:0] = vt_file->ansi_param_index+1;
 				}
 				vt_file->ansi_param_index++;
 				vt_file->ansibuf_count = 0;
@@ -1154,7 +1274,7 @@ int vt_ioctl(struct vt_file *vt_file, int request, uintptr_t param)
 		*(unsigned char *)param = vt_get_color(vt_file);
 		return 0;
 	}
-	if(request == IOCTL_VT_ANSICODES_ENABLE){
+	/*if(request == IOCTL_VT_ANSICODES_ENABLE){
 		if(param==0){
 			vt_file->vtptr->ansicodes_enable = 0;
 		}
@@ -1163,7 +1283,7 @@ int vt_ioctl(struct vt_file *vt_file, int request, uintptr_t param)
 		}
 		else return 1;
 		return 0;
-	}
+	}*/
 	if(request == IOCTL_VT_GET_SIZE){
 		vt_getdisplaysize(vt_file, (unsigned int *)param, (unsigned int *)param+1);
 		return 0;
@@ -1177,7 +1297,7 @@ int vt_ioctl(struct vt_file *vt_file, int request, uintptr_t param)
 		return 0;
 	}
 	if(request == IOCTL_VT_CLS){
-		vt_cls(vt_file);
+		vt_cls(vt_file, 0);
 		return 0;
 	}
 	if(request == IOCTL_VT_GET_KBMODS){
