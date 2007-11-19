@@ -1167,23 +1167,23 @@ size_t vt_fread(void *buf, size_t size, size_t count, struct vt_file *vt_file)
 				case KEY_LEFT:
 					code = "\x001b[D";
 					break;
+				case KEY_HOME:
+					code = "\x001b[1~";
+					break;
+				/*case KEY_INSERT: //lol ei ole
+					code = "\x001b[2~";
+					break;*/
+				case KEY_DEL:
+					code = "\x001b[3~";
+					break;
+				case KEY_END:
+					code = "\x001b[4~";
+					break;
 				case KEY_PGUP:
 					code = "\x001b[5~";
 					break;
 				case KEY_PGDOWN:
 					code = "\x001b[6~";
-					break;
-				case KEY_HOME:
-					code = "\x001b[H";
-					break;
-				case KEY_END:
-					code = "\x001b[F";
-					break;
-				/*case KEY_INSERT:
-					code = "\x001b[2~";
-					break;*/
-				case KEY_DEL:
-					code = "\x001b[3~";
 					break;
 				}
 				if(code){
