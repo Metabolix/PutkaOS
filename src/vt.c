@@ -977,7 +977,7 @@ int parse_ansi_code(struct vt_file *vt_file, char ansi_cmd)
 	case 'n':
 		if(p1==6){
 			char temp[23];
-			sprintf(temp, "\x001b[%d;%dR", y+1, x+1);
+			sprintf(temp, "\x1b[%d;%dR", y+1, x+1);
 			vt_print_length(vt_file, temp, 0, 1);
 		}
 		else return 1;
@@ -1156,34 +1156,70 @@ size_t vt_fread(void *buf, size_t size, size_t count, struct vt_file *vt_file)
 				//char temp[10];
 				switch(ch){
 				case KEY_UP:
-					code = "\x001b[A";
+					code = "\x1b[A";
 					break;
 				case KEY_DOWN:
-					code = "\x001b[B";
+					code = "\x1b[B";
 					break;
 				case KEY_RIGHT:
-					code = "\x001b[C";
+					code = "\x1b[C";
 					break;
 				case KEY_LEFT:
-					code = "\x001b[D";
+					code = "\x1b[D";
 					break;
 				case KEY_HOME:
-					code = "\x001b[1~";
+					code = "\x1b[1~";
 					break;
-				/*case KEY_INSERT: //lol ei ole
-					code = "\x001b[2~";
-					break;*/
+				case KEY_INS:
+					code = "\x1b[2~";
+					break;
 				case KEY_DEL:
-					code = "\x001b[3~";
+					code = "\x1b[3~";
 					break;
 				case KEY_END:
-					code = "\x001b[4~";
+					code = "\x1b[4~";
 					break;
 				case KEY_PGUP:
-					code = "\x001b[5~";
+					code = "\x1b[5~";
 					break;
 				case KEY_PGDOWN:
-					code = "\x001b[6~";
+					code = "\x1b[6~";
+					break;
+				case KEY_F1:
+					code = "\x1b[[A";
+					break;
+				case KEY_F2:
+					code = "\x1b[[B";
+					break;
+				case KEY_F3:
+					code = "\x1b[[C";
+					break;
+				case KEY_F4:
+					code = "\x1b[[D";
+					break;
+				case KEY_F5:
+					code = "\x1b[[E";
+					break;
+				case KEY_F6:
+					code = "\x1b[[17~";
+					break;
+				case KEY_F7:
+					code = "\x1b[[18~";
+					break;
+				case KEY_F8:
+					code = "\x1b[[19~";
+					break;
+				case KEY_F9:
+					code = "\x1b[[20~";
+					break;
+				case KEY_F10:
+					code = "\x1b[[21~";
+					break;
+				case KEY_F11:
+					code = "\x1b[[23~";
+					break;
+				case KEY_F12:
+					code = "\x1b[[24~";
 					break;
 				}
 				if(code){
@@ -1220,8 +1256,8 @@ size_t vt_fread(void *buf, size_t size, size_t count, struct vt_file *vt_file)
 	case VT_MODE_RAWEVENTS:
 		//kprintf("vt_fread(): rawevents\n");
 		for(; i < size*count/4;){
-			if((*vt_file->vtptr).block){
-				while(!(*vt_file->vtptr).kb_buf_count) switch_thread();
+			if(vt_file->vtptr->block){
+				while(!vt_file->vtptr->kb_buf_count) switch_thread();
 			}
 			int event = vt_get_and_parse_next_key_event(vt_file);
 			//kprintf("event=%d\n", event);
@@ -1230,7 +1266,7 @@ size_t vt_fread(void *buf, size_t size, size_t count, struct vt_file *vt_file)
 				return i*sizeof(uint_t)/size;
 			}
 			if(event == -1){
-				if((*vt_file->vtptr).block){
+				if(vt_file->vtptr->block){
 					continue;
 				}
 				else{
