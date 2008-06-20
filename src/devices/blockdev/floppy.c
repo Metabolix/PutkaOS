@@ -270,7 +270,7 @@ void floppy_prepare_motor_off(uint_t drive)
 		ktimer_stop(floppy_drives[drive].motor_off_timer);
 		floppy_drives[drive].motor_off_timer = 0;
 	}
-	floppy_drives[drive].motor_off_timer = ktimer_start(floppy_motor_off_x[drive], 5000, 1);
+	floppy_drives[drive].motor_off_timer = ktimer_start(floppy_motor_off_x[drive], 500000, 1);
 }
 
 void floppy_motor_off(uint_t drive)
@@ -311,7 +311,7 @@ int floppy_seek_track(uint_t drive, uint_t track)
 		return -2;
 	}
 	/*kprintf("FDD: fd%u: Seeked track succesfully\n", drive);*/
-	floppy_prepare_motor_off(drive);
+	//floppy_prepare_motor_off(drive);
 	return 0;
 }
 

@@ -146,7 +146,7 @@ void kmain(multiboot_info_t* param_mbt, unsigned int magic)
 	serial_init();
 
 	ide_init();
-	pci_init();
+	//pci_init();
 
 	threading_start();
 }
