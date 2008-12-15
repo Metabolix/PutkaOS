@@ -1,4 +1,5 @@
 BITS 32
+SECTION .text
 
 global asm_float_div_by_zero
 global asm_float_invalid
@@ -327,7 +328,6 @@ asm_exp2_base:
 	; C:ssä tarkistetaan inf yms ongelmat...
 	fld st0
 	fabs
-	f
 	; jos |x| < 1
 		; suoraan f2xm1 + 1
 	; muuten

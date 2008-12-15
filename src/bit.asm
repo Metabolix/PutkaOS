@@ -1,4 +1,6 @@
 BITS 32
+SECTION .text
+
 ;extern unsigned int set_bit(unsigned int num, int bit, int value);
 global set_bit
 set_bit:

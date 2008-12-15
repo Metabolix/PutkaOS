@@ -1,4 +1,5 @@
-[BITS 32]
+BITS 32
+SECTION .text
 
 extern irq_handlers
 extern irq_handling

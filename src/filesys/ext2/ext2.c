@@ -389,7 +389,7 @@ static int ext2_inode_add_block(struct ext2_inode * inode, int inodenum, struct 
 	const unsigned int p_per_block = ext2->block_size / 4;
 	unsigned block = inode->i_blocks++;
 
-	char path[4];
+	char path[4] = {0};
 
 	if(new_block == 0)
 		return 0;

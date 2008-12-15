@@ -1,4 +1,6 @@
 BITS 32
+SECTION .text
+
 global read_cmos
 
 read_cmos:

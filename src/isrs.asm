@@ -1,4 +1,6 @@
 BITS 32
+SECTION .text
+
 extern isr_handler
 
 %macro isr_00_07 1

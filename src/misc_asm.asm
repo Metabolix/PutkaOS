@@ -1,4 +1,5 @@
 BITS 32
+SECTION .text
 
 global asm_sti
 global asm_cli
@@ -70,7 +71,7 @@ asm_gdt_flush:
 	mov gs,ax
 	mov ss,ax
 	jmp 0x80:.return
-.return
+.return:
 	ret
 
 asm_idt_load:

@@ -59,10 +59,10 @@ void flush_pagedir(uint_t phys_pd)
 uint_t alloc_phys_page(int noswap)
 {
 	uint_t i, j;
-	uint_t page;
+	uint_t page = 0;
 
 	if (!memory.ram_pages_free) {
-		const uint_t page = swap_free_page();
+		page = swap_free_page();
 		if (page) {
 			i = page / 32;
 			j = page % 32;

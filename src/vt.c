@@ -1000,16 +1000,13 @@ int parse_ansi_code(struct vt_file *vt_file, char ansi_cmd)
 						vt_set_color(vt_file, 0x07);
 					}
 					else if((i>=30 && i<=49) || (i>=90 && i<=109)){
-						unsigned char ansicolor;
-						if     (i>=30 && i<= 39) ansicolor = i-30;
-						else if(i>=40 && i<= 49) ansicolor = i-40;
-						else if(i>=90 && i<= 99) ansicolor = i-80;
-						else if(i>=100&& i<=109) ansicolor = i-90;
-						if((i>=30 && i<=39) || (i>=90 && i<=99)){ //foreground
+						unsigned char
+							ansicolor = i % 10,
+							foreground = (i / 10) & 1;
+						if (foreground) {
 							vt_set_color(vt_file, (vt_get_color(vt_file) & 0xf0)
 									+ ansi_colors_to_vga/*_fg*/[ansicolor]);
-						}
-						else if((i>=40 && i<=49) || (i>=100 && i<=109)){ //background
+						} else {
 							vt_set_color(vt_file, (vt_get_color(vt_file) & 0x0f)
 									+ (ansi_colors_to_vga/*_bg*/[ansicolor]<<4));
 						}

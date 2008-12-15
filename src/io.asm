@@ -1,3 +1,6 @@
+BITS 32
+SECTION .text
+
 global inportb
 global outportb
 global inportw

@@ -1,4 +1,6 @@
-[BITS 32]
+BITS 32
+SECTION .text
+
 extern kmain
 
 global stack_for_page_fault

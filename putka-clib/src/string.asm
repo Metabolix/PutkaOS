@@ -1,4 +1,5 @@
-[BITS 32]
+BITS 32
+SECTION .text
 
 global memset
 
