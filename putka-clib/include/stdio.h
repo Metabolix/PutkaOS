@@ -6,7 +6,7 @@
 #include <stdarg.h>
 #include <int64.h>
 
-typedef size_t (*putstr_t)(const char *str, size_t len, /* putstr_t *self */ ...);
+typedef size_t putstr_t(const char *str, size_t len, void *self);
 
 typedef uint64_t fpos_t;
 
@@ -53,7 +53,7 @@ extern int vsprintf(char * restrict buf, const char * restrict fmt, va_list args
 extern int printf(const char * restrict fmt, ...);
 extern int vprintf(const char * restrict fmt, va_list args);
 
-extern int _xprintf(const putstr_t * const putstr, const char * restrict fmt, va_list args);
+extern int _xprintf(putstr_t ** const putstr, const char * restrict fmt, va_list args);
 
 extern int fputc(int c, FILE *f);
 #define putc(c, f) fputc(c, f)

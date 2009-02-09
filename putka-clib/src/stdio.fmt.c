@@ -4,12 +4,12 @@
 #include <string.h>
 
 struct fprintf_putter {
-	putstr_t putstr;
+	putstr_t *putstr;
 	FILE *file;
 };
 
 struct sprintf_putter {
-	putstr_t putstr;
+	putstr_t *putstr;
 	char *buf, *buf_end;
 };
 
@@ -31,7 +31,7 @@ size_t sprintf_putstr(const char *str, size_t len, struct sprintf_putter *f)
 int vsprintf(char * restrict buf, const char * restrict fmt, va_list args)
 {
 	struct sprintf_putter putter = {
-		.putstr = (putstr_t) sprintf_putstr,
+		.putstr = (putstr_t*) sprintf_putstr,
 		.buf = buf,
 		.buf_end = buf + INT32_MAX,
 	};
@@ -56,7 +56,7 @@ int sprintf(char * restrict buf, const char * restrict fmt, ...)
 int vfprintf(FILE * restrict f, const char * restrict fmt, va_list args)
 {
 	struct fprintf_putter putter = {
-		.putstr = (putstr_t) fprintf_putstr,
+		.putstr = (putstr_t*) fprintf_putstr,
 		.file = f,
 	};
 
