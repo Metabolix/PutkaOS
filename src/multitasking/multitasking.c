@@ -13,9 +13,14 @@
 extern void kmain2(void);
 extern void switch_task(void);
 
-int threading_started = 0;
+static int threading_started = 0;
 
 extern struct kernel_tasks kernel_tasks;
+
+int has_threading(void)
+{
+	return threading_started;
+}
 
 int is_threading(void)
 {

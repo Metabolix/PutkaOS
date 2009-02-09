@@ -33,7 +33,7 @@ void scheduler(void)
 
 void select_next_thread(void)
 {
-	if (!threading_started) {
+	if (!has_threading()) {
 		return;
 	}
 	if (thread_count > 1 || !active_thread) {

@@ -144,7 +144,7 @@ fail:
 
 void page_fault_handler(void)
 {
-	if (!threading_started || (kernel_tasks.tss_for_active_thread.cs & 3) == 0) {
+	if (!has_threading() || (kernel_tasks.tss_for_active_thread.cs & 3) == 0) {
 		kprintf("Kernel process = %d, thread = %d\n", active_pid, active_tid);
 		kprintf("Trying to access address %p (page %d).\n", asm_get_cr2(), ADDR_TO_PAGE(asm_get_cr2()));
 		panic("Page fault in kernel!");

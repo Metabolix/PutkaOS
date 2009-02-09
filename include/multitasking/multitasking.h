@@ -35,8 +35,6 @@ enum thread_state_t {
 extern pid_t active_pid;
 extern tid_t active_tid;
 
-extern int threading_started;
-
 extern size_t process_count;
 extern size_t thread_count;
 
