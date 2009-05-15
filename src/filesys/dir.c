@@ -6,7 +6,7 @@ int dmake(const char * dirname)
 	const struct mount *mnt;
 	const char *newdirname = dirname;
 	mnt = mount_etsi_kohta(&newdirname);
-	if (!mnt || !mnt->fs || !(mnt->fs->mode & FILE_MODE_WRITE)) {
+	if (!mnt || !mnt->fs || !(mnt->fs->mode & FILE_MODE_WRITE) || !newdirname[0]) {
 		return DIR_ERR_CANT_MAKE;
 	}
 	if (!mnt->fs->dirfunc.dopen) {
