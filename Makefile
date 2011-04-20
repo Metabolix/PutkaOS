@@ -163,7 +163,7 @@ $(RTL_FINAL_OBJ): $(RTL_START_ASM_OBJ) $(RTL_SYSCALL_C_OBJ) std_c
 #$(CO_OBJS): builddirs
 
 
-$(KERNEL_DEPS): ./build/%: src/%
+$(KERNEL_DEPS): ./build/%: src/%: kernel_builddirs
 	@echo [DEPS] $@
 	@$(CC) $(CFLAGS_KERNEL) -MM $< -MF $@ -MT $@.o
 
@@ -182,7 +182,7 @@ $(CO_OBJS): ./build/%.o: src/%
 	@$(CC) $(CFLAGS_KERNEL) $(COFLAGS) $< -c -o $@
 
 
-$(STD_C_DEPS): ./build/%: src/%
+$(STD_C_DEPS): ./build/%: src/%: std_c_builddirs
 	@echo [DEPS] $@
 	@$(CC) $(CFLAGS_STD_C) -MM $< -MF $@ -MT $@.o
 
