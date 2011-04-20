@@ -165,7 +165,7 @@ $(RTL_FINAL_OBJ): $(RTL_START_ASM_OBJ) $(RTL_SYSCALL_C_OBJ) std_c
 
 $(KERNEL_DEPS): ./build/%: src/%: kernel_builddirs
 	@echo [DEPS] $@
-	@$(CC) $(CFLAGS_KERNEL) -MM $< -MF $@ -MT $@.o
+	@$(CC) $(CFLAGS_KERNEL) -MM $< -MT $@.o > $@
 
 -include $(KERNEL_DEPS)
 
@@ -184,7 +184,7 @@ $(CO_OBJS): ./build/%.o: src/%
 
 $(STD_C_DEPS): ./build/%: src/%: std_c_builddirs
 	@echo [DEPS] $@
-	@$(CC) $(CFLAGS_STD_C) -MM $< -MF $@ -MT $@.o
+	@$(CC) $(CFLAGS_STD_C) -MM $< -MT $@.o > $@
 
 -include $(STD_C_DEPS)
 
@@ -199,7 +199,7 @@ $(STD_C_C_OBJS): ./build/putka-clib/%.o: putka-clib/src/%
 
 $(RTL_SYSCALL_DEPS): ./build/%: src/%
 	@echo [DEPS] $@
-	@$(CC) $(CFLAGS_STD_C) -MM $< -MF $@ -MT $@.o
+	@$(CC) $(CFLAGS_STD_C) -MM $< -MT $@.o > $@
 
 -include $(KERNEL_DEPS)
 
