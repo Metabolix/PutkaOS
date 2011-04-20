@@ -351,7 +351,7 @@ alku:
 	/* floppy_seek_track actually starts motor already, but... */
 	floppy_motor_on(drive);
 
-	if (!inportb(FLOPPY_FIRST + MAIN_STATUS_REGISTER) & 0x20) {
+	if (!(inportb(FLOPPY_FIRST + MAIN_STATUS_REGISTER) & 0x20)) {
 		panic("Non-dma floppy transfer?\n");
 	}
 
